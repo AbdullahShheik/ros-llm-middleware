@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>ros_llm_world</name>
+  <version>0.1.0</version>
+  <description>Gazebo simulation world for ros-llm-middleware</description>
+  <maintainer email="abdullahshheikh2@gmail.com">Abdullah Shaikh</maintainer>
+  <license>MIT</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <exec_depend>ros_gz_sim</exec_depend>
+</package>
