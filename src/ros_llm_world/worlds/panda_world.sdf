@@ -161,26 +161,68 @@
       <pose>0.794 0 0 0 0 1.5708</pose>
     </include>
 
-    <include>
-      <uri>
-      https://fuel.gazebosim.org/1.0/GoogleResearch/models/Transformers_Age_of_Extinction_Mega_1Step_Bumblebee_Figure
-      </uri>
+    <model name="red_cube">
+      <static>true</static>
       <pose>1 0 1.025 0 0 0</pose>
-    </include>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box><size>0.06 0.06 0.06</size></box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box><size>0.06 0.06 0.06</size></box>
+          </geometry>
+          <material>
+            <ambient>1 0 0 1</ambient>
+            <diffuse>1 0 0 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
 
-    <include>
-      <uri>
-      https://fuel.gazebosim.org/1.0/GoogleResearch/models/Avengers_Thor_PLlrpYniaeB
-      </uri>
-      <pose>1 0.5 1.025 0 0 0</pose>
-    </include>
+    <model name="blue_cube">
+      <static>true</static>
+      <pose>1 0.3 1.025 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box><size>0.06 0.06 0.06</size></box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box><size>0.06 0.06 0.06</size></box>
+          </geometry>
+          <material>
+            <ambient>0 0 1 1</ambient>
+            <diffuse>0 0 1 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
 
-    <include>
-      <uri>
-        https://fuel.gazebosim.org/1.0/GoogleResearch/models/My_Little_Pony_Princess_Celestia
-      </uri>
-      <pose>1 -0.5 1.025 0 0 1.5708</pose>
-    </include>
+    <model name="green_cube">
+      <static>true</static>
+      <pose>1 -0.3 1.025 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box><size>0.06 0.06 0.06</size></box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box><size>0.06 0.06 0.06</size></box>
+          </geometry>
+          <material>
+            <ambient>0 1 0 1</ambient>
+            <diffuse>0 1 0 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
 
   </world>
 </sdf>
