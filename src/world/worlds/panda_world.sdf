@@ -162,9 +162,16 @@
     </include>
 
     <model name="red_cube">
-      <static>true</static>
       <pose>1 0 1.025 0 0 0</pose>
       <link name="link">
+        <inertial>
+          <mass>0.1</mass>
+          <inertia>
+            <ixx>0.00001</ixx>
+            <iyy>0.00001</iyy>
+            <izz>0.00001</izz>
+          </inertia>
+        </inertial>
         <collision name="collision">
           <geometry>
             <box><size>0.06 0.06 0.06</size></box>
@@ -183,9 +190,16 @@
     </model>
 
     <model name="blue_cube">
-      <static>true</static>
       <pose>1 0.3 1.025 0 0 0</pose>
       <link name="link">
+        <inertial>
+          <mass>0.1</mass>
+          <inertia>
+            <ixx>0.00001</ixx>
+            <iyy>0.00001</iyy>
+            <izz>0.00001</izz>
+          </inertia>
+        </inertial>
         <collision name="collision">
           <geometry>
             <box><size>0.06 0.06 0.06</size></box>
@@ -204,9 +218,16 @@
     </model>
 
     <model name="green_cube">
-      <static>true</static>
       <pose>1 -0.3 1.025 0 0 0</pose>
       <link name="link">
+        <inertial>
+          <mass>0.1</mass>
+          <inertia>
+            <ixx>0.00001</ixx>
+            <iyy>0.00001</iyy>
+            <izz>0.00001</izz>
+          </inertia>
+        </inertial>
         <collision name="collision">
           <geometry>
             <box><size>0.06 0.06 0.06</size></box>
