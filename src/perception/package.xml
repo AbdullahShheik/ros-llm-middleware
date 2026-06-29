@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="3">
-  <name>ros_llm_perception</name>
+  <name>perception</name>
   <version>0.1.0</version>
   <description>Perception module for ros-llm-middleware. Reads object poses from Gazebo and publishes a clean object map.</description>
   <maintainer email="abdullahshheikh2@gmail.com">Abdullah Shaikh</maintainer>

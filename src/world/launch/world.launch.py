@@ -5,7 +5,7 @@ import os
 
 def generate_launch_description():
     world_path = os.path.join(
-        get_package_share_directory('ros_llm_world'),
+        get_package_share_directory('world'),
         'worlds',
         'panda_world.sdf'
     )
