@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="3">
-  <name>ros_llm_world</name>
+  <name>world</name>
   <version>0.1.0</version>
   <description>Gazebo simulation world for ros-llm-middleware</description>
   <maintainer email="abdullahshheikh2@gmail.com">Abdullah Shaikh</maintainer>

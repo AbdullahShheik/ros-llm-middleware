@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(ros_llm_world)
+project(world)
 
 find_package(ament_cmake REQUIRED)
 

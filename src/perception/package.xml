@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>perception</name>
+  <version>0.1.0</version>
+  <description>Perception module for ros-llm-middleware. Reads object poses from Gazebo and publishes a clean object map.</description>
+  <maintainer email="abdullahshheikh2@gmail.com">Abdullah Shaikh</maintainer>
+  <license>MIT</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>rclpy</depend>
+  <depend>std_msgs</depend>
+  <exec_depend>python3-gz-transport13</exec_depend>
+</package>
