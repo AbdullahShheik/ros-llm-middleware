@@ -140,7 +140,7 @@
     <include>
       <name>panda</name>
       <uri>
-        https://fuel.gazebosim.org/1.0/OpenRobotics/models/Panda with Ignition position controller model
+        model://panda
       </uri>
       <pose>0.2 0 1.025 0 0 0</pose>
     </include>
