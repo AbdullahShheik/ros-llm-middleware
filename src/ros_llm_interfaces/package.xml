@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>ros_llm_interfaces</name>
+  <version>0.1.0</version>
+  <description>Custom ROS2 service and message definitions for ros-llm-middleware</description>
+  <maintainer email="abdullahshheikh2@gmail.com">Abdullah Shaikh</maintainer>
+  <license>MIT</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>rosidl_default_generators</buildtool_depend>
+  <member_of_group>rosidl_interface_packages</member_of_group>
+</package>
