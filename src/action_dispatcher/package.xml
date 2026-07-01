@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>action_dispatcher</name>
+  <version>0.1.0</version>
+  <description>Layer 2 Action Dispatcher for ros-llm-middleware.</description>
+  <maintainer email="abdullahshheikh2@gmail.com">Abdullah Shaikh</maintainer>
+  <license>MIT</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>rclpy</depend>
+  <depend>std_msgs</depend>
+  <depend>moveit_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>ros_llm_interfaces</depend>
+</package>
