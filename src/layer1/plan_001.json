@@ -1,0 +1,47 @@
+{
+  "plan_id": "plan_001",
+  "original_instruction": "C:\\\\Users\\\\Manahil\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python313\\\\python.exe c:/Users/Manahil/Downloads/files_final/layer1_pipeline.py",
+  "subtasks": [
+    {
+      "id": "T1",
+      "description": "Run the python script",
+      "required_skills": [
+        "move_to"
+      ],
+      "args": {
+        "target_location": "python_script_location"
+      },
+      "dependencies": [],
+      "parallelizable": false,
+      "priority": 1
+    },
+    {
+      "id": "T2",
+      "description": "Execute the python script",
+      "required_skills": [
+        "move_to"
+      ],
+      "args": {
+        "target_location": "script_execution_location"
+      },
+      "dependencies": [
+        "T1"
+      ],
+      "parallelizable": false,
+      "priority": 2
+    },
+    {
+      "id": "T3",
+      "description": "Return arm to home position",
+      "required_skills": [
+        "home"
+      ],
+      "args": {},
+      "dependencies": [
+        "T2"
+      ],
+      "parallelizable": false,
+      "priority": 3
+    }
+  ]
+}
