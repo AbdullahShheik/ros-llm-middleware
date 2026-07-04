@@ -1,3 +1,14 @@
 build/
 install/
 log/
+
+# Environment variables
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Generated plan files
+src/layer1/*.json
