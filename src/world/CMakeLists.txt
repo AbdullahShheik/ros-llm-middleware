@@ -4,7 +4,7 @@ project(world)
 find_package(ament_cmake REQUIRED)
 find_package(rclpy REQUIRED)
 
-install(DIRECTORY launch
+install(DIRECTORY launch urdf
   DESTINATION share/${PROJECT_NAME}
 )
 

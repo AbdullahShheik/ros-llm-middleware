@@ -2,9 +2,10 @@ import os
 import shutil
 
 from launch import LaunchDescription
-from launch.actions import ExecuteProcess, SetEnvironmentVariable, TimerAction, OpaqueFunction
+from launch.actions import ExecuteProcess, SetEnvironmentVariable, TimerAction, OpaqueFunction, IncludeLaunchDescription
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 
 
 def _prepare_and_launch(context, *args, **kwargs):
@@ -30,6 +31,12 @@ def _prepare_and_launch(context, *args, **kwargs):
         f.write(content)
 
     return [
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                os.path.join(get_package_share_directory('world'), 'launch', 'moveit2.launch.py')
+            )
+        ),
+        
         SetEnvironmentVariable('GZ_SIM_RESOURCE_PATH', tmp_models_root),
         SetEnvironmentVariable('GZ_SIM_SYSTEM_PLUGIN_PATH', '/opt/ros/jazzy/lib'),
 

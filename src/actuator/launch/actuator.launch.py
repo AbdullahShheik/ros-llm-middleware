@@ -1,35 +1,18 @@
 """
 Launches the actuator node with the Franka Panda MoveIt configuration.
-
-moveit_py needs the full MoveIt config (URDF, SRDF, kinematics, planning
-pipeline, controllers) available as ROS parameters on its own node. We
-build that config here with MoveItConfigsBuilder -- pointed at the same
-moveit_resources_panda_moveit_config / moveit_resources_panda_description
-packages used in world/launch/moveit2.launch.py -- and pass it to the
-actuator node as parameters.
-
-Run alongside world.launch.py and moveit2.launch.py (move_group is still
-needed for the /compute_ik service used by ik_feasibility_service.py):
-
-  ros2 launch world world.launch.py
-  ros2 launch world moveit2.launch.py
-  ros2 launch actuator actuator.launch.py
 """
-
 import os
+import yaml
 from launch import LaunchDescription
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 from moveit_configs_utils import MoveItConfigsBuilder
 
+def load_yaml_file(path):
+    with open(path, 'r') as f:
+        return yaml.safe_load(f)
 
 def generate_launch_description():
-    # Custom controller config (world/config/panda_moveit_controllers.yaml)
-    # that adds a panda_hand_controller entry alongside the arm, matching
-    # the ros2_control controllers spawned in world.launch.py. Passing an
-    # absolute path here works because MoveItConfigsBuilder joins it onto
-    # its own package share dir with os.path.join, which discards the base
-    # when the second argument is already absolute.
     custom_moveit_controllers = os.path.join(
         get_package_share_directory("world"), "config", "panda_moveit_controllers.yaml"
     )
@@ -49,6 +32,8 @@ def generate_launch_description():
         .to_moveit_configs()
     )
 
+    controllers_config = load_yaml_file(custom_moveit_controllers)
+
     actuator_node = Node(
         package="actuator",
         executable="actuator_node.py",
@@ -56,8 +41,10 @@ def generate_launch_description():
         output="screen",
         parameters=[
             moveit_config.to_dict(),
+            controllers_config,
             {"use_sim_time": True},
         ],
+        ros_arguments=['--ros-args', '-p', 'use_sim_time:=true'],
     )
 
     return LaunchDescription([actuator_node])

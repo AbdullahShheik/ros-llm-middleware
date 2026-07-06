@@ -40,4 +40,3 @@ panda_hand_controller:
   default: true
   joints:
     - panda_finger_joint1
-    - panda_finger_joint2
