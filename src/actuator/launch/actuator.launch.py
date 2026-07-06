@@ -24,12 +24,22 @@ from moveit_configs_utils import MoveItConfigsBuilder
 
 
 def generate_launch_description():
+    # Custom controller config (world/config/panda_moveit_controllers.yaml)
+    # that adds a panda_hand_controller entry alongside the arm, matching
+    # the ros2_control controllers spawned in world.launch.py. Passing an
+    # absolute path here works because MoveItConfigsBuilder joins it onto
+    # its own package share dir with os.path.join, which discards the base
+    # when the second argument is already absolute.
+    custom_moveit_controllers = os.path.join(
+        get_package_share_directory("world"), "config", "panda_moveit_controllers.yaml"
+    )
+
     moveit_config = (
         MoveItConfigsBuilder("moveit_resources_panda")
         .robot_description(file_path="config/panda.urdf.xacro")
         .robot_description_semantic(file_path="config/panda.srdf")
         .robot_description_kinematics(file_path="config/kinematics.yaml")
-        .trajectory_execution(file_path="config/moveit_controllers.yaml")
+        .trajectory_execution(file_path=custom_moveit_controllers)
         .planning_pipelines("ompl", ["ompl"])
         .moveit_cpp(
             file_path=os.path.join(

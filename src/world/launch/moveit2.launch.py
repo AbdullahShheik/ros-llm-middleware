@@ -28,8 +28,11 @@ def generate_launch_description():
     # Load planning config
     ompl_yaml = load_yaml(moveit_config_path, 'config/ompl_planning.yaml')
 
-    # Load controllers
-    moveit_controllers = load_yaml(moveit_config_path, 'config/moveit_controllers.yaml')
+    # Load controllers -- our own copy (world/config/panda_moveit_controllers.yaml)
+    # rather than the upstream moveit_resources one, since it adds a
+    # panda_hand_controller entry matching panda_ros2_controllers.yaml
+    world_pkg_path = get_package_share_directory('world')
+    moveit_controllers = load_yaml(world_pkg_path, 'config/panda_moveit_controllers.yaml')
 
     return LaunchDescription([
         # Robot state publisher
@@ -37,7 +40,7 @@ def generate_launch_description():
             package='robot_state_publisher',
             executable='robot_state_publisher',
             name='robot_state_publisher',
-            parameters=[{'robot_description': robot_description}],
+            parameters=[{'robot_description': robot_description}, {'use_sim_time': True}],
             output='screen'
         ),
 
@@ -47,20 +50,18 @@ def generate_launch_description():
             executable='static_transform_publisher',
             name='static_transform_publisher',
             arguments=['0', '0', '0', '0', '0', '0', 'world', 'panda_link0'],
+            parameters=[{'use_sim_time': True}],
             output='screen'
         ),
 
-        # Relay Gazebo joint states to /joint_states
-        Node(
-            package='ros_gz_bridge',
-            executable='parameter_bridge',
-            name='joint_state_relay',
-            arguments=['/world/panda_world/model/panda/joint_state@sensor_msgs/msg/JointState[gz.msgs.Model'],
-            remappings=[
-                ('/world/panda_world/model/panda/joint_state', '/joint_states')
-            ],
-            output='screen'
-        ),
+        # NOTE: /joint_states now comes directly from ros2_control's
+        # joint_state_broadcaster (spawned in world.launch.py), which is a
+        # real ROS2 publisher running inside the gz_ros2_control-hosted
+        # controller_manager. The previous ros_gz_bridge relay of Gazebo's
+        # native joint_state topic has been removed since that topic no
+        # longer exists (the per-joint JointPositionController plugins and
+        # native joint_state_publisher plugin were replaced by gz_ros2_control
+        # in models/panda/model.sdf).
 
         # MoveIt2 move_group
         Node(
@@ -75,6 +76,7 @@ def generate_launch_description():
                 {'ompl': ompl_yaml},
                 moveit_controllers,
                 {'publish_robot_description_semantic': True},
+                {'use_sim_time': True},
             ],
             output='screen'
         ),
