@@ -31,6 +31,7 @@ def _prepare_and_launch(context, *args, **kwargs):
 
     return [
         SetEnvironmentVariable('GZ_SIM_RESOURCE_PATH', tmp_models_root),
+        SetEnvironmentVariable('GZ_SIM_SYSTEM_PLUGIN_PATH', '/opt/ros/jazzy/lib'),
 
         ExecuteProcess(
             cmd=['gz', 'sim', world_path],
