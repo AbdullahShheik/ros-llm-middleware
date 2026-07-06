@@ -24,7 +24,27 @@ import itertools
 import networkx as nx
 from groq import Groq
 
-#do put your api key for this to work thanks
+def _load_env_file(env_path: str) -> None:
+    if not os.path.exists(env_path):
+        return
+
+    with open(env_path, "r", encoding="utf-8") as env_file:
+        for raw_line in env_file:
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+
+            if key and key not in os.environ:
+                os.environ[key] = value
+
+
+_PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+_load_env_file(os.path.join(_PROJECT_ROOT, ".env"))
+
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "YOUR_API_KEY")
 MODEL        = "llama-3.3-70b-versatile"
 MAX_RETRIES  = 3
@@ -495,19 +515,25 @@ def print_dag(plan: dict, G: nx.DiGraph):
 
 
 # STEP 9 — ROS2 publisher node (optional mode)
-# Publishes validated JSON to /layer1/taskplan as std_msgs/String
+# Publishes validated subtasks to /layer1/taskplan as std_msgs/String
 
 
 def run_ros_node(robot_config: dict):
     """
     ROS2 node mode.
     Subscribes to /layer1/instruction (std_msgs/String)
+    Subscribes to /layer1/feedback    (std_msgs/String)
     Publishes to  /layer1/taskplan    (std_msgs/String)
+
+    Publishes one topological generation at a time. Tasks in the same
+    generation are sent back-to-back so they can run in parallel. The next
+    dependent generation is published only after feedback arrives for every
+    task in the current generation.
 
     To test from terminal:
       ros2 topic pub /layer1/instruction std_msgs/String "data: 'Pick up the red block'"
       ros2 topic echo /layer1/taskplan
-      subscribe to /layer1/feedback
+      ros2 topic pub /layer1/feedback std_msgs/String "data: '{\"task_id\":\"T1\",\"status\":\"done\"}'"
     """
     try:
         import rclpy
@@ -522,6 +548,13 @@ def run_ros_node(robot_config: dict):
             super().__init__("layer1_node")
             self.robot_config = robot_config
             self.client       = Groq(api_key=GROQ_API_KEY)
+            self.active_plan = None
+            self.active_graph = None
+            self.task_map = {}
+            self.execution_waves = []
+            self.current_wave_index = 0
+            self.pending_feedback = set()
+            self.completed_tasks = set()
 
             self.publisher_ = self.create_publisher(
                 String, "/layer1/taskplan", 10
@@ -544,21 +577,76 @@ def run_ros_node(robot_config: dict):
             if not instruction:
                 return
 
+            if self.active_plan is not None:
+                self.get_logger().warn(
+                    "Ignoring new instruction because plan "
+                    f"{self.active_plan['plan_id']} is still awaiting feedback."
+                )
+                return
+
             self.get_logger().info(f"Received instruction: {instruction}")
             try:
                 plan, G = decompose_instruction(
                     instruction, self.client, self.robot_config
                 )
                 print_dag(plan, G)
-
-                out_msg      = String()
-                out_msg.data = json.dumps(plan)
-                self.publisher_.publish(out_msg)
-                self.get_logger().info(
-                    f"Published plan {plan['plan_id']} to /layer1/taskplan"
-                )
+                self.start_plan_dispatch(plan, G)
             except RuntimeError as e:
                 self.get_logger().error(f"Decomposition failed: {e}")
+
+        def start_plan_dispatch(self, plan: dict, G: nx.DiGraph):
+            self.active_plan = plan
+            self.active_graph = G
+            self.task_map = {task["id"]: task for task in plan["subtasks"]}
+            self.execution_waves = [
+                sorted(wave) for wave in nx.topological_generations(G)
+            ]
+            self.current_wave_index = 0
+            self.pending_feedback = set()
+            self.completed_tasks = set()
+
+            self.get_logger().info(
+                f"Dispatching plan {plan['plan_id']} as "
+                f"{len(self.execution_waves)} execution wave(s)."
+            )
+            self.publish_current_wave()
+
+        def publish_current_wave(self):
+            if self.active_plan is None:
+                return
+
+            if self.current_wave_index >= len(self.execution_waves):
+                self.get_logger().info(
+                    f"Plan {self.active_plan['plan_id']} complete; "
+                    "all subtasks received feedback."
+                )
+                self.clear_active_plan()
+                return
+
+            wave = self.execution_waves[self.current_wave_index]
+            self.pending_feedback = set(wave)
+            wave_number = self.current_wave_index + 1
+
+            self.get_logger().info(
+                f"Publishing wave {wave_number}/"
+                f"{len(self.execution_waves)}: {wave}"
+            )
+
+            for task_id in wave:
+                subtask = dict(self.task_map[task_id])
+                subtask["plan_id"] = self.active_plan["plan_id"]
+
+                out_msg = String()
+                out_msg.data = json.dumps(subtask)
+                self.publisher_.publish(out_msg)
+                self.get_logger().info(
+                    f"Published subtask {task_id} from plan "
+                    f"{self.active_plan['plan_id']} to /layer1/taskplan"
+                )
+
+            if not wave:
+                self.current_wave_index += 1
+                self.publish_current_wave()
 
         def feedback_callback(self, msg: String):
             feedback = msg.data.strip()
@@ -566,6 +654,103 @@ def run_ros_node(robot_config: dict):
                 return
 
             self.get_logger().info(f"Received feedback: {feedback}")
+
+            if self.active_plan is None:
+                self.get_logger().warn(
+                    "Feedback received, but no plan is currently active."
+                )
+                return
+
+            plan_id, task_id, status = self.parse_feedback(feedback)
+
+            if plan_id and plan_id != self.active_plan["plan_id"]:
+                self.get_logger().warn(
+                    f"Ignoring feedback for plan {plan_id}; active plan is "
+                    f"{self.active_plan['plan_id']}."
+                )
+                return
+
+            if task_id is None:
+                if len(self.pending_feedback) == 1:
+                    task_id = next(iter(self.pending_feedback))
+                else:
+                    self.get_logger().warn(
+                        "Could not match feedback to a task. Include one of "
+                        "'task_id', 'subtask_id', or 'id' in feedback JSON."
+                    )
+                    return
+
+            if status in {"failed", "failure", "error", "rejected"}:
+                self.get_logger().error(
+                    f"Feedback reported {status} for task {task_id}; "
+                    f"aborting plan {self.active_plan['plan_id']}."
+                )
+                self.clear_active_plan()
+                return
+
+            if task_id not in self.pending_feedback:
+                if task_id in self.completed_tasks:
+                    self.get_logger().info(
+                        f"Ignoring duplicate feedback for task {task_id}."
+                    )
+                else:
+                    self.get_logger().warn(
+                        f"Feedback for task {task_id} is not expected in "
+                        f"current wave; waiting for "
+                        f"{sorted(self.pending_feedback)}."
+                    )
+                return
+
+            self.pending_feedback.remove(task_id)
+            self.completed_tasks.add(task_id)
+            self.get_logger().info(
+                f"Feedback accepted for task {task_id}. Remaining in wave: "
+                f"{sorted(self.pending_feedback)}"
+            )
+
+            if not self.pending_feedback:
+                self.current_wave_index += 1
+                self.publish_current_wave()
+
+        def parse_feedback(self, feedback: str):
+            plan_id = None
+            task_id = None
+            status = None
+
+            try:
+                parsed = json.loads(feedback)
+            except json.JSONDecodeError:
+                parsed = feedback
+
+            if isinstance(parsed, dict):
+                raw_plan_id = parsed.get("plan_id")
+                raw_task_id = (
+                    parsed.get("task_id")
+                    or parsed.get("subtask_id")
+                    or parsed.get("id")
+                )
+                if raw_plan_id is not None:
+                    plan_id = str(raw_plan_id)
+                if raw_task_id is not None:
+                    task_id = str(raw_task_id)
+                raw_status = parsed.get("status")
+                if raw_status is not None:
+                    status = str(raw_status).strip().lower()
+            elif isinstance(parsed, str):
+                candidate = parsed.strip()
+                if candidate in self.task_map:
+                    task_id = candidate
+
+            return plan_id, task_id, status
+
+        def clear_active_plan(self):
+            self.active_plan = None
+            self.active_graph = None
+            self.task_map = {}
+            self.execution_waves = []
+            self.current_wave_index = 0
+            self.pending_feedback = set()
+            self.completed_tasks = set()
 
     rclpy.init()
     node = Layer1Node()
