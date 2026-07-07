@@ -100,39 +100,30 @@ Output:
   "subtasks": [
     {
       "id": "T1",
-      "description": "Detect the red block to get its position",
-      "required_skills": ["detect"],
-      "args": { "object_name": "red_block" },
+      "description": "Pick up the red block",
+      "required_skills": ["pick"],
+      "args": { "object_name": "red_block", "location": "red_block" },
       "dependencies": [],
       "parallelizable": false,
       "priority": 1
     },
     {
       "id": "T2",
-      "description": "Pick up the red block",
-      "required_skills": ["pick"],
-      "args": { "object_name": "red_block", "location": "red_block_position" },
+      "description": "Place the red block on the shelf",
+      "required_skills": ["place"],
+      "args": { "object_name": "red_block", "target_location": "shelf" },
       "dependencies": ["T1"],
       "parallelizable": false,
       "priority": 2
     },
     {
       "id": "T3",
-      "description": "Place the red block on the shelf",
-      "required_skills": ["place"],
-      "args": { "object_name": "red_block", "target_location": "shelf" },
-      "dependencies": ["T2"],
-      "parallelizable": false,
-      "priority": 3
-    },
-    {
-      "id": "T4",
       "description": "Return arm to home position",
       "required_skills": ["home"],
       "args": {},
-      "dependencies": ["T3"],
+      "dependencies": ["T2"],
       "parallelizable": false,
-      "priority": 4
+      "priority": 3
     }
   ]
 }
@@ -146,8 +137,8 @@ Output:
   "subtasks": [
     {
       "id": "T1",
-      "description": "Detect the blue cylinder to get its position",
-      "required_skills": ["detect"],
+      "description": "Inspect the blue cylinder",
+      "required_skills": ["inspect"],
       "args": { "object_name": "blue_cylinder" },
       "dependencies": [],
       "parallelizable": false,
@@ -155,35 +146,26 @@ Output:
     },
     {
       "id": "T2",
-      "description": "Inspect the blue cylinder",
-      "required_skills": ["inspect"],
-      "args": { "object_name": "blue_cylinder" },
+      "description": "Push the blue cylinder 5cm to the right",
+      "required_skills": ["push"],
+      "args": { "object_name": "blue_cylinder", "direction": "right", "distance_cm": 5 },
       "dependencies": ["T1"],
       "parallelizable": false,
       "priority": 2
     },
     {
       "id": "T3",
-      "description": "Push the blue cylinder 5cm to the right",
-      "required_skills": ["push"],
-      "args": { "object_name": "blue_cylinder", "direction": "right", "distance_cm": 5 },
-      "dependencies": ["T2"],
-      "parallelizable": false,
-      "priority": 3
-    },
-    {
-      "id": "T4",
       "description": "Return arm to home position",
       "required_skills": ["home"],
       "args": {},
-      "dependencies": ["T3"],
+      "dependencies": ["T2"],
       "parallelizable": false,
-      "priority": 4
+      "priority": 3
     }
   ]
 }
 
-========== EXAMPLE 3 — Parallel chains then converge (L3) ==========
+========== EXAMPLE 3 — Multi-object sequence (L3) ==========
 Instruction: "Pick up the green cube and the yellow cone and place both on the tray."
 Output:
 {
@@ -192,66 +174,48 @@ Output:
   "subtasks": [
     {
       "id": "T1",
-      "description": "Detect the green cube",
-      "required_skills": ["detect"],
-      "args": { "object_name": "green_cube" },
+      "description": "Pick up the green cube",
+      "required_skills": ["pick"],
+      "args": { "object_name": "green_cube", "location": "green_cube" },
       "dependencies": [],
-      "parallelizable": true,
+      "parallelizable": false,
       "priority": 1
     },
     {
       "id": "T2",
-      "description": "Pick up the green cube",
-      "required_skills": ["pick"],
-      "args": { "object_name": "green_cube", "location": "green_cube_position" },
+      "description": "Place the green cube on the tray",
+      "required_skills": ["place"],
+      "args": { "object_name": "green_cube", "target_location": "tray" },
       "dependencies": ["T1"],
       "parallelizable": false,
       "priority": 2
     },
     {
       "id": "T3",
-      "description": "Place the green cube on the tray",
-      "required_skills": ["place"],
-      "args": { "object_name": "green_cube", "target_location": "tray" },
+      "description": "Pick up the yellow cone",
+      "required_skills": ["pick"],
+      "args": { "object_name": "yellow_cone", "location": "yellow_cone" },
       "dependencies": ["T2"],
       "parallelizable": false,
       "priority": 3
     },
     {
       "id": "T4",
-      "description": "Detect the yellow cone",
-      "required_skills": ["detect"],
-      "args": { "object_name": "yellow_cone" },
-      "dependencies": [],
-      "parallelizable": true,
-      "priority": 1
-    },
-    {
-      "id": "T5",
-      "description": "Pick up the yellow cone",
-      "required_skills": ["pick"],
-      "args": { "object_name": "yellow_cone", "location": "yellow_cone_position" },
-      "dependencies": ["T4"],
-      "parallelizable": false,
-      "priority": 2
-    },
-    {
-      "id": "T6",
       "description": "Place the yellow cone on the tray",
       "required_skills": ["place"],
       "args": { "object_name": "yellow_cone", "target_location": "tray" },
-      "dependencies": ["T5"],
+      "dependencies": ["T3"],
       "parallelizable": false,
-      "priority": 3
+      "priority": 4
     },
     {
-      "id": "T7",
+      "id": "T5",
       "description": "Return arm to home position",
       "required_skills": ["home"],
       "args": {},
-      "dependencies": ["T3", "T6"],
+      "dependencies": ["T4"],
       "parallelizable": false,
-      "priority": 4
+      "priority": 5
     }
   ]
 }
