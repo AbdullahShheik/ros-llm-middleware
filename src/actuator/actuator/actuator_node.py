@@ -175,7 +175,7 @@ class ActuatorNode(Node):
         target.header.frame_id = BASE_FRAME
         target.pose.position.x = pose["x"] + FRAME_OFFSET["x"]
         target.pose.position.y = pose["y"] + FRAME_OFFSET["y"]
-        target.pose.position.z = pose["z"] + FRAME_OFFSET["z"]
+        target.pose.position.z = pose["z"] + FRAME_OFFSET["z"] + 0.15
         target.pose.orientation.w = 1.0
         return target
 

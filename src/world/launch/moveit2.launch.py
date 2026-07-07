@@ -19,6 +19,11 @@ def generate_launch_description():
         ['xacro', xacro_file]
     ).decode('utf-8')
 
+    # Debug: verify ros2_control is present
+    import sys
+    count = robot_description.count('ros2_control')
+    print(f'[DEBUG] robot_description has {count} ros2_control tags', file=sys.stderr)
+
     # Load SRDF
     robot_description_semantic = load_yaml.__class__  # placeholder
     with open(os.path.join(moveit_config_path, 'config', 'panda.srdf'), 'r') as f:

@@ -11,42 +11,58 @@
     </hardware>
     <joint name="panda_joint1">
       <command_interface name="position"/>
-      <state_interface name="position"/>
+      <state_interface name="position">
+        <param name="initial_value">0.0</param>
+      </state_interface>
       <state_interface name="velocity"/>
     </joint>
     <joint name="panda_joint2">
       <command_interface name="position"/>
-      <state_interface name="position"/>
+      <state_interface name="position">
+        <param name="initial_value">-0.785</param>
+      </state_interface>
       <state_interface name="velocity"/>
     </joint>
     <joint name="panda_joint3">
       <command_interface name="position"/>
-      <state_interface name="position"/>
+      <state_interface name="position">
+        <param name="initial_value">0.0</param>
+      </state_interface>
       <state_interface name="velocity"/>
     </joint>
     <joint name="panda_joint4">
       <command_interface name="position"/>
-      <state_interface name="position"/>
+      <state_interface name="position">
+        <param name="initial_value">-2.356</param>
+      </state_interface>
       <state_interface name="velocity"/>
     </joint>
     <joint name="panda_joint5">
       <command_interface name="position"/>
-      <state_interface name="position"/>
+      <state_interface name="position">
+        <param name="initial_value">0.0</param>
+      </state_interface>
       <state_interface name="velocity"/>
     </joint>
     <joint name="panda_joint6">
       <command_interface name="position"/>
-      <state_interface name="position"/>
+      <state_interface name="position">
+        <param name="initial_value">1.571</param>
+      </state_interface>
       <state_interface name="velocity"/>
     </joint>
     <joint name="panda_joint7">
       <command_interface name="position"/>
-      <state_interface name="position"/>
+      <state_interface name="position">
+        <param name="initial_value">0.785</param>
+      </state_interface>
       <state_interface name="velocity"/>
     </joint>
     <joint name="panda_finger_joint1">
       <command_interface name="position"/>
-      <state_interface name="position"/>
+      <state_interface name="position">
+        <param name="initial_value">0.035</param>
+      </state_interface>
       <state_interface name="velocity"/>
     </joint>
   </ros2_control>
