@@ -680,7 +680,7 @@ def run_ros_node(robot_config: dict):
                     )
                     return
 
-            if status in {"failed", "failure", "error", "rejected"}:
+            if status in {"failed", "failure", "error", "rejected", "infeasible"}:
                 self.get_logger().error(
                     f"Feedback reported {status} for task {task_id}; "
                     f"aborting plan {self.active_plan['plan_id']}."
