@@ -55,28 +55,28 @@ def _prepare_and_launch(context, *args, **kwargs):
 
         # Spawn controllers after 10 seconds (Gazebo needs time to load)
         TimerAction(
-            period=10.0,
-            actions=[
-                Node(
-                    package='controller_manager',
-                    executable='spawner',
-                    arguments=['joint_state_broadcaster'],
-                    output='screen',
-                ),
-                Node(
-                    package='controller_manager',
-                    executable='spawner',
-                    arguments=['panda_arm_controller'],
-                    output='screen',
-                ),
-                Node(
-                    package='controller_manager',
-                    executable='spawner',
-                    arguments=['panda_hand_controller'],
-                    output='screen',
-                ),
-            ]
-        ),
+        period=10.0,
+        actions=[
+            Node(
+                package='controller_manager',
+                executable='spawner',
+                arguments=['joint_state_broadcaster'],
+                output='screen',
+            ),
+            Node(
+                package='controller_manager',
+                executable='spawner',
+                arguments=['panda_arm_controller'],
+                output='screen',
+            ),
+            Node(
+                package='controller_manager',
+                executable='spawner',
+                arguments=['robotiq_gripper_controller'],
+                output='screen',
+            ),
+        ]
+    ),
     ]
 
 def generate_launch_description():

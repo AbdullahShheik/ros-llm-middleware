@@ -1,14 +1,11 @@
 # ros2_control controller_manager config, loaded by the gz_ros2_control
 # plugin embedded in models/panda/model.sdf.
 #
-# panda_arm_controller and panda_hand_controller both use
-# joint_trajectory_controller/JointTrajectoryController (rather than
-# GripperActionController for the hand) because the two finger joints in
-# model.sdf are independent prismatic joints with no <mimic> relationship --
-# a plain FollowJointTrajectory goal driving both joints together is the
-# simplest correct way to open/close them in lockstep, and it matches how
-# actuator_node.py already drives the "hand" MoveIt group generically via
-# plan()/execute() with no controller-type-specific logic.
+# panda_arm_controller uses JointTrajectoryController for the 7 arm joints.
+# robotiq_gripper_controller uses GripperActionController which accepts
+# control_msgs/GripperCommand actions — open (0.0) / close (0.8) on the
+# single actuated knuckle joint. All other Robotiq joints are mimic joints
+# handled automatically by Ignition.
 
 controller_manager:
   ros__parameters:
@@ -21,8 +18,8 @@ controller_manager:
     panda_arm_controller:
       type: joint_trajectory_controller/JointTrajectoryController
 
-    panda_hand_controller:
-      type: joint_trajectory_controller/JointTrajectoryController
+    robotiq_gripper_controller:
+      type: parallel_gripper_action_controller/GripperActionController
 
 panda_arm_controller:
   ros__parameters:
@@ -49,13 +46,10 @@ panda_arm_controller:
       panda_joint6: 1.571
       panda_joint7: 0.785
 
-panda_hand_controller:
+robotiq_gripper_controller:
   ros__parameters:
-    joints:
-      - panda_finger_joint1
-    command_interfaces:
-      - position
-    state_interfaces:
-      - position
-      - velocity
-    allow_nonzero_velocity_at_trajectory_end: true
+    joint: robotiq_85_left_knuckle_joint
+    action_monitor_rate: 20.0
+    allow_stalling: false
+    stall_velocity_threshold: 0.001
+    stall_timeout: 1.0

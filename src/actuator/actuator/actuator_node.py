@@ -11,30 +11,16 @@ Subscribes to /execution_command (std_msgs/String, JSON), e.g.:
   }
 
 Plans and executes a Cartesian pose goal for the Franka Panda arm with
-MoveIt2 (moveit_py), then (for pick/place) actuates the "hand" gripper
-group to its "close"/"open" named state.
+MoveIt2 (moveit_py), then (for pick/place) sends a GripperCommand action
+directly to the Robotiq 2F-85 gripper controller.
 
-Current robot state:
-  MoveItPy's internal planning scene monitor already subscribes to
-  /joint_states on its own to track the live robot state, so
-  set_start_state_to_current_state() always plans from wherever the
-  arm actually is right now. This node ALSO subscribes to /joint_states
-  itself, purely as a readiness gate -- it refuses to plan until at
-  least one joint state has been observed, so we never race MoveIt's
-  own monitor on startup.
+Gripper is no longer driven through MoveIt's hand group — the Robotiq
+has a single actuated joint (robotiq_85_left_knuckle_joint) controlled
+via control_msgs/GripperCommand:
+  position 0.0 = fully open
+  position 0.8 = fully closed
 
-Publishes feedback to /execution_feedback (std_msgs/String, JSON):
-  {
-    "task_id": "T1",
-    "status": "success" | "failed",
-    "stage": "planning" | "execution" | "gripper" | "complete" | "dispatch",
-    "detail": "<human readable>"
-  }
-
-Requires MoveItPy to be initialized with the panda MoveIt configuration.
-See launch/actuator.launch.py, which loads the same
-moveit_resources_panda_moveit_config package used by moveit2.launch.py
-and passes it to this node as ROS parameters.
+Publishes feedback to /execution_feedback (std_msgs/String, JSON).
 """
 
 import json
@@ -44,28 +30,27 @@ import rclpy
 from rclpy.node import Node
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
+from rclpy.action import ActionClient
 from std_msgs.msg import String
 from sensor_msgs.msg import JointState
 from geometry_msgs.msg import PoseStamped
-
+from control_msgs.action import ParallelGripperCommand
+from sensor_msgs.msg import JointState
 from moveit.planning import MoveItPy
 
-# Same world -> panda_link0 frame offset used in
-# action_dispatcher/ik_feasibility_service.py. Keep these in sync --
-# the IK check already validated feasibility using this transform,
-# so the actuator must target the exact same point.
+# World -> panda_link0 frame offset — must match ik_feasibility_service.py
 FRAME_OFFSET = {"x": -0.2, "y": 0.0, "z": -1.025}
 
-ARM_GROUP = "panda_arm"
-HAND_GROUP = "hand"
+ARM_GROUP  = "panda_arm"
 BASE_FRAME = "panda_link0"
-EEF_LINK = "panda_link8"  # verify against your SRDF if this differs
+EEF_LINK   = "panda_link8"
 
-# Skills that should also actuate the gripper once the arm reaches pose.
-# Maps action -> named group_state on the "hand" group (see panda.srdf).
-GRIPPER_ACTION_FOR_SKILL = {
-    "pick": "close",
-    "place": "open",
+GRIPPER_ACTION = "/robotiq_gripper_controller/gripper_cmd"
+
+# Robotiq 2F-85: 0.0 = open, 0.8 = closed
+GRIPPER_POSITION = {
+    "pick":  0.8,   # close to grasp
+    "place": 0.0,   # open to release
 }
 
 
@@ -77,6 +62,7 @@ class ActuatorNode(Node):
         self._have_joint_state = False
         self._js_lock = threading.Lock()
 
+        # Joint state readiness gate
         self.create_subscription(
             JointState,
             "/joint_states",
@@ -85,6 +71,7 @@ class ActuatorNode(Node):
             callback_group=self.callback_group,
         )
 
+        # Execution command input
         self.create_subscription(
             String,
             "/execution_command",
@@ -95,18 +82,17 @@ class ActuatorNode(Node):
 
         self.feedback_pub = self.create_publisher(String, "/execution_feedback", 10)
 
+        # Robotiq gripper action client
+        self._gripper_client = ActionClient(
+            self,
+            ParallelGripperCommand,
+            GRIPPER_ACTION,
+            callback_group=self.callback_group,
+        )
+
         self.get_logger().info("Initializing MoveItPy (this can take a few seconds)...")
         self.moveit = MoveItPy(node_name="actuator_moveit_py")
         self.arm = self.moveit.get_planning_component(ARM_GROUP)
-
-        try:
-            self.hand = self.moveit.get_planning_component(HAND_GROUP)
-        except Exception as e:
-            self.hand = None
-            self.get_logger().warn(
-                f"No '{HAND_GROUP}' planning component available ({e}); "
-                f"gripper actuation will be skipped."
-            )
 
         self.get_logger().info("Actuator ready, listening on /execution_command")
 
@@ -125,10 +111,10 @@ class ActuatorNode(Node):
             self.get_logger().error(f"Bad /execution_command payload: {e}")
             return
 
-        task_id = cmd.get("task_id", "UNKNOWN")
-        action = cmd.get("action")
+        task_id    = cmd.get("task_id", "UNKNOWN")
+        action     = cmd.get("action")
         robot_type = cmd.get("robot_type")
-        pose = cmd.get("pose")
+        pose       = cmd.get("pose")
 
         if robot_type != "arm":
             self._publish_feedback(
@@ -138,7 +124,10 @@ class ActuatorNode(Node):
             return
 
         if not pose:
-            self._publish_feedback(task_id, "failed", "dispatch", "No pose in execution command")
+            self._publish_feedback(
+                task_id, "failed", "dispatch",
+                "No pose in execution command"
+            )
             return
 
         with self._js_lock:
@@ -151,23 +140,23 @@ class ActuatorNode(Node):
             )
             return
 
+        # Move arm to target pose
         if not self._plan_and_execute_arm(task_id, pose):
-            return  # failure feedback already published inside
+            return
 
-        gripper_state = GRIPPER_ACTION_FOR_SKILL.get(action)
-        if gripper_state:
-            if self.hand is not None:
-                if not self._plan_and_execute_gripper(task_id, gripper_state):
-                    return
-            else:
-                self.get_logger().warn(
-                    f"[{task_id}] Skipping gripper '{gripper_state}': no hand group configured"
-                )
+        # Actuate gripper if this action requires it
+        gripper_position = GRIPPER_POSITION.get(action)
+        if gripper_position is not None:
+            if not self._send_gripper_command(task_id, gripper_position):
+                return
 
-        self._publish_feedback(task_id, "success", "complete", f"Task {task_id} ('{action}') finished")
+        self._publish_feedback(
+            task_id, "success", "complete",
+            f"Task {task_id} ('{action}') finished"
+        )
 
     # ------------------------------------------------------------------
-    # Planning / execution
+    # Arm planning / execution (unchanged)
     # ------------------------------------------------------------------
 
     def _target_pose_stamped(self, pose: dict) -> PoseStamped:
@@ -179,39 +168,70 @@ class ActuatorNode(Node):
         target.pose.orientation.w = 1.0
         return target
 
-    def _plan_and_execute_arm(self, task_id, pose: dict) -> bool:
+    def _plan_and_execute_arm(self, task_id: str, pose: dict) -> bool:
         self.arm.set_start_state_to_current_state()
         target = self._target_pose_stamped(pose)
         self.arm.set_goal_state(pose_stamped_msg=target, pose_link=EEF_LINK)
 
         plan_result = self.arm.plan()
         if not plan_result:
-            self._publish_feedback(task_id, "failed", "planning", f"MoveIt2 failed to find a plan to {pose}")
+            self._publish_feedback(
+                task_id, "failed", "planning",
+                f"MoveIt2 failed to find a plan to {pose}"
+            )
             return False
 
         exec_ok = self.moveit.execute(plan_result.trajectory, controllers=[])
         if not exec_ok:
-            self._publish_feedback(task_id, "failed", "execution", "Trajectory execution failed")
+            self._publish_feedback(
+                task_id, "failed", "execution",
+                "Trajectory execution failed"
+            )
             return False
 
-        self._publish_feedback(task_id, "success", "arm_motion", f"Arm reached {pose}")
+        self._publish_feedback(
+            task_id, "success", "arm_motion",
+            f"Arm reached {pose}"
+        )
         return True
 
-    def _plan_and_execute_gripper(self, task_id, named_state: str) -> bool:
-        self.hand.set_start_state_to_current_state()
-        self.hand.set_goal_state(configuration_name=named_state)
+    # ------------------------------------------------------------------
+    # Gripper — direct GripperCommand action (no MoveIt)
+    # ------------------------------------------------------------------
 
-        plan_result = self.hand.plan()
-        if not plan_result:
-            self._publish_feedback(task_id, "failed", "gripper", f"Failed to plan gripper '{named_state}'")
+    def _send_gripper_command(self, task_id: str, position: float) -> bool:
+        label = "close" if position > 0.0 else "open"
+
+        if not self._gripper_client.wait_for_server(timeout_sec=5.0):
+            self._publish_feedback(
+                task_id, "failed", "gripper",
+                f"Gripper action server not available ({GRIPPER_ACTION})"
+            )
             return False
 
-        exec_ok = self.moveit.execute(plan_result.trajectory, controllers=[])
-        if not exec_ok:
-            self._publish_feedback(task_id, "failed", "gripper", f"Failed to execute gripper '{named_state}'")
+        goal = ParallelGripperCommand.Goal()
+        goal.command.name = ["robotiq_85_left_knuckle_joint"]
+        goal.command.position = [position]
+        goal.command.effort = [50.0]
+
+        future = self._gripper_client.send_goal_async(goal)
+        rclpy.spin_until_future_complete(self, future)
+
+        goal_handle = future.result()
+        if not goal_handle or not goal_handle.accepted:
+            self._publish_feedback(
+                task_id, "failed", "gripper",
+                f"Gripper goal rejected for '{label}'"
+            )
             return False
 
-        self._publish_feedback(task_id, "success", "gripper", f"Gripper set to '{named_state}'")
+        result_future = goal_handle.get_result_async()
+        rclpy.spin_until_future_complete(self, result_future)
+
+        self._publish_feedback(
+            task_id, "success", "gripper",
+            f"Gripper set to '{label}' (position={position})"
+        )
         return True
 
     # ------------------------------------------------------------------

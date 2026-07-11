@@ -1,12 +1,6 @@
-# MoveIt controller manager config -- extends the upstream
-# moveit_resources_panda_moveit_config/config/moveit_controllers.yaml with a
-# second controller entry for the hand, so MoveIt can execute gripper
-# open/close goals through the same ros2_control setup
-# (see panda_ros2_controllers.yaml) as the arm.
-#
-# Controller names here MUST match the controller_manager names in
-# panda_ros2_controllers.yaml, since MoveItSimpleControllerManager builds
-# each action name as <controller_name>/<action_ns>.
+# MoveIt controller manager config.
+# panda_hand_controller removed — gripper is now driven directly via
+# GripperCommand action in actuator_node.py, not through MoveIt.
 
 trajectory_execution:
   allowed_execution_duration_scaling: 1.2
@@ -19,7 +13,6 @@ moveit_controller_manager: moveit_simple_controller_manager/MoveItSimpleControll
 moveit_simple_controller_manager:
   controller_names:
     - panda_arm_controller
-    - panda_hand_controller
 
   panda_arm_controller:
     action_ns: follow_joint_trajectory
@@ -33,10 +26,3 @@ moveit_simple_controller_manager:
       - panda_joint5
       - panda_joint6
       - panda_joint7
-
-  panda_hand_controller:
-    action_ns: follow_joint_trajectory
-    type: FollowJointTrajectory
-    default: true
-    joints:
-      - panda_finger_joint1

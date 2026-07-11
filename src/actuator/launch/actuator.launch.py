@@ -1,5 +1,6 @@
 """
-Launches the actuator node with the Franka Panda MoveIt configuration.
+Launches the actuator node with the Franka Panda MoveIt configuration,
+using the local panda.srdf that defines the Robotiq 2F-85 hand group.
 """
 import os
 import yaml
@@ -8,19 +9,28 @@ from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 from moveit_configs_utils import MoveItConfigsBuilder
 
+
 def load_yaml_file(path):
     with open(path, 'r') as f:
         return yaml.safe_load(f)
+
 
 def generate_launch_description():
     custom_moveit_controllers = os.path.join(
         get_package_share_directory("world"), "config", "panda_moveit_controllers.yaml"
     )
+    local_srdf = os.path.join(
+        get_package_share_directory("world"), "config", "panda.srdf"
+    )
+
+    local_urdf_xacro = os.path.join(
+        get_package_share_directory("world"), "urdf", "panda_gz.urdf.xacro"
+    )
 
     moveit_config = (
         MoveItConfigsBuilder("moveit_resources_panda")
-        .robot_description(file_path="config/panda.urdf.xacro")
-        .robot_description_semantic(file_path="config/panda.srdf")
+        .robot_description(file_path=local_urdf_xacro)
+        .robot_description_semantic(file_path=local_srdf)
         .robot_description_kinematics(file_path="config/kinematics.yaml")
         .trajectory_execution(file_path=custom_moveit_controllers)
         .planning_pipelines("ompl", ["ompl"])
