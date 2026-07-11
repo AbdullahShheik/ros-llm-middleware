@@ -21,9 +21,9 @@ planning_pipelines:
 # no explicit single_plan_parameters / multi_plan_parameters argument
 # (this is how actuator_node.py calls it).
 plan_request_params:
-  planning_attempts: 5
+  planning_attempts: 10
   planning_pipeline: ompl
   planner_id: "RRTConnectkConfigDefault"
-  planning_time: 5.0
-  max_velocity_scaling_factor: 0.5
-  max_acceleration_scaling_factor: 0.5
+  planning_time: 10.0
+  max_velocity_scaling_factor: 0.3
+  max_acceleration_scaling_factor: 0.3

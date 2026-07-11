@@ -37,6 +37,7 @@ from geometry_msgs.msg import PoseStamped
 from control_msgs.action import ParallelGripperCommand
 from sensor_msgs.msg import JointState
 from moveit.planning import MoveItPy
+import math
 
 # World -> panda_link0 frame offset — must match ik_feasibility_service.py
 FRAME_OFFSET = {"x": -0.2, "y": 0.0, "z": -1.025}
@@ -140,20 +141,46 @@ class ActuatorNode(Node):
             )
             return
 
-        # Move arm to target pose
+        # Phase 1: move to pre-grasp (above cube)
+        pre_grasp_pose = dict(pose)
+        pre_grasp_pose["z"] = pose["z"] + 0.20  # 20cm above cube
+        if not self._plan_and_execute_arm(task_id, pre_grasp_pose):
+            return
+
+        # Phase 2: descend straight down to grasp height
         if not self._plan_and_execute_arm(task_id, pose):
             return
 
-        # Actuate gripper if this action requires it
+        # Actuate gripper
         gripper_position = GRIPPER_POSITION.get(action)
         if gripper_position is not None:
             if not self._send_gripper_command(task_id, gripper_position):
                 return
+            
+        # Lift up after picking
+        if action == "pick":
+            lift_pose = {"x": pose["x"], "y": pose["y"], "z": pose["z"] + 0.25}
+            self.arm.set_start_state_to_current_state()
+            target = self._target_pose_stamped(lift_pose)
+            self.arm.set_goal_state(pose_stamped_msg=target, pose_link=EEF_LINK)
+            
+            plan_result = self.arm.plan()
+            if plan_result:
+                self.moveit.execute(plan_result.trajectory, controllers=[])
+                self._publish_feedback(task_id, "success", "lift", "Lifted after grasp")
+            else:
+                self.get_logger().warn(f"[{task_id}] Lift planning failed, trying higher z")
+                lift_pose["z"] = pose["z"] + 0.35
+                target = self._target_pose_stamped(lift_pose)
+                self.arm.set_goal_state(pose_stamped_msg=target, pose_link=EEF_LINK)
+                plan_result = self.arm.plan()
+                if plan_result:
+                    self.moveit.execute(plan_result.trajectory, controllers=[])
 
-        self._publish_feedback(
-            task_id, "success", "complete",
-            f"Task {task_id} ('{action}') finished"
-        )
+                self._publish_feedback(
+                    task_id, "success", "complete",
+                    f"Task {task_id} ('{action}') finished"
+                )
 
     # ------------------------------------------------------------------
     # Arm planning / execution (unchanged)
@@ -162,10 +189,16 @@ class ActuatorNode(Node):
     def _target_pose_stamped(self, pose: dict) -> PoseStamped:
         target = PoseStamped()
         target.header.frame_id = BASE_FRAME
-        target.pose.position.x = pose["x"] + FRAME_OFFSET["x"]
-        target.pose.position.y = pose["y"] + FRAME_OFFSET["y"]
-        target.pose.position.z = pose["z"] + FRAME_OFFSET["z"] + 0.15
-        target.pose.orientation.w = 1.0
+        target.pose.position.x = pose["x"] + FRAME_OFFSET["x"] - 0.045
+        target.pose.position.y = pose["y"] + FRAME_OFFSET["y"] - 0.01
+        # Approach from above: cube top (z=0) + gripper clearance
+        # Cube is 0.06m tall, gripper fingers need ~0.05m clearance above cube top
+        target.pose.position.z = pose["z"] + FRAME_OFFSET["z"] + 0.27
+        # Point gripper straight down (180deg around X axis)
+        target.pose.orientation.x = 0.924
+        target.pose.orientation.y = -0.382
+        target.pose.orientation.z = 0.0
+        target.pose.orientation.w = 0.0
         return target
 
     def _plan_and_execute_arm(self, task_id: str, pose: dict) -> bool:
@@ -200,39 +233,31 @@ class ActuatorNode(Node):
     # ------------------------------------------------------------------
 
     def _send_gripper_command(self, task_id: str, position: float) -> bool:
+        import subprocess
+        import os
         label = "close" if position > 0.0 else "open"
 
-        if not self._gripper_client.wait_for_server(timeout_sec=5.0):
-            self._publish_feedback(
-                task_id, "failed", "gripper",
-                f"Gripper action server not available ({GRIPPER_ACTION})"
+        cmd = [
+            "ros2", "action", "send_goal",
+            "/robotiq_gripper_controller/gripper_cmd",
+            "control_msgs/action/ParallelGripperCommand",
+            f"{{command: {{name: ['robotiq_85_left_knuckle_joint'], position: [{position}], effort: [50.0]}}}}"
+        ]
+
+        try:
+            result = subprocess.run(
+                cmd, timeout=10.0, capture_output=True, text=True,
+                env={**os.environ}
             )
+            if result.returncode == 0:
+                self._publish_feedback(task_id, "success", "gripper", f"Gripper set to '{label}'")
+                return True
+            else:
+                self._publish_feedback(task_id, "failed", "gripper", f"Gripper failed: {result.stderr[:100]}")
+                return False
+        except subprocess.TimeoutExpired:
+            self._publish_feedback(task_id, "failed", "gripper", f"Gripper timed out for '{label}'")
             return False
-
-        goal = ParallelGripperCommand.Goal()
-        goal.command.name = ["robotiq_85_left_knuckle_joint"]
-        goal.command.position = [position]
-        goal.command.effort = [50.0]
-
-        future = self._gripper_client.send_goal_async(goal)
-        rclpy.spin_until_future_complete(self, future)
-
-        goal_handle = future.result()
-        if not goal_handle or not goal_handle.accepted:
-            self._publish_feedback(
-                task_id, "failed", "gripper",
-                f"Gripper goal rejected for '{label}'"
-            )
-            return False
-
-        result_future = goal_handle.get_result_async()
-        rclpy.spin_until_future_complete(self, result_future)
-
-        self._publish_feedback(
-            task_id, "success", "gripper",
-            f"Gripper set to '{label}' (position={position})"
-        )
-        return True
 
     # ------------------------------------------------------------------
     # Feedback
@@ -243,8 +268,7 @@ class ActuatorNode(Node):
         out = String()
         out.data = json.dumps(fb)
         self.feedback_pub.publish(out)
-        log = self.get_logger().info if status == "success" else self.get_logger().warn
-        log(f"[{task_id}] {status} @ {stage}: {detail}")
+        self.get_logger().info(f"[{task_id}] {status} @ {stage}: {detail}")
 
 
 def main(args=None):

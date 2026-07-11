@@ -120,4 +120,6 @@
   <disable_collisions link1="panda_rightfinger" link2="robotiq_85_base_link" reason="Never"/>
   <disable_collisions link1="panda_rightfinger" link2="robotiq_85_left_inner_knuckle_link" reason="Never"/>
   <disable_collisions link1="panda_rightfinger" link2="robotiq_85_right_inner_knuckle_link" reason="Never"/>
+  <passive_joint name="panda_finger_joint1"/>
+  <passive_joint name="panda_finger_joint2"/>
 </robot>
