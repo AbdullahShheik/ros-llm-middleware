@@ -113,6 +113,7 @@ class ActuatorNode(Node):
             return
 
         task_id    = cmd.get("task_id", "UNKNOWN")
+        plan_id    = cmd.get("plan_id", "")
         action     = cmd.get("action")
         robot_type = cmd.get("robot_type")
         pose       = cmd.get("pose")
@@ -263,8 +264,8 @@ class ActuatorNode(Node):
     # Feedback
     # ------------------------------------------------------------------
 
-    def _publish_feedback(self, task_id, status, stage, detail):
-        fb = {"task_id": task_id, "status": status, "stage": stage, "detail": detail}
+    def _publish_feedback(self, task_id, status, stage, detail, plan_id=""):
+        fb = {"plan_id": plan_id, "task_id": task_id, "status": status, "stage": stage, "detail": detail}
         out = String()
         out.data = json.dumps(fb)
         self.feedback_pub.publish(out)

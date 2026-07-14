@@ -486,7 +486,7 @@ def run_ros_node(robot_config: dict):
     """
     ROS2 node mode.
     Subscribes to /layer1/instruction (std_msgs/String)
-    Subscribes to /layer1/feedback    (std_msgs/String)
+    Subscribes to /execution_feedback    (std_msgs/String)
     Publishes to  /layer1/taskplan    (std_msgs/String)
 
     Publishes one topological generation at a time. Tasks in the same
@@ -527,12 +527,12 @@ def run_ros_node(robot_config: dict):
                 String, "/layer1/instruction", self.instruction_callback, 10
             )
             self.feedback_subscription = self.create_subscription(
-                String, "/layer1/feedback", self.feedback_callback, 10
+                String, "/execution_feedback", self.feedback_callback, 10
             )
             self.get_logger().info(
                 "Layer 1 node ready. "
                 "Listening on /layer1/instruction, "
-                "listening on /layer1/feedback, "
+                "listening on /execution_feedback, "
                 "publishing to /layer1/taskplan."
             )
 
