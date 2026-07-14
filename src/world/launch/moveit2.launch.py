@@ -3,10 +3,7 @@ from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 import os
 import yaml
-
-def load_file(package_path, file_path):
-    with open(os.path.join(package_path, file_path), 'r') as f:
-        return f.read()
+import subprocess
 
 def load_yaml(package_path, file_path):
     with open(os.path.join(package_path, file_path), 'r') as f:
@@ -14,13 +11,23 @@ def load_yaml(package_path, file_path):
 
 def generate_launch_description():
     moveit_config_path = get_package_share_directory('moveit_resources_panda_moveit_config')
-    panda_description_path = get_package_share_directory('moveit_resources_panda_description')
+    world_pkg_path = get_package_share_directory('world')
 
-    # Load robot description
-    robot_description = load_file(panda_description_path, 'urdf/panda.urdf')
+    # Process xacro to get URDF with ros2_control tags included
+    xacro_file = os.path.join(get_package_share_directory('world'), 'urdf', 'panda_gz.urdf.xacro')
+    robot_description = subprocess.check_output(
+        ['xacro', xacro_file]
+    ).decode('utf-8')
+
+    # Debug: verify ros2_control is present
+    import sys
+    count = robot_description.count('ros2_control')
+    print(f'[DEBUG] robot_description has {count} ros2_control tags', file=sys.stderr)
 
     # Load SRDF
-    robot_description_semantic = load_file(moveit_config_path, 'config/panda.srdf')
+    robot_description_semantic = load_yaml.__class__  # placeholder
+    with open(os.path.join(moveit_config_path, 'config', 'panda.srdf'), 'r') as f:
+        robot_description_semantic = f.read()
 
     # Load kinematics
     kinematics_yaml = load_yaml(moveit_config_path, 'config/kinematics.yaml')
@@ -29,36 +36,28 @@ def generate_launch_description():
     ompl_yaml = load_yaml(moveit_config_path, 'config/ompl_planning.yaml')
 
     # Load controllers
-    moveit_controllers = load_yaml(moveit_config_path, 'config/moveit_controllers.yaml')
+    moveit_controllers = load_yaml(world_pkg_path, 'config/panda_moveit_controllers.yaml')
 
     return LaunchDescription([
-        # Robot state publisher
+        # Robot state publisher with xacro-processed URDF
         Node(
             package='robot_state_publisher',
             executable='robot_state_publisher',
             name='robot_state_publisher',
-            parameters=[{'robot_description': robot_description}],
+            parameters=[
+                {'robot_description': robot_description},
+                {'use_sim_time': True}
+            ],
             output='screen'
         ),
 
-        # Static transform
+        # Static transform world -> panda_link0
         Node(
             package='tf2_ros',
             executable='static_transform_publisher',
             name='static_transform_publisher',
             arguments=['0', '0', '0', '0', '0', '0', 'world', 'panda_link0'],
-            output='screen'
-        ),
-
-        # Relay Gazebo joint states to /joint_states
-        Node(
-            package='ros_gz_bridge',
-            executable='parameter_bridge',
-            name='joint_state_relay',
-            arguments=['/world/panda_world/model/panda/joint_state@sensor_msgs/msg/JointState[gz.msgs.Model'],
-            remappings=[
-                ('/world/panda_world/model/panda/joint_state', '/joint_states')
-            ],
+            parameters=[{'use_sim_time': True}],
             output='screen'
         ),
 
@@ -75,6 +74,7 @@ def generate_launch_description():
                 {'ompl': ompl_yaml},
                 moveit_controllers,
                 {'publish_robot_description_semantic': True},
+                {'use_sim_time': True},
             ],
             output='screen'
         ),

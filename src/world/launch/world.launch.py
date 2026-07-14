@@ -1,26 +1,39 @@
+import os
+import shutil
 from launch import LaunchDescription
-from launch.actions import ExecuteProcess, SetEnvironmentVariable
+from launch.actions import ExecuteProcess, SetEnvironmentVariable, TimerAction, OpaqueFunction, IncludeLaunchDescription
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
-import os
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 
-def generate_launch_description():
+def _prepare_and_launch(context, *args, **kwargs):
     pkg_share = get_package_share_directory('world')
-    world_path = os.path.join(
-        get_package_share_directory('world'),
-        'worlds',
-        'panda_world.sdf'
-    )
-    models_path = os.path.join(pkg_share, 'models')
+    world_path = os.path.join(pkg_share, 'worlds', 'panda_world.sdf')
+    controllers_yaml = os.path.join(pkg_share, 'config', 'panda_ros2_controllers.yaml')
 
-    return LaunchDescription([
-        SetEnvironmentVariable('GZ_SIM_RESOURCE_PATH', models_path),
+    tmp_models_root = '/tmp/ros_llm_middleware_gz_models'
+    if os.path.exists(tmp_models_root):
+        shutil.rmtree(tmp_models_root)
+    shutil.copytree(os.path.join(pkg_share, 'models'), tmp_models_root)
+    patched_model_sdf = os.path.join(tmp_models_root, 'panda', 'model.sdf')
+    with open(patched_model_sdf, 'r') as f:
+        content = f.read()
+    content = content.replace('__PANDA_ROS2_CONTROLLERS_YAML__', controllers_yaml)
+    with open(patched_model_sdf, 'w') as f:
+        f.write(content)
 
-        ExecuteProcess(
-            cmd=['gz', 'sim', world_path],
-            output='screen'
+    return [
+        # Start moveit2 (robot_state_publisher) first
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                os.path.join(get_package_share_directory('world'), 'launch', 'moveit2.launch.py')
+            )
         ),
 
+        SetEnvironmentVariable('GZ_SIM_RESOURCE_PATH', tmp_models_root),
+        SetEnvironmentVariable('GZ_SIM_SYSTEM_PLUGIN_PATH', '/opt/ros/jazzy/lib'),
+
+        # Clock bridge starts immediately
         Node(
             package='ros_gz_bridge',
             executable='parameter_bridge',
@@ -29,11 +42,44 @@ def generate_launch_description():
             output='screen'
         ),
 
-        Node(
-            package='ros_gz_bridge',
-            executable='parameter_bridge',
-            name='joint_state_bridge',
-            arguments=['/world/panda_world/model/panda/joint_state@sensor_msgs/msg/JointState[gz.msgs.Model'],
-            output='screen'
-        )
+        # Delay Gazebo by 3 seconds to give robot_state_publisher time to publish /robot_description
+        TimerAction(
+            period=3.0,
+            actions=[
+                ExecuteProcess(
+                    cmd=['gz', 'sim', world_path],
+                    output='screen'
+                ),
+            ]
+        ),
+
+        # Spawn controllers after 10 seconds (Gazebo needs time to load)
+        TimerAction(
+        period=10.0,
+        actions=[
+            Node(
+                package='controller_manager',
+                executable='spawner',
+                arguments=['joint_state_broadcaster'],
+                output='screen',
+            ),
+            Node(
+                package='controller_manager',
+                executable='spawner',
+                arguments=['panda_arm_controller'],
+                output='screen',
+            ),
+            Node(
+                package='controller_manager',
+                executable='spawner',
+                arguments=['robotiq_gripper_controller'],
+                output='screen',
+            ),
+        ]
+    ),
+    ]
+
+def generate_launch_description():
+    return LaunchDescription([
+        OpaqueFunction(function=_prepare_and_launch)
     ])

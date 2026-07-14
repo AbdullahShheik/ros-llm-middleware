@@ -1,0 +1,29 @@
+# Required by moveit_py (MoveItCpp) in addition to the OMPL plugin config
+# set via MoveItConfigsBuilder().planning_pipelines(...) in the launch file.
+# Without this, moveit_py raises:
+#   "Failed to load any planning pipelines"
+#   "Failed to load planning pipelines from parameter server"
+
+planning_scene_monitor_options:
+  name: "planning_scene_monitor"
+  robot_description: "robot_description"
+  joint_state_topic: "/joint_states"
+  attached_collision_object_topic: "/moveit_cpp/planning_scene_monitor"
+  publish_planning_scene_topic: "/moveit_cpp/publish_planning_scene"
+  monitored_planning_scene_topic: "/moveit_cpp/monitored_planning_scene"
+  wait_for_initial_state_timeout: 10.0
+
+# Which planning pipeline(s) moveit_py should load
+planning_pipelines:
+  pipeline_names: ["ompl"]
+
+# Default parameters used when PlanningComponent.plan() is called with
+# no explicit single_plan_parameters / multi_plan_parameters argument
+# (this is how actuator_node.py calls it).
+plan_request_params:
+  planning_attempts: 10
+  planning_pipeline: ompl
+  planner_id: "RRTConnectkConfigDefault"
+  planning_time: 10.0
+  max_velocity_scaling_factor: 0.3
+  max_acceleration_scaling_factor: 0.3

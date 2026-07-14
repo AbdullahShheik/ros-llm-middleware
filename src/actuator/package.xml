@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>actuator</name>
+  <version>0.1.0</version>
+  <description>Layer 3 Actuator node for ros-llm-middleware. Plans and executes MoveIt2 trajectories from /execution_command.</description>
+  <maintainer email="abdullahshheikh2@gmail.com">Abdullah Shaikh</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclpy</depend>
+  <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>moveit_py</depend>
+  <depend>moveit_configs_utils</depend>
+  <depend>moveit_resources_panda_moveit_config</depend>
+  <depend>moveit_resources_panda_description</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
