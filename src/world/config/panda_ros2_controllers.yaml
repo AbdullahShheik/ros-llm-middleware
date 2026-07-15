@@ -19,7 +19,7 @@ controller_manager:
       type: joint_trajectory_controller/JointTrajectoryController
 
     robotiq_gripper_controller:
-      type: parallel_gripper_action_controller/GripperActionController
+      type: position_controllers/GripperActionController
 
 panda_arm_controller:
   ros__parameters:

@@ -53,26 +53,29 @@ def _prepare_and_launch(context, *args, **kwargs):
             ]
         ),
 
-        # Spawn controllers after 10 seconds (Gazebo needs time to load)
+        # Spawn controllers 5s after Gazebo starts. Each spawner polls/retries
+        # for controller_manager's services via --controller-manager-timeout,
+        # so this outer delay only needs to avoid spawning before the gz sim
+        # process itself has started, not to guess full model-load time.
         TimerAction(
-        period=10.0,
+        period=5.0,
         actions=[
             Node(
                 package='controller_manager',
                 executable='spawner',
-                arguments=['joint_state_broadcaster'],
+                arguments=['joint_state_broadcaster', '--controller-manager-timeout', '60', '--switch-timeout', '60', '--service-call-timeout', '60'],
                 output='screen',
             ),
             Node(
                 package='controller_manager',
                 executable='spawner',
-                arguments=['panda_arm_controller'],
+                arguments=['panda_arm_controller', '--controller-manager-timeout', '60', '--switch-timeout', '60', '--service-call-timeout', '60'],
                 output='screen',
             ),
             Node(
                 package='controller_manager',
                 executable='spawner',
-                arguments=['robotiq_gripper_controller'],
+                arguments=['robotiq_gripper_controller', '--controller-manager-timeout', '60', '--switch-timeout', '60', '--service-call-timeout', '60'],
                 output='screen',
             ),
         ]
