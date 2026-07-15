@@ -47,15 +47,15 @@ def _prepare_and_launch(context, *args, **kwargs):
             period=3.0,
             actions=[
                 ExecuteProcess(
-                    cmd=['gz', 'sim', world_path],
+                    cmd=['gz', 'sim', '-r', world_path],
                     output='screen'
                 ),
             ]
         ),
 
-        # Spawn controllers after 10 seconds (Gazebo needs time to load)
+        # Spawn and activate controllers after 15 seconds (Gazebo needs time to load)
         TimerAction(
-        period=10.0,
+        period=15.0,
         actions=[
             Node(
                 package='controller_manager',
