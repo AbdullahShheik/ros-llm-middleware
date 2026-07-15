@@ -53,30 +53,63 @@ def _prepare_and_launch(context, *args, **kwargs):
             ]
         ),
 
-        # Spawn and activate controllers after 15 seconds (Gazebo needs time to load)
+        # Spawn controllers + start perception and dispatcher at 15s
         TimerAction(
-        period=15.0,
-        actions=[
-            Node(
-                package='controller_manager',
-                executable='spawner',
-                arguments=['joint_state_broadcaster'],
-                output='screen',
-            ),
-            Node(
-                package='controller_manager',
-                executable='spawner',
-                arguments=['panda_arm_controller'],
-                output='screen',
-            ),
-            Node(
-                package='controller_manager',
-                executable='spawner',
-                arguments=['robotiq_gripper_controller'],
-                output='screen',
-            ),
-        ]
-    ),
+            period=15.0,
+            actions=[
+                Node(
+                    package='controller_manager',
+                    executable='spawner',
+                    arguments=['joint_state_broadcaster'],
+                    output='screen',
+                ),
+                Node(
+                    package='controller_manager',
+                    executable='spawner',
+                    arguments=['panda_arm_controller'],
+                    output='screen',
+                ),
+                Node(
+                    package='controller_manager',
+                    executable='spawner',
+                    arguments=['robotiq_gripper_controller'],
+                    output='screen',
+                ),
+                # Perception: reads Gazebo poses, publishes /object_map
+                Node(
+                    package='perception',
+                    executable='perception_node.py',
+                    name='perception_node',
+                    output='screen',
+                ),
+                # IK feasibility service
+                Node(
+                    package='action_dispatcher',
+                    executable='ik_feasibility_service.py',
+                    name='ik_feasibility_service',
+                    output='screen',
+                ),
+                # Action dispatcher
+                Node(
+                    package='action_dispatcher',
+                    executable='dispatcher_node.py',
+                    name='action_dispatcher',
+                    output='screen',
+                ),
+            ]
+        ),
+
+        # Actuator at 20s: needs controllers active first
+        TimerAction(
+            period=20.0,
+            actions=[
+                IncludeLaunchDescription(
+                    PythonLaunchDescriptionSource(
+                        os.path.join(get_package_share_directory('actuator'), 'launch', 'actuator.launch.py')
+                    )
+                ),
+            ]
+        ),
     ]
 
 def generate_launch_description():
