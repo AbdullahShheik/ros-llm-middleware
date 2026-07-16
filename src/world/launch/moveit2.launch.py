@@ -2,6 +2,7 @@ from launch import LaunchDescription
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 import os
+import re
 import yaml
 import subprocess
 
@@ -24,9 +25,31 @@ def generate_launch_description():
     count = robot_description.count('ros2_control')
     print(f'[DEBUG] robot_description has {count} ros2_control tags', file=sys.stderr)
 
-    # Load SRDF
-    robot_description_semantic = load_yaml.__class__  # placeholder
-    with open(os.path.join(moveit_config_path, 'config', 'panda.srdf'), 'r') as f:
+    # moveit_resources_panda_description ships no arm-only xacro, so the
+    # Franka panda_finger_joint1/2 still get emitted even though the
+    # fingers are physically replaced by the Robotiq gripper and are not
+    # present in Gazebo's model.sdf. Freeze them as fixed joints so
+    # CurrentStateMonitor doesn't wait forever for a /joint_states value
+    # that will never arrive ("Missing panda_finger_joint1").
+    robot_description = robot_description.replace(
+        '<joint name="panda_finger_joint1" type="prismatic">',
+        '<joint name="panda_finger_joint1" type="fixed">',
+    )
+    robot_description = robot_description.replace(
+        '<joint name="panda_finger_joint2" type="prismatic">',
+        '<joint name="panda_finger_joint2" type="fixed">',
+    )
+    robot_description = re.sub(r'<mimic joint="panda_finger_joint1"\s*/>', '', robot_description)
+
+    # Load SRDF -- use the world package's Robotiq-adapted SRDF (defines the
+    # Robotiq 2F-85 "hand" group), not the stock moveit_resources SRDF which
+    # references the Franka hand's panda_finger_joint1/2. Those joints don't
+    # exist in this robot's URDF (replaced by the Robotiq gripper), so
+    # loading the stock SRDF here left move_group's CurrentStateMonitor
+    # waiting forever for a /joint_states value that never arrives
+    # ("Missing panda_finger_joint1"), while actuator_node.py (which already
+    # loads the correct SRDF from world_pkg_path) worked fine.
+    with open(os.path.join(world_pkg_path, 'config', 'panda.srdf'), 'r') as f:
         robot_description_semantic = f.read()
 
     # Load kinematics
