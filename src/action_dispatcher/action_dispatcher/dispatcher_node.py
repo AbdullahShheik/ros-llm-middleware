@@ -7,6 +7,7 @@ from rclpy.executors import MultiThreadedExecutor
 from std_msgs.msg import String
 from ros_llm_interfaces.srv import CheckIKFeasibility
 import json
+import threading
 
 # Object name mapping from LLM team naming to /object_map naming
 OBJECT_NAME_MAP = {
@@ -56,6 +57,19 @@ class ActionDispatcher(Node):
             10
         )
 
+        # Feedback publisher: every subtask this dispatcher rejects
+        # (unknown skill, unknown object, IK-infeasible, missing pose)
+        # must still be reported here. Layer1 tracks one plan "active" at
+        # a time and blocks all further instructions until every dispatched
+        # task's feedback arrives -- a silently dropped subtask (log +
+        # return, no feedback) leaves Layer1 waiting forever and wedges
+        # the whole session, not just that one task.
+        self.feedback_pub = self.create_publisher(
+            String,
+            '/execution_feedback',
+            10
+        )
+
         # IK feasibility service client
         self.ik_client = self.create_client(
             CheckIKFeasibility,
@@ -73,6 +87,7 @@ class ActionDispatcher(Node):
         self.get_logger().info(f'Received subtask: {subtask}')
 
         task_id = subtask.get('id')
+        plan_id = subtask.get('plan_id', '')
         required_skills = subtask.get('required_skills', [])
         args = subtask.get('args', {})
         llm_object_name = args.get('object_name')
@@ -81,6 +96,7 @@ class ActionDispatcher(Node):
         object_name = OBJECT_NAME_MAP.get(llm_object_name)
         if object_name is None:
             self.get_logger().error(f'Unknown object name: {llm_object_name}')
+            self._reject(task_id, plan_id, 'dispatch', f'Unknown object name: {llm_object_name}')
             return
 
         #determine robot type from skill
@@ -88,6 +104,7 @@ class ActionDispatcher(Node):
         robot_type = SKILL_TO_ROBOT.get(skill)
         if robot_type is None:
             self.get_logger().error(f'Unknown skill: {skill}')
+            self._reject(task_id, plan_id, 'dispatch', f'Unknown/unsupported skill: {skill}')
             return
 
         #for arm tasks, check IK feasibility
@@ -95,11 +112,13 @@ class ActionDispatcher(Node):
             feasible = self.check_ik(object_name)
             if not feasible:
                 self.get_logger().warn(f'IK check failed for {object_name}, task {task_id} rejected')
+                self._reject(task_id, plan_id, 'ik_check', f'IK check failed for {object_name}')
                 return
 
         #look up pose from object map
         if object_name not in self.object_map:
             self.get_logger().error(f'Object {object_name} not in object map')
+            self._reject(task_id, plan_id, 'dispatch', f'Object {object_name} not in object map')
             return
 
         pose = self.object_map[object_name]
@@ -107,6 +126,7 @@ class ActionDispatcher(Node):
         #dispatch to executor
         execution_cmd = json.dumps({
             'task_id': task_id,
+            'plan_id': plan_id,
             'action': skill,
             'robot_type': robot_type,
             'pose': pose
@@ -115,6 +135,21 @@ class ActionDispatcher(Node):
         msg_out.data = execution_cmd
         self.execution_command_pub.publish(msg_out)
         self.get_logger().info(f'Task {task_id} dispatched to {robot_type} executor with pose {pose}')
+
+    def _reject(self, task_id, plan_id, stage, detail):
+        """Report a subtask this dispatcher cannot route so Layer1's
+        feedback tracking sees a terminal (failed) result instead of
+        waiting forever for a task that will never produce one."""
+        fb = {
+            'plan_id': plan_id,
+            'task_id': task_id,
+            'status': 'failed',
+            'stage': stage,
+            'detail': detail,
+        }
+        out = String()
+        out.data = json.dumps(fb)
+        self.feedback_pub.publish(out)
 
     def check_ik(self, object_name):
         if not self.ik_client.wait_for_service(timeout_sec=3.0):
@@ -126,8 +161,16 @@ class ActionDispatcher(Node):
 
         future = self.ik_client.call_async(request)
 
-        while not future.done():
-            pass
+        # Block this callback's thread on an Event instead of busy-spinning
+        # on future.done() -- a tight spin loop here starves the
+        # MultiThreadedExecutor's other worker threads (including the ones
+        # needed to process the very service response we're waiting for
+        # when the pool is small), and burns a full CPU core doing nothing.
+        done_event = threading.Event()
+        future.add_done_callback(lambda _f: done_event.set())
+        if not done_event.wait(timeout=10.0):
+            self.get_logger().warn('IK feasibility check timed out')
+            return False
 
         if future.result() is not None:
             return future.result().feasible

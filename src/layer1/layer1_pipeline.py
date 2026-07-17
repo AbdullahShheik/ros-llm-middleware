@@ -555,7 +555,17 @@ def run_ros_node(robot_config: dict):
                 )
                 print_dag(plan, G)
                 self.start_plan_dispatch(plan, G)
-            except RuntimeError as e:
+            except Exception as e:
+                # Catch everything, not just RuntimeError: decompose_instruction
+                # only retries on malformed LLM JSON -- a network blip, rate
+                # limit, or any other Groq API error propagates straight out
+                # of the client call uncaught. Left as RuntimeError-only, an
+                # unhandled exception here escapes this callback and takes
+                # down rclpy.spin(), killing the whole node -- meaning a
+                # single transient API failure on the *second* instruction
+                # (or any instruction after the first) permanently ends the
+                # session, since active_plan was never set and nothing
+                # restarts the node. Log and stay alive for the next attempt.
                 self.get_logger().error(f"Decomposition failed: {e}")
 
         def start_plan_dispatch(self, plan: dict, G: nx.DiGraph):
@@ -613,6 +623,15 @@ def run_ros_node(robot_config: dict):
                 self.publish_current_wave()
 
         def feedback_callback(self, msg: String):
+            try:
+                self._handle_feedback(msg)
+            except Exception as e:
+                # As in instruction_callback: an uncaught exception here
+                # would propagate out of rclpy.spin() and kill the node,
+                # permanently wedging every instruction after this one.
+                self.get_logger().error(f"Error handling feedback: {e}")
+
+        def _handle_feedback(self, msg: String):
             feedback = msg.data.strip()
             if not feedback:
                 return
@@ -625,7 +644,7 @@ def run_ros_node(robot_config: dict):
                 )
                 return
 
-            plan_id, task_id, status = self.parse_feedback(feedback)
+            plan_id, task_id, status, stage = self.parse_feedback(feedback)
 
             if plan_id and plan_id != self.active_plan["plan_id"]:
                 self.get_logger().warn(
@@ -650,6 +669,18 @@ def run_ros_node(robot_config: dict):
                     f"aborting plan {self.active_plan['plan_id']}."
                 )
                 self.clear_active_plan()
+                return
+
+            # The actuator publishes multiple intermediate progress
+            # messages per task (e.g. "arm_motion", "gripper") before its
+            # final "complete" stage. Only "complete" means the task is
+            # actually done — treating any success feedback as done would
+            # advance to the next wave/instruction while the actuator is
+            # still mid-sequence on this one.
+            if stage != "complete":
+                self.get_logger().info(
+                    f"Progress for task {task_id}: stage={stage} status={status}"
+                )
                 return
 
             if task_id not in self.pending_feedback:
@@ -680,6 +711,11 @@ def run_ros_node(robot_config: dict):
             plan_id = None
             task_id = None
             status = None
+            # Plain string feedback (no JSON, no "stage") is treated as an
+            # immediate terminal signal for backwards compatibility, e.g.
+            # the manual `ros2 topic pub ... "data: 'T1'"` test in this
+            # function's docstring.
+            stage = "complete"
 
             try:
                 parsed = json.loads(feedback)
@@ -700,12 +736,15 @@ def run_ros_node(robot_config: dict):
                 raw_status = parsed.get("status")
                 if raw_status is not None:
                     status = str(raw_status).strip().lower()
+                raw_stage = parsed.get("stage")
+                if raw_stage is not None:
+                    stage = str(raw_stage).strip().lower()
             elif isinstance(parsed, str):
                 candidate = parsed.strip()
                 if candidate in self.task_map:
                     task_id = candidate
 
-            return plan_id, task_id, status
+            return plan_id, task_id, status, stage
 
         def clear_active_plan(self):
             self.active_plan = None

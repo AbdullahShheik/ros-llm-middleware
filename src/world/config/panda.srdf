@@ -120,6 +120,26 @@
   <disable_collisions link1="panda_rightfinger" link2="robotiq_85_base_link" reason="Never"/>
   <disable_collisions link1="panda_rightfinger" link2="robotiq_85_left_inner_knuckle_link" reason="Never"/>
   <disable_collisions link1="panda_rightfinger" link2="robotiq_85_right_inner_knuckle_link" reason="Never"/>
+  <!-- The pairs above missed the links that actually move inward when the
+       gripper closes (knuckle/finger/finger_tip). The frozen Franka finger
+       meshes sit right where those Robotiq links travel through when
+       closing on an object, so every plan requested after a grasp got
+       rejected by CheckStartStateCollision ("2 contact(s) detected:
+       panda_leftfinger - robotiq_85_left_finger_tip_link, ..."), even
+       though the grasp itself succeeded; the arm just could never move
+       again afterward, which looked like "picks up but never lifts". -->
+  <disable_collisions link1="panda_leftfinger" link2="robotiq_85_left_knuckle_link" reason="Never"/>
+  <disable_collisions link1="panda_leftfinger" link2="robotiq_85_right_knuckle_link" reason="Never"/>
+  <disable_collisions link1="panda_leftfinger" link2="robotiq_85_left_finger_link" reason="Never"/>
+  <disable_collisions link1="panda_leftfinger" link2="robotiq_85_right_finger_link" reason="Never"/>
+  <disable_collisions link1="panda_leftfinger" link2="robotiq_85_left_finger_tip_link" reason="Never"/>
+  <disable_collisions link1="panda_leftfinger" link2="robotiq_85_right_finger_tip_link" reason="Never"/>
+  <disable_collisions link1="panda_rightfinger" link2="robotiq_85_left_knuckle_link" reason="Never"/>
+  <disable_collisions link1="panda_rightfinger" link2="robotiq_85_right_knuckle_link" reason="Never"/>
+  <disable_collisions link1="panda_rightfinger" link2="robotiq_85_left_finger_link" reason="Never"/>
+  <disable_collisions link1="panda_rightfinger" link2="robotiq_85_right_finger_link" reason="Never"/>
+  <disable_collisions link1="panda_rightfinger" link2="robotiq_85_left_finger_tip_link" reason="Never"/>
+  <disable_collisions link1="panda_rightfinger" link2="robotiq_85_right_finger_tip_link" reason="Never"/>
   <passive_joint name="panda_finger_joint1"/>
   <passive_joint name="panda_finger_joint2"/>
 </robot>
