@@ -95,6 +95,7 @@ FEW_SHOT_EXAMPLES = """
 Instruction: "Pick up the red block and place it on the shelf."
 Output:
 {
+  "status": "ok",
   "plan_id": "plan_001",
   "original_instruction": "Pick up the red block and place it on the shelf.",
   "subtasks": [
@@ -128,10 +129,27 @@ Output:
   ]
 }
 
-========== EXAMPLE 2 — Inspect then act (L2) ==========
+========== EXAMPLE 1B - Clarification needed ==========
+Instruction: "Put the thing over there."
+Output:
+{
+  "status": "clarification_needed",
+  "reason": "Ambiguous object and target location: 'the thing' and 'over there'."
+}
+
+========== EXAMPLE 1C - Infeasible ==========
+Instruction: "Write a Python script to calculate the Fibonacci sequence."
+Output:
+{
+  "status": "infeasible",
+  "reason": "The instruction is outside the robotic arm manipulation domain."
+}
+
+========== EXAMPLE 2 - Inspect then act (L2) ==========
 Instruction: "Inspect the blue cylinder and then push it 5cm to the right."
 Output:
 {
+  "status": "ok",
   "plan_id": "plan_002",
   "original_instruction": "Inspect the blue cylinder and then push it 5cm to the right.",
   "subtasks": [
@@ -169,6 +187,7 @@ Output:
 Instruction: "Pick up the green cube and the yellow cone and place both on the tray."
 Output:
 {
+  "status": "ok",
   "plan_id": "plan_003",
   "original_instruction": "Pick up the green cube and the yellow cone and place both on the tray.",
   "subtasks": [
@@ -230,13 +249,25 @@ Your job is to take a high-level natural language instruction and break it down
 into atomic subtasks the arm can execute.
 
 Rules you must follow:
-1. required_skills must only contain skill names from the provided skill list. No other values allowed.
-2. Do NOT assign tasks to robots. That is handled by a separate layer.
-3. Every subtask must have a unique id in the format T1, T2, T3 ...
-4. dependencies must only reference ids of other subtasks in the same plan.
-5. If a subtask has no prerequisites, set dependencies to an empty list [].
-6. Think step by step about the physical actions needed and their order before writing JSON.
-7. Output ONLY the raw JSON. No explanation, no markdown, no code fences."""
+1. BEFORE decomposing, classify the instruction into exactly one status:
+   "ok", "clarification_needed", or "infeasible".
+2. Use "ok" only when the instruction is clear, physically executable, and can be
+   decomposed using only the provided robotic arm skills.
+3. Use "clarification_needed" when an unresolved referent such as "it", "the thing",
+   or "over there" cannot be grounded in the environment or skill registry. Return
+   only status and reason; do not produce a plan.
+4. Use "infeasible" when the instruction is unambiguous but cannot be executed:
+   outside the robot domain, missing required skills, physically impossible,
+   temporally impossible, or self-contradictory. Return only status and reason;
+   do not produce a plan.
+5. For status "ok", required_skills must only contain skill names from the provided
+   skill list. No other values allowed.
+6. Do NOT assign tasks to robots. That is handled by a separate layer.
+7. Every subtask must have a unique id in the format T1, T2, T3 ...
+8. dependencies must only reference ids of other subtasks in the same plan.
+9. If a subtask has no prerequisites, set dependencies to an empty list [].
+10. Think step by step about the physical actions needed and their order before writing JSON.
+11. Output ONLY the raw JSON. No explanation, no markdown, no code fences."""
 
 
 def build_prompt(instruction: str,
@@ -253,7 +284,9 @@ def build_prompt(instruction: str,
         "Use generic location names such as object_position, target_location, home_position."
     )
 
-    schema = f"""{{
+    schema = f"""For status "ok", output this flat structure:
+{{
+  "status": "ok",
   "plan_id": "{plan_id}",
   "original_instruction": "<copy the instruction exactly>",
   "subtasks": [
@@ -267,6 +300,18 @@ def build_prompt(instruction: str,
       "priority": "<integer, lower = higher priority>"
     }}
   ]
+}}
+
+For status "clarification_needed", output this structure and no plan:
+{{
+  "status": "clarification_needed",
+  "reason": "<short reason naming what is ambiguous>"
+}}
+
+For status "infeasible", output this structure and no plan:
+{{
+  "status": "infeasible",
+  "reason": "<short reason naming why it cannot be executed>"
 }}"""
 
     return f"""
@@ -277,7 +322,8 @@ def build_prompt(instruction: str,
 {env_section}
 
 === OUTPUT SCHEMA ===
-Your output must exactly match this structure. Use this plan_id: {plan_id}
+First classify the instruction, then output exactly one of these JSON structures.
+Use this plan_id for status "ok": {plan_id}
 {schema}
 
 === FEW-SHOT EXAMPLES ===
@@ -409,6 +455,20 @@ def decompose_instruction(
             error_suffix = (
                 f"\n\nYour previous response was not valid JSON. "
                 f"Error: {e}. Output ONLY a raw JSON object."
+            )
+            continue
+
+        status = str(plan.get("status", "ok")).strip().lower()
+        if status in {"clarification_needed", "infeasible"}:
+            reason = plan.get("reason", "No reason provided.")
+            print(f"  [STOP] {status}: {reason}")
+            raise RuntimeError(f"{status}: {reason}")
+
+        if status != "ok":
+            print(f"  [ERROR] Invalid status: {status}")
+            error_suffix = (
+                "\n\nYour previous response had an invalid status. "
+                "Set status to exactly one of: ok, clarification_needed, infeasible."
             )
             continue
 
