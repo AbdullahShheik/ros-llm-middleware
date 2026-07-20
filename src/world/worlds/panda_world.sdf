@@ -20,22 +20,19 @@
 
     <gui fullscreen="0">
 
-      <!-- 3D scene -->
       <plugin filename="GzScene3D" name="3D View">
         <ignition-gui>
           <title>3D View</title>
           <property type="bool" key="showTitleBar">false</property>
           <property type="string" key="state">docked</property>
         </ignition-gui>
-
         <engine>ogre2</engine>
         <scene>scene</scene>
         <ambient_light>0.4 0.4 0.4</ambient_light>
         <background_color>0.8 0.8 0.8</background_color>
-        <camera_pose>2 2 2 0 0.5 -2.5</camera_pose>
+        <camera_pose>4 4 3 0 0.5 -2.5</camera_pose>
       </plugin>
 
-      <!-- World control -->
       <plugin filename="WorldControl" name="World control">
         <ignition-gui>
           <title>World control</title>
@@ -44,21 +41,17 @@
           <property type="double" key="height">72</property>
           <property type="double" key="width">121</property>
           <property type="double" key="z">1</property>
-
           <property type="string" key="state">floating</property>
           <anchors target="3D View">
             <line own="left" target="left"/>
             <line own="bottom" target="bottom"/>
           </anchors>
         </ignition-gui>
-
         <play_pause>true</play_pause>
         <step>true</step>
         <start_paused>true</start_paused>
-
       </plugin>
 
-      <!-- World statistics -->
       <plugin filename="WorldStats" name="World stats">
         <ignition-gui>
           <title>World stats</title>
@@ -67,14 +60,12 @@
           <property type="double" key="height">110</property>
           <property type="double" key="width">290</property>
           <property type="double" key="z">1</property>
-
           <property type="string" key="state">floating</property>
           <anchors target="3D View">
             <line own="right" target="right"/>
             <line own="bottom" target="bottom"/>
           </anchors>
         </ignition-gui>
-
         <sim_time>true</sim_time>
         <real_time>true</real_time>
         <real_time_factor>true</real_time_factor>
@@ -85,7 +76,6 @@
         <ignition-gui>
           <property type="double" key="height">600</property>
           <property type="double" key="width">400</property>
-
           <property type="string" key="state">floating</property>
           <anchors target="3D View">
             <line own="right" target="right"/>
@@ -99,8 +89,8 @@
     <light type="directional" name="sun">
       <cast_shadows>true</cast_shadows>
       <pose>0 0 10 0 0 0</pose>
-      <diffuse>0.8 0.8 0.8 1</diffuse>
-      <specular>0.2 0.2 0.2 1</specular>
+      <diffuse>1.0 1.0 0.95 1</diffuse>
+      <specular>0.3 0.3 0.3 1</specular>
       <attenuation>
         <range>1000</range>
         <constant>0.9</constant>
@@ -108,6 +98,20 @@
         <quadratic>0.001</quadratic>
       </attenuation>
       <direction>-0.5 0.1 -0.9</direction>
+    </light>
+
+    <light type="directional" name="fill_light">
+      <cast_shadows>false</cast_shadows>
+      <pose>0 0 8 0 0 0</pose>
+      <diffuse>0.4 0.4 0.5 1</diffuse>
+      <specular>0.0 0.0 0.0 1</specular>
+      <attenuation>
+        <range>1000</range>
+        <constant>0.9</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <direction>0.5 -0.1 -0.9</direction>
     </light>
 
     <model name="ground_plane">
@@ -129,9 +133,9 @@
             </plane>
           </geometry>
           <material>
-            <ambient>0.8 0.8 0.8 1</ambient>
-            <diffuse>0.8 0.8 0.8 1</diffuse>
-            <specular>0.8 0.8 0.8 1</specular>
+            <ambient>0.6 0.6 0.55 1</ambient>
+            <diffuse>0.6 0.6 0.55 1</diffuse>
+            <specular>0.1 0.1 0.1 1</specular>
           </material>
         </visual>
       </link>
@@ -139,30 +143,12 @@
 
     <include>
       <name>panda</name>
-      <uri>
-        model://panda
-      </uri>
-      <pose>0.2 0 1.025 0 0 0</pose>
-    </include>
-
-    <include>
-      <uri>
-        https://fuel.gazebosim.org/1.0/OpenRobotics/models/Table
-      </uri>
-      <name>table1</name>
-      <pose>0 0 0 0 0 1.5708</pose>
-    </include>
-
-    <include>
-      <uri>
-        https://fuel.gazebosim.org/1.0/OpenRobotics/models/Table
-      </uri>
-      <name>table2</name>
-      <pose>0.794 0 0 0 0 1.5708</pose>
+      <uri>model://panda</uri>
+      <pose>0.2 0 0 0 0 0</pose>
     </include>
 
     <model name="red_cube">
-      <pose>0.5 0 1.025 0 0 0</pose>
+      <pose>0.5 0 0.03 0 0 0</pose>
       <link name="link">
         <inertial>
           <mass>0.1</mass>
@@ -190,7 +176,7 @@
     </model>
 
     <model name="blue_cube">
-      <pose>0.5 0.2 1.025 0 0 0</pose>
+      <pose>0.5 0.2 0.03 0 0 0</pose>
       <link name="link">
         <inertial>
           <mass>0.1</mass>
@@ -218,7 +204,7 @@
     </model>
 
     <model name="green_cube">
-      <pose>0.5 -0.2 1.025 0 0 0</pose>
+      <pose>0.5 -0.2 0.03 0 0 0</pose>
       <link name="link">
         <inertial>
           <mass>0.1</mass>
@@ -244,6 +230,116 @@
         </visual>
       </link>
     </model>
+
+    <model name="wall_north">
+      <static>true</static>
+      <pose>0 4 1.25 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>8 0.2 2.5</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>8 0.2 2.5</size></box></geometry>
+          <material>
+            <ambient>0.85 0.83 0.80 1</ambient>
+            <diffuse>0.85 0.83 0.80 1</diffuse>
+            <specular>0.1 0.1 0.1 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="wall_south">
+      <static>true</static>
+      <pose>0 -4 1.25 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>8 0.2 2.5</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>8 0.2 2.5</size></box></geometry>
+          <material>
+            <ambient>0.85 0.83 0.80 1</ambient>
+            <diffuse>0.85 0.83 0.80 1</diffuse>
+            <specular>0.1 0.1 0.1 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="wall_east">
+      <static>true</static>
+      <pose>4 0 1.25 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>0.2 8 2.5</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.2 8 2.5</size></box></geometry>
+          <material>
+            <ambient>0.85 0.83 0.80 1</ambient>
+            <diffuse>0.85 0.83 0.80 1</diffuse>
+            <specular>0.1 0.1 0.1 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="wall_west">
+      <static>true</static>
+      <pose>-4 0 1.25 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>0.2 8 2.5</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.2 8 2.5</size></box></geometry>
+          <material>
+            <ambient>0.85 0.83 0.80 1</ambient>
+            <diffuse>0.85 0.83 0.80 1</diffuse>
+            <specular>0.1 0.1 0.1 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="drop_zone">
+      <static>true</static>
+      <pose>-2 0 0.006 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><box><size>0.8 0.8 0.01</size></box></geometry>
+          <material>
+            <ambient>0.0 0.9 0.2 1</ambient>
+            <diffuse>0.0 0.9 0.2 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="floor_mat">
+      <static>true</static>
+      <pose>0 0 0.005 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>7.6 7.6 0.01</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>7.6 7.6 0.01</size></box></geometry>
+          <material>
+            <ambient>0.2 0.18 0.16 1</ambient>
+            <diffuse>0.25 0.22 0.20 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <include>
+      <name>turtlebot3_waffle</name>
+      <uri>model://turtlebot3_waffle</uri>
+      <pose>-2 0 0 0 0 0</pose>
+    </include>
 
   </world>
 </sdf>

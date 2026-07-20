@@ -40,7 +40,7 @@ from moveit.planning import MoveItPy
 import math
 
 # World -> panda_link0 frame offset — must match ik_feasibility_service.py
-FRAME_OFFSET = {"x": -0.2, "y": 0.0, "z": -1.025}
+FRAME_OFFSET = {"x": -0.2, "y": 0.0, "z": 0.0}
 
 ARM_GROUP  = "panda_arm"
 BASE_FRAME = "panda_link0"

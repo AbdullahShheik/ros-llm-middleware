@@ -64,7 +64,7 @@ class IKFeasibilityService(Node):
         ik_request.ik_request.pose_stamped.header.frame_id = 'panda_link0'
         ik_request.ik_request.pose_stamped.pose.position.x = pose['x'] - 0.2
         ik_request.ik_request.pose_stamped.pose.position.y = pose['y']
-        ik_request.ik_request.pose_stamped.pose.position.z = pose['z'] - 1.025
+        ik_request.ik_request.pose_stamped.pose.position.z = pose['z']
         ik_request.ik_request.pose_stamped.pose.orientation.w = 1.0
         ik_request.ik_request.timeout.sec = 3
         ik_request.ik_request.robot_state.is_diff = True
