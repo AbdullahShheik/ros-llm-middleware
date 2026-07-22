@@ -31,8 +31,9 @@ def _prepare_and_launch(context, *args, **kwargs):
         ),
 
         SetEnvironmentVariable('GZ_SIM_RESOURCE_PATH', 
-            tmp_models_root + ':/opt/ros/jazzy/share/turtlebot3_gazebo/models'),
-        SetEnvironmentVariable('GZ_SIM_SYSTEM_PLUGIN_PATH', '/opt/ros/jazzy/lib'),
+            tmp_models_root + ':/opt/ros/jazzy/share/turtlebot3_gazebo/models:/opt/ros/jazzy/share'),
+        SetEnvironmentVariable('GZ_SIM_SYSTEM_PLUGIN_PATH', 
+            '/opt/ros/jazzy/lib:/opt/ros/jazzy/opt/gz_sim_vendor/lib/gz-sim-8/plugins'),
 
         # Clock bridge starts immediately
         Node(
@@ -110,6 +111,19 @@ def _prepare_and_launch(context, *args, **kwargs):
                     )
                 ),
             ]
+        ),
+
+        # Bridge TurtleBot3 cmd_vel and odom between ROS2 and Gazebo
+        Node(
+            package='ros_gz_bridge',
+            executable='parameter_bridge',
+            name='turtlebot3_bridge',
+            arguments=[
+                '/cmd_vel@geometry_msgs/msg/TwistStamped]gz.msgs.Twist',
+                '/model/turtlebot3_waffle/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry',
+                '/model/turtlebot3_waffle/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
+            ],
+            output='screen',
         ),
     ]
 
