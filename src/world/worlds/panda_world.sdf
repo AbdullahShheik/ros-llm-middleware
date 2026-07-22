@@ -57,7 +57,7 @@
         </ignition-gui>
         <play_pause>true</play_pause>
         <step>true</step>
-        <start_paused>true</start_paused>
+        <start_paused>false</start_paused>
       </plugin>
 
       <plugin filename="WorldStats" name="World stats">
@@ -346,7 +346,7 @@
     <include>
       <name>turtlebot3_waffle</name>
       <uri>model://turtlebot3_waffle</uri>
-      <pose>-2 0 0 0 0 0</pose>
+      <pose>-2 0 0.02 0 0 0</pose>
     </include>
 
   </world>

@@ -3,7 +3,7 @@ import shutil
 from launch import LaunchDescription
 from launch.actions import ExecuteProcess, SetEnvironmentVariable, TimerAction, OpaqueFunction, IncludeLaunchDescription
 from launch_ros.actions import Node
-from ament_index_python.packages import get_package_share_directory
+from ament_index_python.packages import get_package_share_directory, get_package_prefix
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 
 def _prepare_and_launch(context, *args, **kwargs):
@@ -22,6 +22,8 @@ def _prepare_and_launch(context, *args, **kwargs):
     with open(patched_model_sdf, 'w') as f:
         f.write(content)
 
+    gz_sim_vendor_prefix = get_package_prefix('gz_sim_vendor')
+
     return [
         # Start moveit2 (robot_state_publisher) first
         IncludeLaunchDescription(
@@ -32,7 +34,8 @@ def _prepare_and_launch(context, *args, **kwargs):
 
         SetEnvironmentVariable('GZ_SIM_RESOURCE_PATH',
             tmp_models_root + ':' + os.path.join(get_package_share_directory('turtlebot3_gazebo'), 'models')),
-        SetEnvironmentVariable('GZ_SIM_SYSTEM_PLUGIN_PATH', '/opt/ros/jazzy/lib'),
+        SetEnvironmentVariable('GZ_SIM_SYSTEM_PLUGIN_PATH',
+            os.path.join(gz_sim_vendor_prefix, 'lib') + ':' + os.path.join(gz_sim_vendor_prefix, 'lib', 'gz-sim-8', 'plugins')),
 
         # Clock bridge starts immediately
         Node(
@@ -110,6 +113,19 @@ def _prepare_and_launch(context, *args, **kwargs):
                     )
                 ),
             ]
+        ),
+
+        # Bridge TurtleBot3 cmd_vel and odom between ROS2 and Gazebo
+        Node(
+            package='ros_gz_bridge',
+            executable='parameter_bridge',
+            name='turtlebot3_bridge',
+            arguments=[
+                '/cmd_vel@geometry_msgs/msg/TwistStamped]gz.msgs.Twist',
+                '/model/turtlebot3_waffle/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry',
+                '/model/turtlebot3_waffle/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
+            ],
+            output='screen',
         ),
     ]
 
