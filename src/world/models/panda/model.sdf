@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<sdf version="1.7">
+<sdf version="1.11">
     <model name="Panda">
         <!-- Fix To World -->
         <joint name="panda_joint_world" type="fixed">
@@ -829,11 +829,12 @@
             <axis>
                 <xyz>0 -1 0</xyz>
                 <limit><lower>-0.8</lower><upper>0.0</upper><effort>50</effort><velocity>0.5</velocity></limit>
+                <mimic joint="robotiq_85_left_knuckle_joint">
+                    <multiplier>-1</multiplier>
+                    <offset>0</offset>
+                    <reference>0</reference>
+                </mimic>
             </axis>
-            <mimic joint="robotiq_85_left_knuckle_joint">
-                <multiplier>-1</multiplier>
-                <offset>0</offset>
-            </mimic>
         </joint>
 
         <joint name="robotiq_85_left_finger_joint" type="fixed">
@@ -855,11 +856,12 @@
             <axis>
                 <xyz>0 -1 0</xyz>
                 <limit><lower>0.0</lower><upper>0.8</upper><effort>50</effort><velocity>0.5</velocity></limit>
+                <mimic joint="robotiq_85_left_knuckle_joint">
+                    <multiplier>1</multiplier>
+                    <offset>0</offset>
+                    <reference>0</reference>
+                </mimic>
             </axis>
-            <mimic joint="robotiq_85_left_knuckle_joint">
-                <multiplier>1</multiplier>
-                <offset>0</offset>
-            </mimic>
         </joint>
 
         <joint name="robotiq_85_right_inner_knuckle_joint" type="revolute">
@@ -869,11 +871,12 @@
             <axis>
                 <xyz>0 -1 0</xyz>
                 <limit><lower>-0.8</lower><upper>0.0</upper><effort>50</effort><velocity>0.5</velocity></limit>
+                <mimic joint="robotiq_85_left_knuckle_joint">
+                    <multiplier>-1</multiplier>
+                    <offset>0</offset>
+                    <reference>0</reference>
+                </mimic>
             </axis>
-            <mimic joint="robotiq_85_left_knuckle_joint">
-                <multiplier>-1</multiplier>
-                <offset>0</offset>
-            </mimic>
         </joint>
 
         <joint name="robotiq_85_left_finger_tip_joint" type="revolute">
@@ -883,11 +886,12 @@
             <axis>
                 <xyz>0 -1 0</xyz>
                 <limit><lower>-0.8</lower><upper>0.0</upper><effort>50</effort><velocity>0.5</velocity></limit>
+                <mimic joint="robotiq_85_left_knuckle_joint">
+                    <multiplier>-1</multiplier>
+                    <offset>0</offset>
+                    <reference>0</reference>
+                </mimic>
             </axis>
-            <mimic joint="robotiq_85_left_knuckle_joint">
-                <multiplier>-1</multiplier>
-                <offset>0</offset>
-            </mimic>
         </joint>
 
         <joint name="robotiq_85_right_finger_tip_joint" type="revolute">
@@ -897,11 +901,12 @@
             <axis>
                 <xyz>0 -1 0</xyz>
                 <limit><lower>0.0</lower><upper>0.8</upper><effort>50</effort><velocity>0.5</velocity></limit>
+                <mimic joint="robotiq_85_left_knuckle_joint">
+                    <multiplier>1</multiplier>
+                    <offset>0</offset>
+                    <reference>0</reference>
+                </mimic>
             </axis>
-            <mimic joint="robotiq_85_left_knuckle_joint">
-                <multiplier>1</multiplier>
-                <offset>0</offset>
-            </mimic>
         </joint>
         <!-- End-effector -->
         <link name="panda_link8">
@@ -980,9 +985,20 @@
                 <state_interface name="velocity"/>
             </joint>
         
-            <!-- Robotiq 2F-85: single actuated joint + mimic joints -->
+            <!-- Robotiq 2F-85: single actuated joint + mimic joints. The
+                 other 4 gripper joints are now real bullet-featherstone
+                 mimic constraints (see panda_world.sdf's physics engine
+                 selection), not free-floating -- driving this one joint
+                 also has to move that whole coupled 5-joint linkage.
+                 gz_ros2_control's default position_proportional_gain
+                 (0.1, tuned for a single free joint) turned out to have
+                 nowhere near enough authority for that: closing from
+                 fully open barely moved the joint at all inside a 30s
+                 wait, even completely unobstructed. -->
             <joint name="robotiq_85_left_knuckle_joint">
-                <command_interface name="position"/>
+                <command_interface name="position">
+                    <param name="position_proportional_gain">20</param>
+                </command_interface>
                 <state_interface name="position">
                     <param name="initial_value">0.0</param>
                 </state_interface>

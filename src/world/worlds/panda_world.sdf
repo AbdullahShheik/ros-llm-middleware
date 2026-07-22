@@ -1,5 +1,5 @@
 <?xml version="1.0" ?>
-<sdf version="1.7">
+<sdf version="1.11">
   <world name="panda_world">
     <physics name="1ms" type="ignored">
       <max_step_size>0.001</max_step_size>
@@ -8,6 +8,14 @@
     <plugin
       filename="ignition-gazebo-physics-system"
       name="ignition::gazebo::systems::Physics">
+      <!-- dartsim (the default engine) doesn't implement mimic joint
+           constraints (see gz-sim Physics.cc "does not support mimic
+           constraints"), which the Robotiq 2F-85's passive follower
+           joints rely on to stay synced with the actuated knuckle.
+           bullet-featherstone does support them. -->
+      <engine>
+        <filename>gz-physics-bullet-featherstone-plugin</filename>
+      </engine>
     </plugin>
     <plugin
       filename="ignition-gazebo-user-commands-system"

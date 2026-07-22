@@ -3,7 +3,7 @@ import shutil
 from launch import LaunchDescription
 from launch.actions import ExecuteProcess, SetEnvironmentVariable, TimerAction, OpaqueFunction, IncludeLaunchDescription
 from launch_ros.actions import Node
-from ament_index_python.packages import get_package_share_directory
+from ament_index_python.packages import get_package_share_directory, get_package_prefix
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 
 def _prepare_and_launch(context, *args, **kwargs):
@@ -22,6 +22,8 @@ def _prepare_and_launch(context, *args, **kwargs):
     with open(patched_model_sdf, 'w') as f:
         f.write(content)
 
+    gz_sim_vendor_prefix = get_package_prefix('gz_sim_vendor')
+
     return [
         # Start moveit2 (robot_state_publisher) first
         IncludeLaunchDescription(
@@ -30,10 +32,10 @@ def _prepare_and_launch(context, *args, **kwargs):
             )
         ),
 
-        SetEnvironmentVariable('GZ_SIM_RESOURCE_PATH', 
-            tmp_models_root + ':/opt/ros/jazzy/share/turtlebot3_gazebo/models:/opt/ros/jazzy/share'),
-        SetEnvironmentVariable('GZ_SIM_SYSTEM_PLUGIN_PATH', 
-            '/opt/ros/jazzy/lib:/opt/ros/jazzy/opt/gz_sim_vendor/lib/gz-sim-8/plugins'),
+        SetEnvironmentVariable('GZ_SIM_RESOURCE_PATH',
+            tmp_models_root + ':' + os.path.join(get_package_share_directory('turtlebot3_gazebo'), 'models')),
+        SetEnvironmentVariable('GZ_SIM_SYSTEM_PLUGIN_PATH',
+            os.path.join(gz_sim_vendor_prefix, 'lib') + ':' + os.path.join(gz_sim_vendor_prefix, 'lib', 'gz-sim-8', 'plugins')),
 
         # Clock bridge starts immediately
         Node(

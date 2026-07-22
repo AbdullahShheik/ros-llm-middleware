@@ -145,6 +145,47 @@ Output:
   "reason": "The instruction is outside the robotic arm manipulation domain."
 }
 
+========== EXAMPLE 1D - Explicit coordinate target ==========
+Instruction: "Pick up the green block and place it at 0.3, -0.4."
+Output:
+{
+  "status": "ok",
+  "plan_id": "plan_00X",
+  "original_instruction": "Pick up the green block and place it at 0.3, -0.4.",
+  "subtasks": [
+    {
+      "id": "T1",
+      "description": "Pick up the green block",
+      "required_skills": ["pick"],
+      "args": { "object_name": "green_block", "location": "green_block" },
+      "dependencies": [],
+      "parallelizable": false,
+      "priority": 1
+    },
+    {
+      "id": "T2",
+      "description": "Place the green block at 0.3, -0.4",
+      "required_skills": ["place"],
+      "args": { "object_name": "green_block", "target_location": "0.3, -0.4" },
+      "dependencies": ["T1"],
+      "parallelizable": false,
+      "priority": 2
+    },
+    {
+      "id": "T3",
+      "description": "Return arm to home position",
+      "required_skills": ["home"],
+      "args": {},
+      "dependencies": ["T2"],
+      "parallelizable": false,
+      "priority": 3
+    }
+  ]
+}
+Note how target_location above is "0.3, -0.4" -- copied verbatim from the
+instruction, not reworded to something like "target_position" or "the given
+coordinates".
+
 ========== EXAMPLE 2 - Inspect then act (L2) ==========
 Instruction: "Inspect the blue cylinder and then push it 5cm to the right."
 Output:
@@ -267,7 +308,12 @@ Rules you must follow:
 8. dependencies must only reference ids of other subtasks in the same plan.
 9. If a subtask has no prerequisites, set dependencies to an empty list [].
 10. Think step by step about the physical actions needed and their order before writing JSON.
-11. Output ONLY the raw JSON. No explanation, no markdown, no code fences."""
+11. Output ONLY the raw JSON. No explanation, no markdown, no code fences.
+12. If the instruction gives an explicit target position for a "place" skill (e.g.
+   coordinates like "0.3, 0.4" or "(0.3, -0.2)"), copy that value into
+   target_location verbatim, exactly as written. Do NOT paraphrase it into a
+   generic placeholder like "target_position" -- the executor parses this string
+   directly and a placeholder cannot be resolved to a real pose."""
 
 
 def build_prompt(instruction: str,
