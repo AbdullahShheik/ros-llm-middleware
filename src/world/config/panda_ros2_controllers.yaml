@@ -50,6 +50,11 @@ robotiq_gripper_controller:
   ros__parameters:
     joint: robotiq_85_left_knuckle_joint
     action_monitor_rate: 20.0
-    allow_stalling: false
+    # A friction grasp on an object stops the knuckle short of the
+    # commanded fully-closed position (0.8) -- that stall IS the grasp.
+    # With allow_stalling false the action never completes in that case:
+    # it keeps commanding effort against the held object indefinitely
+    # (shoving it) until the actuator's own 10s client-side wait times out.
+    allow_stalling: true
     stall_velocity_threshold: 0.001
     stall_timeout: 1.0
