@@ -10,6 +10,9 @@ from gz.msgs10.pose_v_pb2 import Pose_V
 # Objects we care about
 TRACKED_OBJECTS = {"red_cube", "blue_cube", "green_cube"}
 
+# Named places for mobile robot navigation
+TRACKED_LOCATIONS = {"drop_zone", "red_zone", "blue_zone", "green_zone", "yellow_zone"}
+
 class PerceptionNode(Node):
     def __init__(self):
         super().__init__('perception_node')
@@ -25,7 +28,7 @@ class PerceptionNode(Node):
     def pose_callback(self, msg):
         object_map = {}
         for pose in msg.pose:
-            if pose.name in TRACKED_OBJECTS:
+            if pose.name in TRACKED_OBJECTS or pose.name in TRACKED_LOCATIONS:
                 object_map[pose.name] = {
                     "x": round(pose.position.x, 4),
                     "y": round(pose.position.y, 4),
