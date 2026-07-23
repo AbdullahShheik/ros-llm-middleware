@@ -120,12 +120,26 @@ def _prepare_and_launch(context, *args, **kwargs):
             package='ros_gz_bridge',
             executable='parameter_bridge',
             name='turtlebot3_bridge',
-            arguments=[
-                '/cmd_vel@geometry_msgs/msg/TwistStamped]gz.msgs.Twist',
-                '/model/turtlebot3_waffle/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry',
-                '/model/turtlebot3_waffle/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
-            ],
+            parameters=[{
+                'config_file': os.path.join(pkg_share, 'config', 'turtlebot3_bridge.yaml'),
+                'qos_overrides./tf_static.publisher.durability': 'transient_local',
+            }],
             output='screen',
+        ),
+
+        Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            name='base_footprint_to_base_link',
+            arguments=['0', '0', '0.010', '0', '0', '0', 'base_footprint', 'base_link'],
+            output='screen'
+        ),
+        Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            name='base_link_to_base_scan',
+            arguments=['-0.064', '0', '0.121', '0', '0', '0', 'base_link', 'base_scan'],
+            output='screen'
         ),
     ]
 
