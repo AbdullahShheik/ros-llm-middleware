@@ -31,7 +31,7 @@
     {
       "name": "pick",
       "description": "High-level skill: move to object location then grip it",
-      "inputs": ["object_name", "location"],
+      "inputs": ["object_name"],
       "preconditions": ["object is reachable", "gripper is empty"],
       "effects": ["object is held by gripper"]
     },
