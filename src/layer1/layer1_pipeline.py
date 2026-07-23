@@ -14,6 +14,7 @@ Usage:
 
   # ROS2 node mode (publishes to /layer1/taskplan):
   python layer1_pipeline.py --ros
+  latest
 """
 
 import json
@@ -44,11 +45,17 @@ def _load_env_file(env_path: str) -> None:
 
 _PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 _load_env_file(os.path.join(_PROJECT_ROOT, ".env"))
-
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "YOUR_API_KEY")
 MODEL        = "llama-3.3-70b-versatile"
 MAX_RETRIES  = 3
 SKILLS_FILE  = os.path.join(os.path.dirname(__file__), "robot_skills.json")
+
+# get_client() returns the LLM client. Currently only Groq is supported.
+
+
+def get_client():
+    """Return a Groq client for LLM calls."""
+    return Groq(api_key=GROQ_API_KEY)
 
 
 _plan_counter = itertools.count(1)
@@ -87,7 +94,6 @@ def build_skill_prompt_block(robot_config: dict) -> str:
 
 
 # STEP 2 — Few-shot examples
-# Handwritten at L1/L2/L3 complexity following DART-LLM's
 # F component in P = (I, E, R, S, F)
 
 FEW_SHOT_EXAMPLES = """
@@ -291,8 +297,6 @@ Output ONLY the raw JSON. Nothing else.
 """
 
 # STEP 4 — LLM call
-
-
 def call_llm(client: Groq, user_prompt: str) -> str:
     """Send prompt to Groq and return raw response text."""
     completion = client.chat.completions.create(
@@ -308,8 +312,6 @@ def call_llm(client: Groq, user_prompt: str) -> str:
 
 
 # STEP 5 — DAG builder
-
-
 def build_dag(plan: dict) -> nx.DiGraph:
     """
     Build a NetworkX DiGraph from subtask dependency lists.
@@ -327,7 +329,6 @@ def build_dag(plan: dict) -> nx.DiGraph:
 
 # STEP 6 — Validator
 # Three checks following DART-LLM's validation approach
-
 
 def validate_plan(plan: dict, G: nx.DiGraph, robot_config: dict) -> list[str]:
     """
@@ -377,7 +378,6 @@ def validate_plan(plan: dict, G: nx.DiGraph, robot_config: dict) -> list[str]:
 
 # STEP 7 — Full pipeline with retry loop
 # Mirrors DART-LLM Algorithm 2 re-prompting on failure
-
 
 def decompose_instruction(
     instruction: str,
@@ -511,7 +511,7 @@ def run_ros_node(robot_config: dict):
         def __init__(self):
             super().__init__("layer1_node")
             self.robot_config = robot_config
-            self.client       = Groq(api_key=GROQ_API_KEY)
+            self.client       = get_client()
             self.active_plan = None
             self.active_graph = None
             self.task_map = {}
@@ -754,7 +754,7 @@ def main():
         return
 
     # ── Standalone modes ──────────────────────────
-    client = Groq(api_key=GROQ_API_KEY)
+    client = get_client()
 
     if args.instruction:
         # Single instruction passed as CLI argument
