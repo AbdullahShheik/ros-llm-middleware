@@ -25,14 +25,11 @@ PLACE_SURFACE_Z = 0.04
 
 _NUMBER_RE = re.compile(r'-?\d+(?:\.\d+)?')
 
-# Skill to robot type mapping
-SKILL_TO_ROBOT = {
-    "pick": "arm",
-    "place": "arm",
-    "transport": "wheeled",
-    "survey": "wheeled",
-    "navigate": "wheeled"
-}
+# Skills that don't involve a specific object (navigate to a place, survey
+# an area) -- object_name resolution is skipped for these.
+NO_OBJECT_SKILLS = {"navigate", "survey"}
+
+VALID_ROBOTS = {"arm", "wheeled"}
 
 class ActionDispatcher(Node):
     def __init__(self):
@@ -115,6 +112,17 @@ class ActionDispatcher(Node):
 
         return None
 
+    def _resolve_location(self, target_location):
+        """Resolve a named location (zone or object name) to a pose via
+        /object_map. Used for wheeled-robot skills (navigate, survey,
+        transport)."""
+        if not target_location:
+            return None
+        mapped_name = OBJECT_NAME_MAP.get(target_location, target_location)
+        if mapped_name in self.object_map:
+            return dict(self.object_map[mapped_name])
+        return None
+
     def subtask_callback(self, msg):
         subtask = json.loads(msg.data)
         self.get_logger().info(f'Received subtask: {subtask}')
@@ -138,18 +146,50 @@ class ActionDispatcher(Node):
             self._ack(task_id, plan_id, 'complete', 'Arm already at ready position')
             return
 
-        #map object name
-        object_name = OBJECT_NAME_MAP.get(llm_object_name)
-        if object_name is None:
-            self.get_logger().error(f'Unknown object name: {llm_object_name}')
-            self._reject(task_id, plan_id, 'dispatch', f'Unknown object name: {llm_object_name}')
+        # Robot assignment comes from Layer1, not derived from skill.
+        robot_type = subtask.get('robot')
+        if robot_type not in VALID_ROBOTS:
+            self.get_logger().error(f'Unknown/missing robot field: {robot_type}')
+            self._reject(task_id, plan_id, 'dispatch', f'Unknown/missing robot field: {robot_type}')
             return
 
-        #determine robot type from skill
-        robot_type = SKILL_TO_ROBOT.get(skill)
-        if robot_type is None:
-            self.get_logger().error(f'Unknown skill: {skill}')
-            self._reject(task_id, plan_id, 'dispatch', f'Unknown/unsupported skill: {skill}')
+        if robot_type == 'wheeled':
+            target_location = args.get('target_location')
+            pose = self._resolve_location(target_location)
+            if pose is None:
+                self.get_logger().error(f"Could not resolve target_location '{target_location}'")
+                self._reject(
+                    task_id, plan_id, 'dispatch',
+                    f"Could not resolve target_location '{target_location}' to a pose"
+                )
+                return
+
+            # TODO: replace with real nav feasibility service call once
+            # Nav2 is integrated. Stubbed to always succeed for now.
+            feasible = self.check_nav_feasibility(pose)
+            if not feasible:
+                self.get_logger().warn(f'Nav check failed for {target_location}, task {task_id} rejected')
+                self._reject(task_id, plan_id, 'nav_check', f'Nav check failed for {target_location}')
+                return
+
+            execution_cmd = json.dumps({
+                'task_id': task_id,
+                'plan_id': plan_id,
+                'action': skill,
+                'robot_type': robot_type,
+                'pose': pose
+            })
+            msg_out = String()
+            msg_out.data = execution_cmd
+            self.execution_command_pub.publish(msg_out)
+            self.get_logger().info(f'Task {task_id} dispatched to wheeled executor with pose {pose}')
+            return
+
+        #map object name
+        object_name = OBJECT_NAME_MAP.get(llm_object_name)
+        if object_name is None and skill not in NO_OBJECT_SKILLS:
+            self.get_logger().error(f'Unknown object name: {llm_object_name}')
+            self._reject(task_id, plan_id, 'dispatch', f'Unknown object name: {llm_object_name}')
             return
 
         # "place" moves the held object to target_location, NOT back to
@@ -179,12 +219,11 @@ class ActionDispatcher(Node):
                 return
         else:
             #for arm tasks, check IK feasibility
-            if robot_type == 'arm':
-                feasible = self.check_ik(object_name)
-                if not feasible:
-                    self.get_logger().warn(f'IK check failed for {object_name}, task {task_id} rejected')
-                    self._reject(task_id, plan_id, 'ik_check', f'IK check failed for {object_name}')
-                    return
+            feasible = self.check_ik(object_name)
+            if not feasible:
+                self.get_logger().warn(f'IK check failed for {object_name}, task {task_id} rejected')
+                self._reject(task_id, plan_id, 'ik_check', f'IK check failed for {object_name}')
+                return
 
             #look up pose from object map
             if object_name not in self.object_map:
@@ -255,6 +294,11 @@ class ActionDispatcher(Node):
         if future.result() is not None:
             return future.result().feasible
         return False
+
+    def check_nav_feasibility(self, pose):
+        """Stub -- always returns True until the real nav feasibility
+        service (backed by Nav2's compute_path_to_pose) is wired in."""
+        return True
 
 def main(args=None):
     rclpy.init(args=args)
