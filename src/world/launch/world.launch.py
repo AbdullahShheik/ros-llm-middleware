@@ -64,6 +64,7 @@ def _prepare_and_launch(context, *args, **kwargs):
                     parameters=[
                         nav2_params_file,
                         {'yaml_filename': os.path.join(pkg_share, 'maps', 'panda_world_map.yaml')},
+                        {'use_sim_time': True},
                     ],
                 ),
                 Node(
@@ -71,21 +72,21 @@ def _prepare_and_launch(context, *args, **kwargs):
                     executable='amcl',
                     name='amcl',
                     output='screen',
-                    parameters=[nav2_params_file],
+                    parameters=[nav2_params_file, {'use_sim_time': True}],
                 ),
                 Node(
                     package='nav2_planner',
                     executable='planner_server',
                     name='planner_server',
                     output='screen',
-                    parameters=[nav2_params_file],
+                    parameters=[nav2_params_file, {'use_sim_time': True}],
                 ),
                 Node(
                     package='nav2_controller',
                     executable='controller_server',
                     name='controller_server',
                     output='screen',
-                    parameters=[nav2_params_file],
+                    parameters=[nav2_params_file, {'use_sim_time': True}],
                     remappings=[('cmd_vel', 'cmd_vel_nav')],
                 ),
                 Node(
@@ -93,7 +94,7 @@ def _prepare_and_launch(context, *args, **kwargs):
                     executable='behavior_server',
                     name='behavior_server',
                     output='screen',
-                    parameters=[nav2_params_file],
+                    parameters=[nav2_params_file, {'use_sim_time': True}],
                 ),
                 Node(
                     package='nav2_bt_navigator',
@@ -103,6 +104,7 @@ def _prepare_and_launch(context, *args, **kwargs):
                     parameters=[
                         nav2_params_file,
                         {
+                            'use_sim_time': True,
                             'default_nav_to_pose_bt_xml': bt_xml_path,
                             'default_nav_through_poses_bt_xml': bt_xml_path,
                         },
@@ -113,7 +115,7 @@ def _prepare_and_launch(context, *args, **kwargs):
                     executable='velocity_smoother',
                     name='velocity_smoother',
                     output='screen',
-                    parameters=[nav2_params_file],
+                    parameters=[nav2_params_file, {'use_sim_time': True}],
                     remappings=[('cmd_vel', 'cmd_vel_nav')],
                 ),
                 Node(
@@ -121,21 +123,21 @@ def _prepare_and_launch(context, *args, **kwargs):
                     executable='collision_monitor',
                     name='collision_monitor',
                     output='screen',
-                    parameters=[nav2_params_file],
+                    parameters=[nav2_params_file, {'use_sim_time': True}],
                 ),
                 Node(
                     package='nav2_waypoint_follower',
                     executable='waypoint_follower',
                     name='waypoint_follower',
                     output='screen',
-                    parameters=[nav2_params_file],
+                    parameters=[nav2_params_file, {'use_sim_time': True}],
                 ),
                 Node(
                     package='nav2_lifecycle_manager',
                     executable='lifecycle_manager',
                     name='lifecycle_manager_navigation',
                     output='screen',
-                    parameters=[nav2_params_file],
+                    parameters=[nav2_params_file, {'use_sim_time': True}],
                 ),
             ]
         ),
