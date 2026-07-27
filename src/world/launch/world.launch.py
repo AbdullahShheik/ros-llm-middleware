@@ -10,6 +10,12 @@ def _prepare_and_launch(context, *args, **kwargs):
     pkg_share = get_package_share_directory('world')
     world_path = os.path.join(pkg_share, 'worlds', 'panda_world.sdf')
     controllers_yaml = os.path.join(pkg_share, 'config', 'panda_ros2_controllers.yaml')
+    nav2_params_file = os.path.join(pkg_share, 'config', 'nav2_params.yaml')
+    bt_xml_path = os.path.join(
+        get_package_share_directory('nav2_bt_navigator'),
+        'behavior_trees',
+        'navigate_to_pose_w_replanning_and_recovery.xml'
+    )
 
     tmp_models_root = '/tmp/ros_llm_middleware_gz_models'
     if os.path.exists(tmp_models_root):
@@ -46,12 +52,100 @@ def _prepare_and_launch(context, *args, **kwargs):
             output='screen'
         ),
 
+        # Nav2 stack at 8s: needs Gazebo world loaded + /tf, /scan flowing from turtlebot3_bridge
+        TimerAction(
+            period=8.0,
+            actions=[
+                Node(
+                    package='nav2_map_server',
+                    executable='map_server',
+                    name='map_server',
+                    output='screen',
+                    parameters=[
+                        nav2_params_file,
+                        {'yaml_filename': os.path.join(pkg_share, 'maps', 'panda_world_map.yaml')},
+                    ],
+                ),
+                Node(
+                    package='nav2_amcl',
+                    executable='amcl',
+                    name='amcl',
+                    output='screen',
+                    parameters=[nav2_params_file],
+                ),
+                Node(
+                    package='nav2_planner',
+                    executable='planner_server',
+                    name='planner_server',
+                    output='screen',
+                    parameters=[nav2_params_file],
+                ),
+                Node(
+                    package='nav2_controller',
+                    executable='controller_server',
+                    name='controller_server',
+                    output='screen',
+                    parameters=[nav2_params_file],
+                    remappings=[('cmd_vel', 'cmd_vel_nav')],
+                ),
+                Node(
+                    package='nav2_behaviors',
+                    executable='behavior_server',
+                    name='behavior_server',
+                    output='screen',
+                    parameters=[nav2_params_file],
+                ),
+                Node(
+                    package='nav2_bt_navigator',
+                    executable='bt_navigator',
+                    name='bt_navigator',
+                    output='screen',
+                    parameters=[
+                        nav2_params_file,
+                        {
+                            'default_nav_to_pose_bt_xml': bt_xml_path,
+                            'default_nav_through_poses_bt_xml': bt_xml_path,
+                        },
+                    ],
+                ),
+                Node(
+                    package='nav2_velocity_smoother',
+                    executable='velocity_smoother',
+                    name='velocity_smoother',
+                    output='screen',
+                    parameters=[nav2_params_file],
+                    remappings=[('cmd_vel', 'cmd_vel_nav')],
+                ),
+                Node(
+                    package='nav2_collision_monitor',
+                    executable='collision_monitor',
+                    name='collision_monitor',
+                    output='screen',
+                    parameters=[nav2_params_file],
+                ),
+                Node(
+                    package='nav2_waypoint_follower',
+                    executable='waypoint_follower',
+                    name='waypoint_follower',
+                    output='screen',
+                    parameters=[nav2_params_file],
+                ),
+                Node(
+                    package='nav2_lifecycle_manager',
+                    executable='lifecycle_manager',
+                    name='lifecycle_manager_navigation',
+                    output='screen',
+                    parameters=[nav2_params_file],
+                ),
+            ]
+        ),
+
         # Delay Gazebo by 3 seconds to give robot_state_publisher time to publish /robot_description
         TimerAction(
             period=3.0,
             actions=[
                 ExecuteProcess(
-                    cmd=['gz', 'sim', '-r', world_path],
+                    cmd=['gz', 'sim', '-r', '-v', '4', world_path],
                     output='screen'
                 ),
             ]

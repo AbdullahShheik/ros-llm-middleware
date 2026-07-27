@@ -136,13 +136,13 @@
         <always_on>true</always_on>
         <visualize>true</visualize>
         <pose>-0.064 0 0.121 0 0 0</pose>
-        <update_rate>10</update_rate>
+        <update_rate>5</update_rate>
         <topic>scan</topic>
         <gz_frame_id>base_scan</gz_frame_id>
         <lidar>
           <scan>
             <horizontal>
-              <samples>360</samples>
+              <samples>180</samples>
               <resolution>1.000000</resolution>
               <min_angle>0.000000</min_angle>
               <max_angle>6.280000</max_angle>

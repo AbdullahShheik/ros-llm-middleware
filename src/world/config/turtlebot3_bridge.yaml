@@ -5,7 +5,7 @@
   direction: ROS_TO_GZ
 
 - ros_topic_name: "/model/turtlebot3_waffle/odom"
-  gz_topic_name: "/model/turtlebot3_waffle/odom"
+  gz_topic_name: "/odom"
   ros_type_name: "nav_msgs/msg/Odometry"
   gz_type_name: "gz.msgs.Odometry"
   direction: GZ_TO_ROS
