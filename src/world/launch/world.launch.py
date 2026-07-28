@@ -52,9 +52,58 @@ def _prepare_and_launch(context, *args, **kwargs):
             output='screen'
         ),
 
-        # Nav2 stack at 8s: needs Gazebo world loaded + /tf, /scan flowing from turtlebot3_bridge
+        # Bridge TurtleBot3 topics between ROS2 and Gazebo
+        Node(
+            package='ros_gz_bridge',
+            executable='parameter_bridge',
+            name='turtlebot3_bridge',
+            parameters=[{
+                'config_file': os.path.join(pkg_share, 'config', 'turtlebot3_bridge.yaml'),
+                'qos_overrides./tf_static.publisher.durability': 'transient_local',
+            }],
+            output='screen',
+        ),
+
+        # Static TF: base_footprint → base_link → base_scan
+        Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            name='base_footprint_to_base_link',
+            arguments=[
+                '--x', '0', '--y', '0', '--z', '0.010',
+                '--roll', '0', '--pitch', '0', '--yaw', '0',
+                '--frame-id', 'base_footprint',
+                '--child-frame-id', 'base_link'
+            ],
+            output='screen'
+        ),
+        Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            name='base_link_to_base_scan',
+            arguments=[
+                '--x', '-0.064', '--y', '0', '--z', '0.121',
+                '--roll', '0', '--pitch', '0', '--yaw', '0',
+                '--frame-id', 'base_link',
+                '--child-frame-id', 'base_scan'
+            ],
+            output='screen'
+        ),
+
+        # Delay Gazebo by 3s to give robot_state_publisher time to publish /robot_description
         TimerAction(
-            period=8.0,
+            period=3.0,
+            actions=[
+                ExecuteProcess(
+                    cmd=['gz', 'sim', '-r', '-v', '4', world_path],
+                    output='screen'
+                ),
+            ]
+        ),
+
+        # Nav2 stack at 15s: needs Gazebo world loaded + /tf, /scan flowing
+        TimerAction(
+            period=15.0,
             actions=[
                 Node(
                     package='nav2_map_server',
@@ -87,7 +136,7 @@ def _prepare_and_launch(context, *args, **kwargs):
                     name='controller_server',
                     output='screen',
                     parameters=[nav2_params_file, {'use_sim_time': True}],
-                    remappings=[('cmd_vel', 'cmd_vel_nav')],
+                    remappings=[('cmd_vel_nav', 'cmd_vel')],  # internal → bridge topic
                 ),
                 Node(
                     package='nav2_behaviors',
@@ -111,21 +160,6 @@ def _prepare_and_launch(context, *args, **kwargs):
                     ],
                 ),
                 Node(
-                    package='nav2_velocity_smoother',
-                    executable='velocity_smoother',
-                    name='velocity_smoother',
-                    output='screen',
-                    parameters=[nav2_params_file, {'use_sim_time': True}],
-                    remappings=[('cmd_vel', 'cmd_vel_nav')],
-                ),
-                Node(
-                    package='nav2_collision_monitor',
-                    executable='collision_monitor',
-                    name='collision_monitor',
-                    output='screen',
-                    parameters=[nav2_params_file, {'use_sim_time': True}],
-                ),
-                Node(
                     package='nav2_waypoint_follower',
                     executable='waypoint_follower',
                     name='waypoint_follower',
@@ -138,17 +172,6 @@ def _prepare_and_launch(context, *args, **kwargs):
                     name='lifecycle_manager_navigation',
                     output='screen',
                     parameters=[nav2_params_file, {'use_sim_time': True}],
-                ),
-            ]
-        ),
-
-        # Delay Gazebo by 3 seconds to give robot_state_publisher time to publish /robot_description
-        TimerAction(
-            period=3.0,
-            actions=[
-                ExecuteProcess(
-                    cmd=['gz', 'sim', '-r', '-v', '4', world_path],
-                    output='screen'
                 ),
             ]
         ),
@@ -175,21 +198,18 @@ def _prepare_and_launch(context, *args, **kwargs):
                     arguments=['robotiq_gripper_controller'],
                     output='screen',
                 ),
-                # Perception: reads Gazebo poses, publishes /object_map
                 Node(
                     package='perception',
                     executable='perception_node.py',
                     name='perception_node',
                     output='screen',
                 ),
-                # IK feasibility service
                 Node(
                     package='action_dispatcher',
                     executable='ik_feasibility_service.py',
                     name='ik_feasibility_service',
                     output='screen',
                 ),
-                # Action dispatcher
                 Node(
                     package='action_dispatcher',
                     executable='dispatcher_node.py',
@@ -209,33 +229,6 @@ def _prepare_and_launch(context, *args, **kwargs):
                     )
                 ),
             ]
-        ),
-
-        # Bridge TurtleBot3 cmd_vel and odom between ROS2 and Gazebo
-        Node(
-            package='ros_gz_bridge',
-            executable='parameter_bridge',
-            name='turtlebot3_bridge',
-            parameters=[{
-                'config_file': os.path.join(pkg_share, 'config', 'turtlebot3_bridge.yaml'),
-                'qos_overrides./tf_static.publisher.durability': 'transient_local',
-            }],
-            output='screen',
-        ),
-
-        Node(
-            package='tf2_ros',
-            executable='static_transform_publisher',
-            name='base_footprint_to_base_link',
-            arguments=['0', '0', '0.010', '0', '0', '0', 'base_footprint', 'base_link'],
-            output='screen'
-        ),
-        Node(
-            package='tf2_ros',
-            executable='static_transform_publisher',
-            name='base_link_to_base_scan',
-            arguments=['-0.064', '0', '0.121', '0', '0', '0', 'base_link', 'base_scan'],
-            output='screen'
         ),
     ]
 

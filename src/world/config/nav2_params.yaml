@@ -47,26 +47,6 @@ amcl:
       z: 0.0
       yaw: 0.0
 
-docking_server:
-  ros__parameters:
-    dock_plugins: ['nova_carter_dock']
-    nova_carter_dock:
-      plugin: 'opennav_docking::SimpleChargingDock'
-    docks: ['home_dock','flex_dock1', 'flex_dock2']
-    home_dock:
-      type: 'nova_carter_dock'
-      frame: map
-      pose: [0.0, 0.0, 0.0]
-    flex_dock1:
-      type: 'nova_carter_dock'
-      frame: map
-      pose: [10.0, 10.0, 0.0]
-    flex_dock2:
-      type: 'nova_carter_dock'
-      frame: map
-      pose: [30.0, 30.0, 0.0]
-    enable_stamped_cmd_vel: true
-
 bt_navigator:
   ros__parameters:
     global_frame: map
@@ -88,19 +68,18 @@ bt_navigator:
       - assisted_teleop
       - backup
       - compute_path
-      - dock_robot
       - drive_on_heading
       - follow_path
       - nav_thru_poses
       - nav_to_pose
       - spin
-      - route
-      - undock_robot
       - wait
 
 controller_server:
   ros__parameters:
     controller_frequency: 5.0
+    enable_stamped_cmd_vel: true      # TOP LEVEL — correct position
+    cmd_vel_topic: "cmd_vel"          # direct to robot, no smoother
     min_x_velocity_threshold: 0.001
     min_y_velocity_threshold: 0.001
     min_theta_velocity_threshold: 0.001
@@ -128,9 +107,7 @@ controller_server:
       min_speed_xy: 0.0
       max_speed_xy: 0.3
       min_speed_theta: 0.0
-      # Add high threshold velocity for turtlebot 3 issue.
-      # https://github.com/ROBOTIS-GIT/turtlebot3_simulations/issues/75
-      acc_lim_x: 3.0
+      acc_lim_x: 2.5
       acc_lim_y: 0.0
       acc_lim_theta: 3.2
       decel_lim_x: -2.5
@@ -143,11 +120,12 @@ controller_server:
       linear_granularity: 0.05
       angular_granularity: 0.025
       transform_tolerance: 1.0
-      xy_goal_tolerance: 0.05
+      xy_goal_tolerance: 0.25
       trans_stopped_velocity: 0.25
       short_circuit_trajectory_evaluation: true
       stateful: true
-      critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
+      critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign",
+                "PathAlign", "PathDist", "GoalDist"]
       BaseObstacle.scale: 0.02
       PathAlign.scale: 32.0
       PathAlign.forward_point_distance: 0.1
@@ -158,44 +136,24 @@ controller_server:
       RotateToGoal.scale: 32.0
       RotateToGoal.slowing_factor: 5.0
       RotateToGoal.lookahead_time: -1.0
-    enable_stamped_cmd_vel: true
 
 local_costmap:
   local_costmap:
     ros__parameters:
-      update_frequency: 3.0
-      publish_frequency: 1.0
+      update_frequency: 5.0
+      publish_frequency: 2.0
+      transform_tolerance: 1.0
       global_frame: odom
       robot_base_frame: base_link
       rolling_window: true
       width: 3
       height: 3
       resolution: 0.05
-      robot_radius: 0.15
-      plugins: ["obstacle_layer", "voxel_layer", "inflation_layer"]
-      inflation_layer:
-        plugin: "nav2_costmap_2d::InflationLayer"
-        inflation_radius: 0.5
-        cost_scaling_factor: 5.0
+      robot_radius: 0.22
+      plugins: ["obstacle_layer", "inflation_layer"]
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: true
-        observation_sources: scan
-        scan:
-          topic: /scan
-          max_obstacle_height: 2.0
-          clearing: true
-          marking: true
-          data_type: "LaserScan"
-      voxel_layer:
-        plugin: "nav2_costmap_2d::VoxelLayer"
-        enabled: true
-        publish_voxel_map: true
-        origin_z: 0.0
-        z_resolution: 0.05
-        z_voxels: 16
-        max_obstacle_height: 2.0
-        mark_threshold: 0
         observation_sources: scan
         scan:
           topic: /scan
@@ -207,8 +165,10 @@ local_costmap:
           raytrace_min_range: 0.0
           obstacle_max_range: 2.5
           obstacle_min_range: 0.0
-      static_layer:
-        map_subscribe_transient_local: true
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        inflation_radius: 0.55
+        cost_scaling_factor: 5.0
       always_send_full_costmap: true
 
 global_costmap:
@@ -218,11 +178,15 @@ global_costmap:
       publish_frequency: 1.0
       global_frame: map
       robot_base_frame: base_link
-      transform_tolerance: 0.5
-      robot_radius: 0.15
+      transform_tolerance: 1.0
+      robot_radius: 0.22
       resolution: 0.05
       track_unknown_space: true
-      plugins: ["static_layer", "obstacle_layer", "voxel_layer", "inflation_layer"]
+      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+      static_layer:
+        plugin: "nav2_costmap_2d::StaticLayer"
+        map_subscribe_transient_local: true
+        transform_tolerance: 0.1
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: true
@@ -237,33 +201,9 @@ global_costmap:
           raytrace_min_range: 0.0
           obstacle_max_range: 2.5
           obstacle_min_range: 0.0
-      voxel_layer:
-        plugin: "nav2_costmap_2d::VoxelLayer"
-        enabled: true
-        publish_voxel_map: true
-        origin_z: 0.0
-        z_resolution: 0.05
-        z_voxels: 16
-        max_obstacle_height: 2.0
-        mark_threshold: 0
-        observation_sources: scan
-        scan:
-          topic: /scan
-          max_obstacle_height: 2.0
-          clearing: true
-          marking: true
-          data_type: "LaserScan"
-          raytrace_max_range: 3.0
-          raytrace_min_range: 0.0
-          obstacle_max_range: 2.5
-          obstacle_min_range: 0.0
-      static_layer:
-        plugin: "nav2_costmap_2d::StaticLayer"
-        map_subscribe_transient_local: true
-        transform_tolerance: 0.1
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        inflation_radius: 0.5
+        inflation_radius: 0.55
         cost_scaling_factor: 5.0
       always_send_full_costmap: true
 
@@ -309,6 +249,7 @@ behavior_server:
     local_frame: odom
     global_frame: map
     robot_base_frame: base_link
+    cmd_vel_topic: "cmd_vel"
     transform_timeout: 0.5
     simulate_ahead_time: 2.0
     max_rotational_vel: 1.0
@@ -326,115 +267,9 @@ waypoint_follower:
       enabled: true
       waypoint_pause_duration: 200
 
-collision_monitor:
-  ros__parameters:
-    base_frame_id: "base_footprint"
-    odom_frame_id: "odom"
-    cmd_vel_in_topic: "cmd_vel_smoothed"
-    cmd_vel_out_topic: "cmd_vel"
-    state_topic: "collision_monitor_state"
-    transform_tolerance: 1.0
-    source_timeout: 5.0
-    base_shift_correction: true
-    stop_pub_timeout: 2.0
-    enable_stamped_cmd_vel: true
-    use_realtime_priority: false
-    polygons: ["PolygonStop", "PolygonSlow", "FootprintApproach"]
-    PolygonStop:
-      type: "circle"
-      radius: 0.1
-      action_type: "stop"
-      min_points: 4
-      visualize: true
-      polygon_pub_topic: "polygon_stop"
-      enabled: true
-    PolygonSlow:
-      type: "polygon"
-      points: "[[0.1, 0.1], [0.1, -0.1], [-0.1, -0.1], [-0.1, 0.1]]"
-      action_type: "slowdown"
-      min_points: 4
-      slowdown_ratio: 0.3
-      visualize: true
-      polygon_pub_topic: "polygon_slowdown"
-      enabled: true
-    PolygonLimit:
-      type: "polygon"
-      points: "[[0.1, 0.1], [0.1, -0.1], [-0.1, -0.1], [-0.1, 0.1]]"
-      action_type: "limit"
-      min_points: 4
-      linear_limit: 0.4
-      angular_limit: 0.5
-      visualize: true
-      polygon_pub_topic: "polygon_limit"
-      enabled: true
-    FootprintApproach:
-      type: "polygon"
-      action_type: "approach"
-      footprint_topic: "/local_costmap/published_footprint"
-      time_before_collision: 2.0
-      simulation_time_step: 0.02
-      min_points: 6
-      visualize: False
-      enabled: true
-    VelocityPolygonStop:
-      type: "velocity_polygon"
-      action_type: "stop"
-      min_points: 6
-      visualize: true
-      enabled: False
-      polygon_pub_topic: "velocity_polygon_stop"
-      velocity_polygons: ["rotation", "translation_forward", "translation_backward", "stopped"]
-      holonomic: false
-      rotation:
-        points: "[[0.3, 0.3], [0.3, -0.3], [-0.3, -0.3], [-0.3, 0.3]]"
-        linear_min: 0.0
-        linear_max: 0.05
-        theta_min: -1.0
-        theta_max: 1.0
-      translation_forward:
-        points: "[[0.35, 0.3], [0.35, -0.3], [-0.2, -0.3], [-0.2, 0.3]]"
-        linear_min: 0.0
-        linear_max: 1.0
-        theta_min: -1.0
-        theta_max: 1.0
-      translation_backward:
-        points: "[[0.2, 0.3], [0.2, -0.3], [-0.35, -0.3], [-0.35, 0.3]]"
-        linear_min: -1.0
-        linear_max: 0.0
-        theta_min: -1.0
-        theta_max: 1.0
-      stopped:
-        points: "[[0.25, 0.25], [0.25, -0.25], [-0.25, -0.25], [-0.25, 0.25]]"
-        linear_min: -1.0
-        linear_max: 1.0
-        theta_min: -1.0
-        theta_max: 1.0
-    observation_sources: ["scan"]
-    scan:
-      source_timeout: 2.0
-      type: "scan"
-      topic: "/scan"
-      enabled: true
-
 lifecycle_manager_navigation:
   ros__parameters:
     autostart: true
+    bond_timeout: 10.0
     node_names: ['map_server', 'amcl', 'controller_server', 'planner_server',
-                 'behavior_server', 'bt_navigator', 'waypoint_follower',
-                 'velocity_smoother', 'collision_monitor']
-
-velocity_smoother:
-  ros__parameters:
-    smoothing_frequency: 20.0
-    scale_velocities: false
-    feedback: "OPEN_LOOP"
-    max_velocity: [0.5, 0.0, 2.5]
-    min_velocity: [-0.5, 0.0, -2.5]
-    deadband_velocity: [0.0, 0.0, 0.0]
-    velocity_timeout: 1.0
-    max_accel: [2.5, 0.0, 3.2]
-    max_decel: [-2.5, 0.0, -3.2]
-    odom_topic: "odom"
-    odom_duration: 0.1
-    use_realtime_priority: false
-    enable_stamped_cmd_vel: true
+                 'behavior_server', 'bt_navigator', 'waypoint_follower']
