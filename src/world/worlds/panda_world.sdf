@@ -57,7 +57,14 @@
         </ignition-gui>
         <play_pause>true</play_pause>
         <step>true</step>
-        <start_paused>false</start_paused>
+        <!-- The arm has no active ros2_control controller until
+             world.launch.py's controller-spawner stage runs; unpaused
+             physics before then lets it sag under gravity into an
+             arbitrary configuration (and, combined with the cube
+             DetachableJoints above, drag every cube along with it).
+             world.launch.py unpauses explicitly via the world's /control
+             service once the controllers are actually active. -->
+        <start_paused>true</start_paused>
       </plugin>
 
       <plugin filename="WorldStats" name="World stats">
@@ -181,6 +188,23 @@
           </material>
         </visual>
       </link>
+      <!-- Grasp-stabilization workaround: bullet-featherstone's pinch-grasp
+           contact solving isn't stable for a rigid body this small (cube
+           slips/rotates out mid-lift regardless of friction/inertia/effort
+           tuning), so actuator_node.py rigidly pins this cube to the
+           gripper via this joint the instant it detects a successful
+           grasp, instead of relying on contact friction to hold it through
+           the lift/transport/retreat sequence. Starts already attached (gz
+           has no "start detached" option for this system); actuator_node
+           force-releases every cube over these topics at startup. -->
+      <plugin filename="gz-sim-detachable-joint-system" name="gz::sim::systems::DetachableJoint">
+        <parent_link>link</parent_link>
+        <child_model>panda</child_model>
+        <child_link>robotiq_85_base_link</child_link>
+        <attach_topic>/model/red_cube/detachable_joint/attach</attach_topic>
+        <detach_topic>/model/red_cube/detachable_joint/detach</detach_topic>
+        <output_topic>/model/red_cube/detachable_joint/state</output_topic>
+      </plugin>
     </model>
 
     <model name="blue_cube">
@@ -209,6 +233,14 @@
           </material>
         </visual>
       </link>
+      <plugin filename="gz-sim-detachable-joint-system" name="gz::sim::systems::DetachableJoint">
+        <parent_link>link</parent_link>
+        <child_model>panda</child_model>
+        <child_link>robotiq_85_base_link</child_link>
+        <attach_topic>/model/blue_cube/detachable_joint/attach</attach_topic>
+        <detach_topic>/model/blue_cube/detachable_joint/detach</detach_topic>
+        <output_topic>/model/blue_cube/detachable_joint/state</output_topic>
+      </plugin>
     </model>
 
     <model name="green_cube">
@@ -237,6 +269,14 @@
           </material>
         </visual>
       </link>
+      <plugin filename="gz-sim-detachable-joint-system" name="gz::sim::systems::DetachableJoint">
+        <parent_link>link</parent_link>
+        <child_model>panda</child_model>
+        <child_link>robotiq_85_base_link</child_link>
+        <attach_topic>/model/green_cube/detachable_joint/attach</attach_topic>
+        <detach_topic>/model/green_cube/detachable_joint/detach</detach_topic>
+        <output_topic>/model/green_cube/detachable_joint/state</output_topic>
+      </plugin>
     </model>
 
     <model name="wall_north">

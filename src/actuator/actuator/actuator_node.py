@@ -23,8 +23,10 @@ via control_msgs/GripperCommand:
 Publishes feedback to /execution_feedback (std_msgs/String, JSON).
 """
 
+import functools
 import json
 import threading
+import time
 
 import rclpy
 from rclpy.node import Node
@@ -39,6 +41,9 @@ from sensor_msgs.msg import JointState
 from moveit.planning import MoveItPy
 from moveit_msgs.msg import CollisionObject, AttachedCollisionObject
 from shape_msgs.msg import SolidPrimitive
+from gz.transport13 import Node as GzNode
+from gz.msgs10.empty_pb2 import Empty as GzEmpty
+from gz.msgs10.stringmsg_pb2 import StringMsg as GzStringMsg
 import math
 
 # World -> panda_link0 frame offset — must match ik_feasibility_service.py
@@ -82,6 +87,35 @@ TRACKED_OBJECT_SIZE = 0.06
 # through the object -- which is what was actually pushing it out of
 # place -- while leaving real margin around the correct grasp pose.
 COLLISION_PROXY_SIZE = 0.04
+
+# Tracked cube model names in panda_world.sdf -- each has a
+# gz-sim DetachableJoint system whose <parent_link> is the cube's own
+# "link" and <child_link> is GRIPPER_BASE_LINK on the "panda" model, used
+# to physically pin a grasped cube to the gripper (see module docstring /
+# _attach_grasped_object). Topic names here must match the ones declared
+# on those plugins.
+DETACHABLE_CUBES = ("red_cube", "blue_cube", "green_cube")
+
+
+def _detachable_joint_topics(cube_name: str) -> dict:
+    base = f"/model/{cube_name}/detachable_joint"
+    return {"attach": f"{base}/attach", "detach": f"{base}/detach", "state": f"{base}/state"}
+
+
+DETACHABLE_JOINT_TOPICS = {name: _detachable_joint_topics(name) for name in DETACHABLE_CUBES}
+
+# Grasp-detection tolerance (fallback proximity check -- no contact sensor
+# is configured on the Robotiq fingers): how far the cube's live
+# /object_map position may be from the pose the gripper just closed at and
+# still count as "actually inside the gripper" rather than knocked away or
+# missed entirely. Half the 0.06m cube plus margin for perception noise.
+GRASP_XY_TOLERANCE = 0.035
+GRASP_Z_TOLERANCE = 0.04
+
+# How long to wait for a DetachableJoint's <output_topic> to confirm a
+# requested attach/detach actually took effect, rather than assuming a
+# published gz-transport message was received and acted on.
+JOINT_STATE_CONFIRM_TIMEOUT = 3.0
 
 
 class ActuatorNode(Node):
@@ -148,6 +182,42 @@ class ActuatorNode(Node):
             GRIPPER_ACTION,
             callback_group=self.callback_group,
         )
+
+        # gz-transport link to each cube's DetachableJoint system: one
+        # persistent attach/detach Publisher per cube (created once here
+        # rather than per-call, since a freshly-advertised gz-transport
+        # publisher needs a brief discovery window before a subscriber on
+        # another process actually receives its first message), plus a
+        # subscription to each <output_topic> so attach/detach can be
+        # confirmed as physically real instead of assumed from the
+        # gz-transport publish call succeeding.
+        self._gz_node = GzNode()
+        self._detach_state_lock = threading.Lock()
+        self._detach_state = {}  # cube_name -> "attached" | "detached"
+        self._detach_state_event = threading.Event()
+        self._attach_pub = {}
+        self._detach_pub = {}
+        for name, topics in DETACHABLE_JOINT_TOPICS.items():
+            self._attach_pub[name] = self._gz_node.advertise(topics["attach"], GzEmpty)
+            self._detach_pub[name] = self._gz_node.advertise(topics["detach"], GzEmpty)
+            self._gz_node.subscribe(
+                GzStringMsg, topics["state"], functools.partial(self._on_detachable_state, name)
+            )
+
+        # gz-sim's DetachableJoint system starts every cube already
+        # rigidly joined to the gripper at world load -- there is no
+        # "start detached" SDF option. world.launch.py already releases
+        # every cube shortly after Gazebo comes up (long before this node
+        # even starts, since the arm free-falls under gravity with no
+        # active controller until 15s -- see that launch file for why it
+        # can't wait for this node). This is just a defensive backstop for
+        # e.g. re-running this node on its own against an already-loaded
+        # world. Repeated with short gaps to ride out the publisher/
+        # subscriber discovery window.
+        for _ in range(5):
+            for name in DETACHABLE_CUBES:
+                self._detach_pub[name].publish(GzEmpty())
+            time.sleep(0.1)
 
         self.get_logger().info("Initializing MoveItPy (this can take a few seconds)...")
         self.moveit = MoveItPy(node_name="actuator_moveit_py")
@@ -248,6 +318,79 @@ class ActuatorNode(Node):
         obj.id = name
         obj.operation = CollisionObject.REMOVE
         self._scene_monitor.process_collision_object(obj)
+
+    def _on_detachable_state(self, name: str, msg: GzStringMsg):
+        with self._detach_state_lock:
+            self._detach_state[name] = msg.data
+        self._detach_state_event.set()
+
+    def _wait_for_detach_state(self, name: str, expected: str, timeout_sec: float) -> bool:
+        deadline = time.monotonic() + timeout_sec
+        while True:
+            with self._detach_state_lock:
+                if self._detach_state.get(name) == expected:
+                    return True
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return False
+            self._detach_state_event.wait(timeout=remaining)
+            self._detach_state_event.clear()
+
+    def _detect_grasp(self, name: str, close_pose: dict) -> bool:
+        """Proximity fallback for grasp detection (no contact sensor is
+        configured on the Robotiq fingers): the grasp only counts as real
+        if the cube's live /object_map position is still essentially where
+        the gripper just closed, i.e. it wasn't knocked away or missed."""
+        with self._object_map_lock:
+            live = self._object_map.get(name)
+        if live is None:
+            return False
+        xy_dist = math.dist((live["x"], live["y"]), (close_pose["x"], close_pose["y"]))
+        z_dist = abs(live["z"] - close_pose["z"])
+        return xy_dist <= GRASP_XY_TOLERANCE and z_dist <= GRASP_Z_TOLERANCE
+
+    def _attach_grasped_object(self, task_id: str, name: str, pose: dict, plan_id: str) -> bool:
+        """Physically pin `name` to the gripper via its DetachableJoint the
+        moment a grasp is detected, so it moves rigidly with the arm
+        through lift/transport/retreat instead of relying on
+        bullet-featherstone's contact solving to hold it there. Only folds
+        the object into MoveIt's planning scene (_attach_object) once that
+        real attach is confirmed over <output_topic> -- so a task only
+        reports "success" if the grasp actually physically held, not
+        because the gripper happened to report itself closed."""
+        if not self._detect_grasp(name, pose):
+            self._publish_feedback(
+                task_id, "failed", "grasp",
+                f"'{name}' not detected within the gripper after closing (proximity check failed)",
+                plan_id
+            )
+            return False
+
+        self._attach_pub[name].publish(GzEmpty())
+        if not self._wait_for_detach_state(name, "attached", JOINT_STATE_CONFIRM_TIMEOUT):
+            self._publish_feedback(
+                task_id, "failed", "grasp",
+                f"DetachableJoint for '{name}' did not confirm attach", plan_id
+            )
+            return False
+
+        self._attach_object(name, pose)
+        return True
+
+    def _release_grasped_object(self, task_id: str, pose: dict, plan_id: str):
+        """Detach whatever is currently grasped, both physically (gz-sim's
+        DetachableJoint) and in MoveIt's planning scene. Best-effort on the
+        gz confirmation -- unlike attach, a detach that fails to confirm
+        still has to clear the planning scene, since leaving MoveIt
+        believing the arm is still holding the object is worse than a
+        possibly-stale physical joint."""
+        name = self._attached_object_name
+        if name is None:
+            return
+        self._detach_pub[name].publish(GzEmpty())
+        if not self._wait_for_detach_state(name, "detached", JOINT_STATE_CONFIRM_TIMEOUT):
+            self.get_logger().warn(f"[{task_id}] DetachableJoint for '{name}' did not confirm detach")
+        self._detach_object(pose)
 
     def _attach_object(self, name: str, pose: dict):
         """Move the collision object from the world into the gripper's own
@@ -420,17 +563,21 @@ class ActuatorNode(Node):
             if not self._send_gripper_command(task_id, gripper_position, plan_id):
                 return self._recover_after_failure(task_id, plan_id)
 
-        # Now that the gripper has actually closed around it, fold the
-        # object into the robot's own collision body (attach) so retreat
-        # doesn't treat it as a static obstacle to route around (which the
-        # grasp itself would already be "violating") and so it correctly
-        # moves rigidly with the gripper for the rest of this task and any
-        # future one, instead of MoveIt planning as if the world were
-        # still empty-handed.
+        # Now that the gripper has actually closed, check whether the
+        # object is really between the fingers and (if so) physically pin
+        # it to the gripper via its DetachableJoint -- see
+        # _attach_grasped_object for why (bullet-featherstone's own
+        # contact solving isn't reliable enough to hold a grasp through
+        # lift/transport on its own). This also folds the object into
+        # MoveIt's own collision body so retreat doesn't treat it as a
+        # static obstacle to route around and it moves rigidly with the
+        # gripper in planning too, instead of MoveIt still believing the
+        # world is empty-handed.
         if action == "pick" and object_name is not None:
-            self._attach_object(object_name, pose)
+            if not self._attach_grasped_object(task_id, object_name, pose, plan_id):
+                return self._recover_after_failure(task_id, plan_id)
         elif action == "place":
-            self._detach_object(pose)
+            self._release_grasped_object(task_id, pose, plan_id)
 
         # Retreat to a safe height — transport height after a grasp,
         # clearance after a release — before reporting the task complete.
@@ -474,7 +621,9 @@ class ActuatorNode(Node):
             name = self._attached_object_name
             with self._object_map_lock:
                 live_pose = self._object_map.get(name)
-            self._detach_object(dict(live_pose) if live_pose else {"x": 0.0, "y": 0.0, "z": 0.0})
+            self._release_grasped_object(
+                task_id, dict(live_pose) if live_pose else {"x": 0.0, "y": 0.0, "z": 0.0}, plan_id
+            )
 
         self.arm.set_start_state_to_current_state()
         self.arm.set_goal_state(configuration_name="ready")
@@ -486,7 +635,7 @@ class ActuatorNode(Node):
 
     def _retreat(self, task_id: str, pose: dict, plan_id: str, return_to_ready: bool) -> bool:
         cleared = False
-        for z_offset in (0.25, 0.35):
+        for z_offset in (0.4, 0.5):
             lift_pose = {"x": pose["x"], "y": pose["y"], "z": pose["z"] + z_offset}
             # Straight (in small hops) lift for the same reason as the
             # descent in _run_pick_or_place: an OMPL swing here can drag a
