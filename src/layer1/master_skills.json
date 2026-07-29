@@ -1,0 +1,198 @@
+{
+  "skills": [
+    {
+      "skill_id": "move_to",
+      "description": "Move the robot's end-effector or mobile base to a named location or position.",
+      "inputs": ["target_location"],
+      "preconditions": [],
+      "effects": ["robot (end-effector or base) is at target_location"],
+      "requires_capabilities": ["arm", "mobile_base"]
+    },
+    {
+      "skill_id": "move_relative",
+      "description": "Move the robot's end-effector or mobile base by a relative offset from its current position (e.g. 5cm forward).",
+      "inputs": ["direction", "distance_cm"],
+      "preconditions": [],
+      "effects": ["robot has moved by the specified offset"],
+      "requires_capabilities": ["arm", "mobile_base"]
+    },
+    {
+      "skill_id": "rotate",
+      "description": "Rotate either the robot itself (mobile base spinning in place, or arm reorienting) or a currently held/reachable object, by a given angle around a specified axis. Omit object_name to rotate the robot itself rather than an object.",
+      "inputs": ["angle_deg", "axis", "object_name"],
+      "preconditions": ["object is reachable or held (only if object_name is given)"],
+      "effects": ["robot or specified object is reoriented"],
+      "requires_capabilities": ["arm", "mobile_base"]
+    },
+    {
+      "skill_id": "stop",
+      "description": "Immediately halt all current motion of the robot, arm or mobile base.",
+      "inputs": [],
+      "preconditions": [],
+      "effects": ["robot is stationary"],
+      "requires_capabilities": ["arm", "mobile_base"]
+    },
+    {
+      "skill_id": "emergency_stop",
+      "description": "Immediately halt all motion and disable further movement until manually reset. Highest-priority safety skill, applicable to any robot type.",
+      "inputs": [],
+      "preconditions": [],
+      "effects": ["robot is halted and movement is disabled until reset"],
+      "requires_capabilities": ["arm", "mobile_base"]
+    },
+    {
+      "skill_id": "wait",
+      "description": "Pause and hold current state for a specified duration before continuing.",
+      "inputs": ["duration_sec"],
+      "preconditions": [],
+      "effects": ["robot has waited for duration_sec"],
+      "requires_capabilities": ["arm", "mobile_base"]
+    },
+    {
+      "skill_id": "check_battery",
+      "description": "Report the robot's current battery or power level, if the robot has power-monitoring capability.",
+      "inputs": [],
+      "preconditions": [],
+      "effects": ["battery level is known"],
+      "requires_capabilities": ["power_monitoring"]
+    },
+
+    {
+      "skill_id": "grip",
+      "description": "Close the gripper to grasp whatever is currently in contact with it.",
+      "inputs": [],
+      "preconditions": ["gripper is open", "object is in gripper contact"],
+      "effects": ["gripper is closed", "object is grasped"],
+      "requires_capabilities": ["arm", "gripper"]
+    },
+    {
+      "skill_id": "release",
+      "description": "Open the gripper to release the currently held object.",
+      "inputs": [],
+      "preconditions": ["gripper is closed"],
+      "effects": ["gripper is open", "object is released"],
+      "requires_capabilities": ["arm", "gripper"]
+    },
+    {
+      "skill_id": "pick",
+      "description": "High-level skill: move to object location then grip it.",
+      "inputs": ["object_name", "location"],
+      "preconditions": ["object is reachable", "gripper is empty"],
+      "effects": ["object is held by gripper"],
+      "requires_capabilities": ["arm", "gripper"]
+    },
+    {
+      "skill_id": "place",
+      "description": "High-level skill: move to target location then release held object.",
+      "inputs": ["object_name", "target_location"],
+      "preconditions": ["gripper is holding object"],
+      "effects": ["object is at target_location", "gripper is empty"],
+      "requires_capabilities": ["arm", "gripper"]
+    },
+    {
+      "skill_id": "inspect",
+      "description": "Examine an object closely to determine its properties or condition.",
+      "inputs": ["object_name"],
+      "preconditions": ["object is in field of view"],
+      "effects": ["object properties and condition are known"],
+      "requires_capabilities": ["arm"]
+    },
+    {
+      "skill_id": "push",
+      "description": "Push an object in a specified direction by a given distance.",
+      "inputs": ["object_name", "direction", "distance_cm"],
+      "preconditions": ["object is reachable"],
+      "effects": ["object has moved in specified direction"],
+      "requires_capabilities": ["arm"]
+    },
+    {
+      "skill_id": "home",
+      "description": "Return the arm to its default rest/home position.",
+      "inputs": [],
+      "preconditions": [],
+      "effects": ["arm is at home position"],
+      "requires_capabilities": ["arm"]
+    },
+
+    {
+      "skill_id": "navigate_to",
+      "description": "High-level skill: navigate to a named location using path planning and obstacle avoidance (unlike move_to, which is a direct low-level move).",
+      "inputs": ["target_location"],
+      "preconditions": ["path to target exists"],
+      "effects": ["robot is at target_location"],
+      "requires_capabilities": ["mobile_base", "navigation_stack"]
+    },
+    {
+      "skill_id": "follow_path",
+      "description": "Follow a pre-planned sequence of waypoints.",
+      "inputs": ["waypoints"],
+      "preconditions": ["path is planned"],
+      "effects": ["robot has traversed all waypoints"],
+      "requires_capabilities": ["mobile_base", "navigation_stack"]
+    },
+    {
+      "skill_id": "plan_path",
+      "description": "Compute a path from the current position to a target location, avoiding known obstacles.",
+      "inputs": ["target_location"],
+      "preconditions": ["map is available"],
+      "effects": ["a path to target_location is known"],
+      "requires_capabilities": ["mobile_base", "navigation_stack"]
+    },
+    {
+      "skill_id": "avoid_obstacle",
+      "description": "React to a detected obstacle by adjusting course to prevent collision.",
+      "inputs": ["obstacle_location"],
+      "preconditions": ["obstacle is detected"],
+      "effects": ["collision with obstacle is avoided"],
+      "requires_capabilities": ["mobile_base", "navigation_stack"]
+    },
+    {
+      "skill_id": "detect_obstacle",
+      "description": "Use onboard sensors to identify obstacles in the robot's path.",
+      "inputs": [],
+      "preconditions": ["sensors are active"],
+      "effects": ["obstacle presence and location are known"],
+      "requires_capabilities": ["mobile_base", "navigation_stack"]
+    },
+    {
+      "skill_id": "create_map",
+      "description": "Build a new map of the environment using onboard sensors (SLAM).",
+      "inputs": [],
+      "preconditions": ["sensors are active"],
+      "effects": ["a map of the environment exists"],
+      "requires_capabilities": ["mobile_base", "navigation_stack"]
+    },
+    {
+      "skill_id": "update_map",
+      "description": "Update the existing map with new sensor data.",
+      "inputs": [],
+      "preconditions": ["a map already exists"],
+      "effects": ["map reflects current environment state"],
+      "requires_capabilities": ["mobile_base", "navigation_stack"]
+    },
+    {
+      "skill_id": "localize",
+      "description": "Determine the robot's current position within a known map.",
+      "inputs": [],
+      "preconditions": ["a map exists"],
+      "effects": ["robot's current position is known"],
+      "requires_capabilities": ["mobile_base", "navigation_stack"]
+    },
+    {
+      "skill_id": "dock",
+      "description": "Move to and physically/electrically connect with a charging or docking station.",
+      "inputs": ["dock_location"],
+      "preconditions": ["dock is reachable"],
+      "effects": ["robot is docked"],
+      "requires_capabilities": ["mobile_base"]
+    },
+    {
+      "skill_id": "undock",
+      "description": "Disconnect from the docking station and become free to move.",
+      "inputs": [],
+      "preconditions": ["robot is docked"],
+      "effects": ["robot is undocked and free to move"],
+      "requires_capabilities": ["mobile_base"]
+    }
+  ]
+}
