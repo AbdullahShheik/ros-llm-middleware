@@ -1,0 +1,93 @@
+{
+  "robots": [
+    {
+      "robot_type": "robotic_arm",
+      "urdf_source": null,
+      "capabilities_detected": [
+        "arm",
+        "gripper"
+      ],
+      "skill_ids": [
+        "move_to",
+        "move_relative",
+        "rotate",
+        "stop",
+        "emergency_stop",
+        "wait",
+        "grip",
+        "release",
+        "pick",
+        "place",
+        "inspect",
+        "push",
+        "home"
+      ],
+      "date_onboarded": "manually seeded (pre-dates URDF pipeline)",
+      "onboarding_method": "manual",
+      "status": "active"
+    },
+    {
+      "robot_type": "mobile_robot",
+      "urdf_source": null,
+      "capabilities_detected": [
+        "mobile_base",
+        "navigation_stack",
+        "power_monitoring"
+      ],
+      "skill_ids": [
+        "move_to",
+        "move_relative",
+        "rotate",
+        "stop",
+        "emergency_stop",
+        "wait",
+        "check_battery",
+        "navigate_to",
+        "follow_path",
+        "plan_path",
+        "avoid_obstacle",
+        "detect_obstacle",
+        "create_map",
+        "update_map",
+        "localize",
+        "dock",
+        "undock"
+      ],
+      "date_onboarded": "manually seeded (pre-dates URDF pipeline)",
+      "onboarding_method": "manual",
+      "status": "active"
+    },
+    {
+      "robot_type": "mobile_robot_v2",
+      "urdf_source": "sample_mobile.urdf",
+      "capabilities_detected": [
+        "mobile_base",
+        "navigation_stack",
+        "sensing"
+      ],
+      "skill_ids": [
+        "move_to",
+        "move_relative",
+        "rotate",
+        "stop",
+        "emergency_stop",
+        "wait",
+        "navigate_to",
+        "follow_path",
+        "plan_path",
+        "avoid_obstacle",
+        "detect_obstacle",
+        "create_map",
+        "update_map",
+        "localize",
+        "dock",
+        "undock"
+      ],
+      "date_onboarded": "2026-07-29 14:10:28",
+      "onboarding_method": "urdf_llm_pipeline",
+      "status": "active",
+      "llm_reasoning": "The robot has a differential drive base with wheels, indicating mobile_base capability. The presence of a lidar sensor and a camera suggests navigation_stack capability. The robot does not have an arm or gripper, so skills requiring those are excluded. Power-monitoring capability is uncertain but likely given the robot's mobile nature, however, no skills requiring it are matched due to lack of explicit information.",
+      "llm_dropped_invalid_ids": []
+    }
+  ]
+}
