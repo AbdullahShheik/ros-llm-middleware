@@ -62,12 +62,26 @@ GRIPPER_TOUCH_LINKS = [
 ]
 
 GRIPPER_ACTION = "/robotiq_gripper_controller/gripper_cmd"
+GRIPPER_JOINT_NAME = "robotiq_85_left_knuckle_joint"
 
 # Robotiq 2F-85: 0.0 = open, 0.8 = closed
 GRIPPER_POSITION = {
     "pick":  0.8,   # close to grasp
     "place": 0.0,   # open to release
 }
+
+# How far off "fully open" (0.0) the gripper joint must be for a timed-out
+# *close* command to count as "stalled against something" rather than
+# "never actually moved" -- see _send_gripper_command's timeout fallback.
+# bullet-featherstone's contact solving can make the close goal never
+# report "reached" at all when it's genuinely pressed against the cube
+# (the position controller keeps straining but never converges/stalls out
+# cleanly), which is a harsher version of the same known pinch-grasp
+# instability this whole DetachableJoint workaround exists for -- the
+# gripper physically being stuck against resistance well past "open" is
+# itself evidence of a real grip, arguably stronger evidence than reaching
+# any specific commanded angle.
+GRIPPER_STALL_MIN_POSITION = 0.15
 
 # True size of the tracked cubes' collision boxes in panda_world.sdf
 # (<box><size>0.06 0.06 0.06</size></box>) -- used once an object is
@@ -124,6 +138,7 @@ class ActuatorNode(Node):
         self.callback_group = ReentrantCallbackGroup()
 
         self._have_joint_state = False
+        self._last_joint_state = None
         self._js_lock = threading.Lock()
         # Serializes _run_pick_or_place() so only one execution_command
         # drives MoveItPy/the gripper at a time (see _execution_command_callback).
@@ -237,6 +252,14 @@ class ActuatorNode(Node):
     def _joint_state_callback(self, msg: JointState):
         with self._js_lock:
             self._have_joint_state = True
+            self._last_joint_state = msg
+
+    def _get_joint_position(self, joint_name: str):
+        with self._js_lock:
+            msg = self._last_joint_state
+        if msg is None or joint_name not in msg.name:
+            return None
+        return msg.position[msg.name.index(joint_name)]
 
     def _object_map_callback(self, msg: String):
         try:
@@ -842,6 +865,25 @@ class ActuatorNode(Node):
         # 30s cap -- 60s gives real margin instead of a coin flip.
         result = self._wait_for_future(goal_handle.get_result_async(), timeout_sec=60.0)
         if result is None:
+            # A close that stalled partway (not still ~open) means the
+            # gripper is physically pressed against something -- bullet-
+            # featherstone's contact solving can prevent that from ever
+            # cleanly reporting "reached", but the resistance itself is
+            # real evidence of a grip. Treat it as a (stalled) success so
+            # the pick can still proceed into grasp confirmation instead
+            # of failing outright. "open" timeouts get no such leniency --
+            # there's nothing it could be legitimately stuck against.
+            if label == "close":
+                stalled_position = self._get_joint_position(GRIPPER_JOINT_NAME)
+                if stalled_position is not None and stalled_position >= GRIPPER_STALL_MIN_POSITION:
+                    self._publish_feedback(
+                        task_id, "success", "gripper",
+                        f"Gripper 'close' timed out but stalled at position {stalled_position:.3f} "
+                        "-- treating as gripping an object",
+                        plan_id
+                    )
+                    return True
+
             self._publish_feedback(
                 task_id, "failed", "gripper", f"Gripper '{label}' result timed out", plan_id
             )
