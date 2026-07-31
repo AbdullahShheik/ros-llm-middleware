@@ -6,6 +6,9 @@ from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory, get_package_prefix
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 
+launch_dir = os.path.dirname(os.path.realpath(__file__))
+map_file = os.path.join(launch_dir, '..', 'maps', 'panda_world_map.yaml')
+
 def _prepare_and_launch(context, *args, **kwargs):
     pkg_share = get_package_share_directory('world')
     world_path = os.path.join(pkg_share, 'worlds', 'panda_world.sdf')
@@ -112,7 +115,7 @@ def _prepare_and_launch(context, *args, **kwargs):
                     output='screen',
                     parameters=[
                         nav2_params_file,
-                        {'yaml_filename': os.path.join(pkg_share, 'maps', 'panda_world_map.yaml')},
+                        {'yaml_filename': map_file},
                         {'use_sim_time': True},
                     ],
                 ),
