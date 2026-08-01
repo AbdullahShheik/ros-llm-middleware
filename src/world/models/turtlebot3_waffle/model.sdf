@@ -189,10 +189,10 @@
           <!-- This friction pamareter don't contain reliable data!! -->
           <friction>
             <ode>
-              <mu>100000.0</mu>
-              <mu2>100000.0</mu2>
-              <fdir1>0 0 0</fdir1>
-              <slip1>0.0</slip1>
+              <mu>1.0</mu>
+              <mu2>1.0</mu2>
+              <fdir1>0 0 1</fdir1>
+              <slip1>0.035</slip1>
               <slip2>0.0</slip2>
             </ode>
           </friction>
@@ -251,10 +251,10 @@
           <!-- This friction pamareter don't contain reliable data!! -->
           <friction>
             <ode>
-              <mu>100000.0</mu>
-              <mu2>100000.0</mu2>
-              <fdir1>0 0 0</fdir1>
-              <slip1>0.0</slip1>
+              <mu>1.0</mu>
+              <mu2>1.0</mu2>
+              <fdir1>0 0 1</fdir1>
+              <slip1>0.035</slip1>
               <slip2>0.0</slip2>
             </ode>
           </friction>

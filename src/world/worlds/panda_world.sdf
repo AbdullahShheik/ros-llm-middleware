@@ -15,7 +15,7 @@
            joints rely on to stay synced with the actuated knuckle.
            bullet-featherstone does support them. -->
       <engine>
-        <filename>gz-physics-bullet-featherstone-plugin</filename>
+        <filename>gz-physics-dartsim-plugin</filename>
       </engine>
     </plugin>
     <plugin

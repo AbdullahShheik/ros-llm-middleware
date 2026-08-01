@@ -202,6 +202,18 @@ def _prepare_and_launch(context, *args, **kwargs):
                     output='screen',
                 ),
                 Node(
+                    package='controller_manager',
+                    executable='spawner',
+                    arguments=['right_knuckle_controller'],
+                    output='screen',
+                ),
+                Node(
+                    package='action_dispatcher',
+                    executable='gripper_mimic_bridge.py',
+                    name='gripper_mimic_bridge',
+                    output='screen',
+                ),
+                Node(
                     package='perception',
                     executable='perception_node.py',
                     name='perception_node',
