@@ -243,6 +243,11 @@ def _prepare_and_launch(context, *args, **kwargs):
                         os.path.join(get_package_share_directory('actuator'), 'launch', 'actuator.launch.py')
                     )
                 ),
+                IncludeLaunchDescription(
+                    PythonLaunchDescriptionSource(
+                        os.path.join(get_package_share_directory('mobile_actuator'), 'launch', 'mobile_actuator.launch.py')
+                    )
+                ),
             ]
         ),
     ]
