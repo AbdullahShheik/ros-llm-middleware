@@ -285,6 +285,26 @@ Output:
     }
   ]
 }
+========== EXAMPLE 4 — Mobile robot navigation ==========
+Instruction: "Move to the red zone."
+Output:
+{
+  "status": "ok",
+  "plan_id": "plan_004",
+  "original_instruction": "Move to the red zone.",
+  "subtasks": [
+    {
+      "id": "T1",
+      "description": "Navigate to the red zone",
+      "required_skills": ["navigate"],
+      "robot": "wheeled",
+      "args": { "target_location": "red_zone" },
+      "dependencies": [],
+      "parallelizable": false,
+      "priority": 1
+    }
+  ]
+}
 """
 
 # STEP 3 — Prompt builder
@@ -489,6 +509,16 @@ def validate_plan(plan: dict, G: nx.DiGraph, robot_config: dict) -> list[str]:
                 f"(got '{robot}'). Must be exactly 'arm' or 'wheeled'."
             )
             continue
+
+        skill = task["required_skills"][0] if task["required_skills"] else None
+        expected = SKILL_TO_ROBOT.get(skill)
+        if expected and robot != expected:
+            errors.append(
+                f"WRONG_ROBOT: task '{task['id']}' uses skill '{skill}' "
+                f"which requires robot='{expected}' but got robot='{robot}'."
+            )
+
+    return errors
 
         skill = task["required_skills"][0] if task["required_skills"] else None
         expected = SKILL_TO_ROBOT.get(skill)
