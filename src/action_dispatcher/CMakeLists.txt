@@ -8,7 +8,8 @@ find_package(ros_llm_interfaces REQUIRED)
 install(PROGRAMS
   action_dispatcher/ik_feasibility_service.py
   action_dispatcher/dispatcher_node.py
-  DESTINATION lib/${PROJECT_NAME}
+  action_dispatcher/gripper_mimic_bridge.py
+DESTINATION lib/${PROJECT_NAME}
 )
 
 install(DIRECTORY action_dispatcher

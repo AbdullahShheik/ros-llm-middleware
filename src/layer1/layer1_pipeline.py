@@ -311,20 +311,20 @@ Output:
 # Follows DART-LLM's P = (I, E, R, S, F)
 
 
-SYSTEM_PROMPT = """You are a task decomposition planner for a robotic arm system.
+SYSTEM_PROMPT = """You are a task decomposition planner for a multi-robot system consisting of a robotic arm and a mobile robot (TurtleBot).
 Your job is to take a high-level natural language instruction and break it down
-into atomic subtasks the arm can execute.
+into atomic subtasks that the appropriate robot can execute.
 
 Rules you must follow:
 1. BEFORE decomposing, classify the instruction into exactly one status:
    "ok", "clarification_needed", or "infeasible".
 2. Use "ok" only when the instruction is clear, physically executable, and can be
-   decomposed using only the provided robotic arm skills.
+   decomposed using only the provided skills (arm or mobile robot).
 3. Use "clarification_needed" when an unresolved referent such as "it", "the thing",
    or "over there" cannot be grounded in the environment or skill registry. Return
    only status and reason; do not produce a plan.
-4. Use "infeasible" when the instruction is unambiguous but cannot be executed:
-   outside the robot domain, missing required skills, physically impossible,
+4. Use "infeasible" when the instruction is unambiguous but cannot be executed
+   by either the arm or the mobile robot: outside the robot domain, missing required skills, physically impossible,
    temporally impossible, or self-contradictory. Return only status and reason;
    do not produce a plan.
 5. For status "ok", required_skills must only contain skill names from the provided
@@ -342,8 +342,8 @@ Rules you must follow:
    directly and a placeholder cannot be resolved to a real pose.
 13. Every subtask must include a "robot" field set to exactly "arm" or "wheeled"
     based on which robot executes that skill:
-    - "arm": pick, place, inspect, push, home, grip, release, move_to, rotate
-    - "wheeled": navigate_to, navigate, survey, transport, follow_path"""
+    - "arm": pick, place, inspect, push, home, grip, release, move_to, move_relative, rotate
+    - "wheeled": navigate, navigate_to, survey, transport, follow_path"""
 
 
 def build_prompt(instruction: str,
@@ -520,6 +520,15 @@ def validate_plan(plan: dict, G: nx.DiGraph, robot_config: dict) -> list[str]:
 
     return errors
 
+        skill = task["required_skills"][0] if task["required_skills"] else None
+        expected = SKILL_TO_ROBOT.get(skill)
+        if expected and robot != expected:
+            errors.append(
+                f"WRONG_ROBOT: task '{task['id']}' uses skill '{skill}' "
+                f"which requires robot='{expected}' but got robot='{robot}'."
+            )
+
+    return errors
 
 # STEP 7 — Full pipeline with retry loop
 # Mirrors DART-LLM Algorithm 2 re-prompting on failure
