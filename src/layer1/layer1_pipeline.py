@@ -520,16 +520,6 @@ def validate_plan(plan: dict, G: nx.DiGraph, robot_config: dict) -> list[str]:
 
     return errors
 
-        skill = task["required_skills"][0] if task["required_skills"] else None
-        expected = SKILL_TO_ROBOT.get(skill)
-        if expected and robot != expected:
-            errors.append(
-                f"WRONG_ROBOT: task '{task['id']}' uses skill '{skill}' "
-                f"which requires robot='{expected}' but got robot='{robot}'."
-            )
-
-    return errors
-
 # STEP 7 — Full pipeline with retry loop
 # Mirrors DART-LLM Algorithm 2 re-prompting on failure
 
