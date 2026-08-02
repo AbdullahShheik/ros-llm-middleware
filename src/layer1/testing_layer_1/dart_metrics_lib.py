@@ -133,61 +133,90 @@ def _topological_waves(G):
 
 def _match_nodes(pred_G, gt_G):
     """
-    Greedy GLOBAL matching of predicted nodes to ground-truth nodes by skill
-    name equality, ranked by param overlap. Deliberately NOT restricted by
-    topological wave/position -- IPA should credit "was the right skill
-    identified" independent of ordering; DSR is what separately penalizes
-    wrong ordering/dependencies. Tying matching to wave position conflates
-    the two (a reversed-dependency plan with the exact right skills would
-    wrongly score IPA=0 instead of IPA=1/DSR=0).
+    Globally match predicted nodes to ground-truth nodes by skill compatibility
+    and parameter overlap.
 
-    To keep results deterministic (matters for reproducibility in a paper),
-    ties in param-overlap are broken by ground-truth node id order.
+    This is deliberately NOT restricted by topological wave/position -- IPA
+    should credit "was the right skill identified" independent of ordering; DSR
+    separately penalizes wrong ordering/dependencies. Tying matching to wave
+    position conflates the two (a reversed-dependency plan with the exact right
+    skills would wrongly score IPA=0 instead of IPA=1/DSR=0).
 
-    This greedy approach is appropriate for short, mostly-linear or
-    lightly-branching plans (2-7 subtasks) -- your current bank's scale. If
-    you test much larger DAGs later, or plans with several subtasks sharing
-    the exact same skill+params, revisit with a proper Hungarian/assignment
-    algorithm instead of greedy matching.
+    The matching is solved as a weighted bipartite matching problem with
+    NetworkX. Candidate edges require every ground-truth skill to be present in
+    the predicted subtask's skills. Edge weight primarily maximizes parameter
+    overlap; a small deterministic tie-breaker favors matching identical ids
+    and then similarly ordered nodes without changing the overlap objective.
 
     Returns: dict pred_node_id -> matched gt_node_id (only for matched pairs)
     """
-    matched = {}
-    gt_used = set()
-
-    # Sort GT nodes for deterministic tie-breaking
-    gt_nodes_sorted = sorted(gt_G.nodes)
     pred_nodes_sorted = sorted(pred_G.nodes)
+    gt_nodes_sorted = sorted(gt_G.nodes)
+    if not pred_nodes_sorted or not gt_nodes_sorted:
+        return {}
 
-    for g_node in gt_nodes_sorted:
-        g_skills = gt_G.nodes[g_node]["skills"]  # ground truth: always exactly one skill
-        g_params = gt_G.nodes[g_node].get("params", {}) or {}
+    candidate_edges = []
+    max_tie_bonus = 0
 
-        best = None
-        best_score = -1
-        for p_node in pred_nodes_sorted:
-            if p_node in matched:
-                continue
-            p_skills = pred_G.nodes[p_node]["skills"]
-            # Match if every ground-truth skill is present among the
-            # predicted subtask's required_skills (containment, not strict
-            # equality -- tolerates the predicted list naming an extra
-            # skill, but still requires the correct one to be present).
+    for p_index, p_node in enumerate(pred_nodes_sorted):
+        p_skills = pred_G.nodes[p_node]["skills"]
+        p_params = pred_G.nodes[p_node].get("params", {}) or {}
+
+        for g_index, g_node in enumerate(gt_nodes_sorted):
+            g_skills = gt_G.nodes[g_node]["skills"]  # ground truth: usually one skill
             if not all(gs in p_skills for gs in g_skills):
                 continue
-            p_params = pred_G.nodes[p_node].get("params", {}) or {}
+
+            g_params = gt_G.nodes[g_node].get("params", {}) or {}
             overlap = sum(
                 1 for k, v in g_params.items()
                 if k in p_params and str(p_params[k]).lower() == str(v).lower()
             )
-            if overlap > best_score:
-                best_score = overlap
-                best = p_node
 
-        if best is not None:
-            matched[best] = g_node
-            gt_used.add(g_node)
+            id_bonus = len(pred_nodes_sorted) + len(gt_nodes_sorted) if p_node == g_node else 0
+            order_bonus = (
+                len(pred_nodes_sorted)
+                + len(gt_nodes_sorted)
+                - abs(p_index - g_index)
+            )
+            tie_bonus = id_bonus + order_bonus
+            max_tie_bonus = max(max_tie_bonus, tie_bonus)
+            candidate_edges.append((p_node, g_node, overlap, tie_bonus))
 
+    if not candidate_edges:
+        return {}
+
+    # One parameter match must outweigh every possible deterministic tie-break
+    # accumulated across the whole matching.
+    max_matches = min(len(pred_nodes_sorted), len(gt_nodes_sorted))
+    param_unit = (max_matches * max_tie_bonus) + 1
+
+    matching_graph = nx.Graph()
+    for p_node in pred_nodes_sorted:
+        matching_graph.add_node(("pred", p_node), bipartite=0)
+    for g_node in gt_nodes_sorted:
+        matching_graph.add_node(("gt", g_node), bipartite=1)
+
+    for p_node, g_node, overlap, tie_bonus in candidate_edges:
+        matching_graph.add_edge(
+            ("pred", p_node),
+            ("gt", g_node),
+            weight=(overlap * param_unit) + tie_bonus,
+        )
+
+    optimal_pairs = nx.algorithms.matching.max_weight_matching(
+        matching_graph,
+        maxcardinality=True,
+        weight="weight",
+    )
+
+    matched = {}
+    for left, right in optimal_pairs:
+        if left[0] == "pred":
+            pred_node, gt_node = left[1], right[1]
+        else:
+            pred_node, gt_node = right[1], left[1]
+        matched[pred_node] = gt_node
     return matched
 
 
@@ -229,12 +258,17 @@ def compute_dsr(pred_normalized, gt_normalized):
     if not gt_edges:
         return 1.0 if len(matched) == len(gt_normalized["subtasks"]) else 0.0
 
+    try:
+        pred_reachability = nx.transitive_closure_dag(pred_G)
+    except Exception:
+        pred_reachability = nx.transitive_closure(pred_G)
+
     correct = 0
     for u, v in gt_edges:
         pu, pv = gt_to_pred.get(u), gt_to_pred.get(v)
         if pu is None or pv is None:
             continue
-        if pred_G.has_edge(pu, pv) or nx.has_path(pred_G, pu, pv):
+        if pred_reachability.has_edge(pu, pv):
             correct += 1
 
     return correct / len(gt_edges)
