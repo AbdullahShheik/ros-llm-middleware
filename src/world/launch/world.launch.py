@@ -6,10 +6,19 @@ from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory, get_package_prefix
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 
+launch_dir = os.path.dirname(os.path.realpath(__file__))
+map_file = os.path.join(launch_dir, '..', 'maps', 'panda_world_map.yaml')
+
 def _prepare_and_launch(context, *args, **kwargs):
     pkg_share = get_package_share_directory('world')
     world_path = os.path.join(pkg_share, 'worlds', 'panda_world.sdf')
     controllers_yaml = os.path.join(pkg_share, 'config', 'panda_ros2_controllers.yaml')
+    nav2_params_file = os.path.join(pkg_share, 'config', 'nav2_params.yaml')
+    bt_xml_path = os.path.join(
+        get_package_share_directory('nav2_bt_navigator'),
+        'behavior_trees',
+        'navigate_to_pose_w_replanning_and_recovery.xml'
+    )
 
     tmp_models_root = '/tmp/ros_llm_middleware_gz_models'
     if os.path.exists(tmp_models_root):
@@ -85,16 +94,50 @@ def _prepare_and_launch(context, *args, **kwargs):
             output='screen'
         ),
 
-        # Delay Gazebo by 3 seconds to give robot_state_publisher time to
-        # publish /robot_description. No -r: panda_world.sdf's
-        # <start_paused>true</start_paused> keeps physics from stepping at
-        # all until unpause_world_cmd runs below, once the arm controllers
-        # are actually active.
+        # Bridge TurtleBot3 topics between ROS2 and Gazebo
+        Node(
+            package='ros_gz_bridge',
+            executable='parameter_bridge',
+            name='turtlebot3_bridge',
+            parameters=[{
+                'config_file': os.path.join(pkg_share, 'config', 'turtlebot3_bridge.yaml'),
+                'qos_overrides./tf_static.publisher.durability': 'transient_local',
+            }],
+            output='screen',
+        ),
+
+        # Static TF: base_footprint → base_link → base_scan
+        Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            name='base_footprint_to_base_link',
+            arguments=[
+                '--x', '0', '--y', '0', '--z', '0.010',
+                '--roll', '0', '--pitch', '0', '--yaw', '0',
+                '--frame-id', 'base_footprint',
+                '--child-frame-id', 'base_link'
+            ],
+            output='screen'
+        ),
+        Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            name='base_link_to_base_scan',
+            arguments=[
+                '--x', '-0.064', '--y', '0', '--z', '0.121',
+                '--roll', '0', '--pitch', '0', '--yaw', '0',
+                '--frame-id', 'base_link',
+                '--child-frame-id', 'base_scan'
+            ],
+            output='screen'
+        ),
+
+        # Delay Gazebo by 3s to give robot_state_publisher time to publish /robot_description
         TimerAction(
             period=3.0,
             actions=[
                 ExecuteProcess(
-                    cmd=['gz', 'sim', world_path],
+                    cmd=['gz', 'sim', '-r', '-v', '4', world_path],
                     output='screen'
                 ),
             ]
@@ -109,6 +152,77 @@ def _prepare_and_launch(context, *args, **kwargs):
                 ExecuteProcess(
                     cmd=['bash', '-c', release_cubes_cmd],
                     output='screen',
+        # Nav2 stack at 15s: needs Gazebo world loaded + /tf, /scan flowing
+        TimerAction(
+            period=15.0,
+            actions=[
+                Node(
+                    package='nav2_map_server',
+                    executable='map_server',
+                    name='map_server',
+                    output='screen',
+                    parameters=[
+                        nav2_params_file,
+                        {'yaml_filename': map_file},
+                        {'use_sim_time': True},
+                    ],
+                ),
+                Node(
+                    package='nav2_amcl',
+                    executable='amcl',
+                    name='amcl',
+                    output='screen',
+                    parameters=[nav2_params_file, {'use_sim_time': True}],
+                ),
+                Node(
+                    package='nav2_planner',
+                    executable='planner_server',
+                    name='planner_server',
+                    output='screen',
+                    parameters=[nav2_params_file, {'use_sim_time': True}],
+                ),
+                Node(
+                    package='nav2_controller',
+                    executable='controller_server',
+                    name='controller_server',
+                    output='screen',
+                    parameters=[nav2_params_file, {'use_sim_time': True}],
+                    remappings=[('cmd_vel_nav', 'cmd_vel')],  # internal → bridge topic
+                ),
+                Node(
+                    package='nav2_behaviors',
+                    executable='behavior_server',
+                    name='behavior_server',
+                    output='screen',
+                    parameters=[nav2_params_file, {'use_sim_time': True}],
+                ),
+                Node(
+                    package='nav2_bt_navigator',
+                    executable='bt_navigator',
+                    name='bt_navigator',
+                    output='screen',
+                    parameters=[
+                        nav2_params_file,
+                        {
+                            'use_sim_time': True,
+                            'default_nav_to_pose_bt_xml': bt_xml_path,
+                            'default_nav_through_poses_bt_xml': bt_xml_path,
+                        },
+                    ],
+                ),
+                Node(
+                    package='nav2_waypoint_follower',
+                    executable='waypoint_follower',
+                    name='waypoint_follower',
+                    output='screen',
+                    parameters=[nav2_params_file, {'use_sim_time': True}],
+                ),
+                Node(
+                    package='nav2_lifecycle_manager',
+                    executable='lifecycle_manager',
+                    name='lifecycle_manager_navigation',
+                    output='screen',
+                    parameters=[nav2_params_file, {'use_sim_time': True}],
                 ),
             ]
         ),
@@ -135,21 +249,30 @@ def _prepare_and_launch(context, *args, **kwargs):
                     arguments=['robotiq_gripper_controller'],
                     output='screen',
                 ),
-                # Perception: reads Gazebo poses, publishes /object_map
+                Node(
+                    package='controller_manager',
+                    executable='spawner',
+                    arguments=['right_knuckle_controller'],
+                    output='screen',
+                ),
+                Node(
+                    package='action_dispatcher',
+                    executable='gripper_mimic_bridge.py',
+                    name='gripper_mimic_bridge',
+                    output='screen',
+                ),
                 Node(
                     package='perception',
                     executable='perception_node.py',
                     name='perception_node',
                     output='screen',
                 ),
-                # IK feasibility service
                 Node(
                     package='action_dispatcher',
                     executable='ik_feasibility_service.py',
                     name='ik_feasibility_service',
                     output='screen',
                 ),
-                # Action dispatcher
                 Node(
                     package='action_dispatcher',
                     executable='dispatcher_node.py',
@@ -181,20 +304,12 @@ def _prepare_and_launch(context, *args, **kwargs):
                         os.path.join(get_package_share_directory('actuator'), 'launch', 'actuator.launch.py')
                     )
                 ),
+                IncludeLaunchDescription(
+                    PythonLaunchDescriptionSource(
+                        os.path.join(get_package_share_directory('mobile_actuator'), 'launch', 'mobile_actuator.launch.py')
+                    )
+                ),
             ]
-        ),
-
-        # Bridge TurtleBot3 cmd_vel and odom between ROS2 and Gazebo
-        Node(
-            package='ros_gz_bridge',
-            executable='parameter_bridge',
-            name='turtlebot3_bridge',
-            arguments=[
-                '/cmd_vel@geometry_msgs/msg/TwistStamped]gz.msgs.Twist',
-                '/model/turtlebot3_waffle/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry',
-                '/model/turtlebot3_waffle/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
-            ],
-            output='screen',
         ),
     ]
 

@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>mobile_actuator</name>
+  <version>0.1.0</version>
+  <description>
+    Layer 3 mobile actuator: Nav2 action client for the TurtleBot3.
+    Filters /execution_command for robot_type == 'wheeled', sends
+    NavigateToPose goals to Nav2, publishes results to /execution_feedback.
+  </description>
+  <maintainer email="dev@example.com">ROS-LLM Team</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <depend>rclpy</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav2_msgs</depend>
+  <depend>action_msgs</depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

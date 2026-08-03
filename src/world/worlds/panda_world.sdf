@@ -4,6 +4,7 @@
     <physics name="1ms" type="ignored">
       <max_step_size>0.001</max_step_size>
       <real_time_factor>1.0</real_time_factor>
+      <real_time_update_rate>100</real_time_update_rate> 
     </physics>
     <plugin
       filename="ignition-gazebo-physics-system"
@@ -14,7 +15,7 @@
            joints rely on to stay synced with the actuated knuckle.
            bullet-featherstone does support them. -->
       <engine>
-        <filename>gz-physics-bullet-featherstone-plugin</filename>
+        <filename>gz-physics-dartsim-plugin</filename>
       </engine>
     </plugin>
     <plugin
@@ -24,6 +25,12 @@
     <plugin
       filename="ignition-gazebo-scene-broadcaster-system"
       name="ignition::gazebo::systems::SceneBroadcaster">
+    </plugin>
+
+    <plugin
+      filename="gz-sim-sensors-system"
+      name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
     </plugin>
 
     <gui fullscreen="0">

@@ -4,8 +4,17 @@
 # panda_arm_controller uses JointTrajectoryController for the 7 arm joints.
 # robotiq_gripper_controller uses GripperActionController which accepts
 # control_msgs/GripperCommand actions — open (0.0) / close (0.8) on the
-# single actuated knuckle joint. All other Robotiq joints are mimic joints
-# handled automatically by Ignition.
+# single actuated knuckle joint (robotiq_85_left_knuckle_joint).
+#
+# The right knuckle joint (robotiq_85_right_knuckle_joint) is NOT a
+# physics-engine mimic joint here — dartsim doesn't support mimic
+# constraints, and gz_ros2_control's own <param name="mimic"> setting
+# just wires through to that same physics-engine-level constraint, so
+# it doesn't work under dartsim either. Instead, right_knuckle_controller
+# gives it its own independent position command interface, and an
+# external ROS 2 node mirrors robotiq_85_left_knuckle_joint's position
+# onto it in software (position * -1, matching the URDF's mimic
+# multiplier) every cycle.
 
 controller_manager:
   ros__parameters:
@@ -20,6 +29,9 @@ controller_manager:
 
     robotiq_gripper_controller:
       type: position_controllers/GripperActionController
+
+    right_knuckle_controller:
+      type: forward_command_controller/ForwardCommandController
 
 panda_arm_controller:
   ros__parameters:
@@ -58,3 +70,9 @@ robotiq_gripper_controller:
     allow_stalling: true
     stall_velocity_threshold: 0.001
     stall_timeout: 1.0
+
+right_knuckle_controller:
+  ros__parameters:
+    joints:
+      - robotiq_85_right_knuckle_joint
+    interface_name: position
