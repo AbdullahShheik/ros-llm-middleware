@@ -25,6 +25,14 @@ import itertools
 import networkx as nx
 from groq import Groq
 
+# The RAG package lives beside this file; make it importable regardless of
+# the working directory the pipeline is launched from (ROS2 launch, the demo
+# scripts, and the evaluation harnesses all use different ones).
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from RAG.few_shot_bank import bank_summary, load_examples
+from RAG.few_shot_retriever import CosineFewShotRetriever, format_examples_for_prompt
+
 def _load_env_file(env_path: str) -> None:
     if not os.path.exists(env_path):
         return
@@ -49,6 +57,9 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "YOUR_API_KEY")
 MODEL        = "llama-3.3-70b-versatile"
 MAX_RETRIES  = 3
 SKILLS_FILE  = os.path.join(os.path.dirname(__file__), "robot_skills.json")
+# How many few-shot examples get retrieved into each prompt. The bank itself
+# can grow freely -- only these k reach the prompt.
+FEW_SHOT_K   = 4
 
 # get_client() returns the LLM client. Currently only Groq is supported.
 
@@ -93,219 +104,34 @@ def build_skill_prompt_block(robot_config: dict) -> str:
     return "\n".join(lines)
 
 
-# STEP 2 — Few-shot examples
+# STEP 2 — Few-shot examples (retrieved, not hardcoded)
 # F component in P = (I, E, R, S, F)
+#
+# Examples live in few_shot_examples.json and are selected per-instruction by
+# cosine similarity (see RAG/few_shot_retriever.py). Only the top-k reach the
+# prompt, so the bank can grow without inflating every request. Retrieval
+# guarantees at least one rejection example and one combined arm+mobile
+# example are always present.
 
-FEW_SHOT_EXAMPLES = """
-========== EXAMPLE 1 — Simple sequential (L1) ==========
-Instruction: "Pick up the red block and place it on the shelf."
-Output:
-{
-  "status": "ok",
-  "plan_id": "plan_001",
-  "original_instruction": "Pick up the red block and place it on the shelf.",
-  "subtasks": [
-    {
-      "id": "T1",
-      "description": "Pick up the red block",
-      "required_skills": ["pick"],
-      "args": { "object_name": "red_block", "location": "red_block" },
-      "dependencies": [],
-      "parallelizable": false,
-      "priority": 1
-    },
-    {
-      "id": "T2",
-      "description": "Place the red block on the shelf",
-      "required_skills": ["place"],
-      "args": { "object_name": "red_block", "target_location": "shelf" },
-      "dependencies": ["T1"],
-      "parallelizable": false,
-      "priority": 2
-    },
-    {
-      "id": "T3",
-      "description": "Return arm to home position",
-      "required_skills": ["home"],
-      "args": {},
-      "dependencies": ["T2"],
-      "parallelizable": false,
-      "priority": 3
-    }
-  ]
-}
+_retriever = None
 
-========== EXAMPLE 1B - Clarification needed ==========
-Instruction: "Put the thing over there."
-Output:
-{
-  "status": "clarification_needed",
-  "reason": "Ambiguous object and target location: 'the thing' and 'over there'."
-}
 
-========== EXAMPLE 1C - Infeasible ==========
-Instruction: "Write a Python script to calculate the Fibonacci sequence."
-Output:
-{
-  "status": "infeasible",
-  "reason": "The instruction is outside the robotic arm manipulation domain."
-}
+def get_retriever() -> CosineFewShotRetriever:
+    """Build the retriever once and reuse it -- fitting TF-IDF per call would
+    redo the same work on every instruction."""
+    global _retriever
+    if _retriever is None:
+        examples = load_examples()
+        _retriever = CosineFewShotRetriever(examples)
+        print(f"[Layer 1] Few-shot bank loaded: {bank_summary(examples)}")
+    return _retriever
 
-========== EXAMPLE 1D - Explicit coordinate target ==========
-Instruction: "Pick up the green block and place it at 0.3, -0.4."
-Output:
-{
-  "status": "ok",
-  "plan_id": "plan_00X",
-  "original_instruction": "Pick up the green block and place it at 0.3, -0.4.",
-  "subtasks": [
-    {
-      "id": "T1",
-      "description": "Pick up the green block",
-      "required_skills": ["pick"],
-      "args": { "object_name": "green_block", "location": "green_block" },
-      "dependencies": [],
-      "parallelizable": false,
-      "priority": 1
-    },
-    {
-      "id": "T2",
-      "description": "Place the green block at 0.3, -0.4",
-      "required_skills": ["place"],
-      "args": { "object_name": "green_block", "target_location": "0.3, -0.4" },
-      "dependencies": ["T1"],
-      "parallelizable": false,
-      "priority": 2
-    },
-    {
-      "id": "T3",
-      "description": "Return arm to home position",
-      "required_skills": ["home"],
-      "args": {},
-      "dependencies": ["T2"],
-      "parallelizable": false,
-      "priority": 3
-    }
-  ]
-}
-Note how target_location above is "0.3, -0.4" -- copied verbatim from the
-instruction, not reworded to something like "target_position" or "the given
-coordinates".
 
-========== EXAMPLE 2 - Inspect then act (L2) ==========
-Instruction: "Inspect the blue cylinder and then push it 5cm to the right."
-Output:
-{
-  "status": "ok",
-  "plan_id": "plan_002",
-  "original_instruction": "Inspect the blue cylinder and then push it 5cm to the right.",
-  "subtasks": [
-    {
-      "id": "T1",
-      "description": "Inspect the blue cylinder",
-      "required_skills": ["inspect"],
-      "args": { "object_name": "blue_cylinder" },
-      "dependencies": [],
-      "parallelizable": false,
-      "priority": 1
-    },
-    {
-      "id": "T2",
-      "description": "Push the blue cylinder 5cm to the right",
-      "required_skills": ["push"],
-      "args": { "object_name": "blue_cylinder", "direction": "right", "distance_cm": 5 },
-      "dependencies": ["T1"],
-      "parallelizable": false,
-      "priority": 2
-    },
-    {
-      "id": "T3",
-      "description": "Return arm to home position",
-      "required_skills": ["home"],
-      "args": {},
-      "dependencies": ["T2"],
-      "parallelizable": false,
-      "priority": 3
-    }
-  ]
-}
+def retrieve_few_shot_examples(instruction: str, k: int = FEW_SHOT_K):
+    """Returns the (example, score) pairs selected for this instruction."""
+    return get_retriever().retrieve(instruction, k=k)
 
-========== EXAMPLE 3 — Multi-object sequence (L3) ==========
-Instruction: "Pick up the green cube and the yellow cone and place both on the tray."
-Output:
-{
-  "status": "ok",
-  "plan_id": "plan_003",
-  "original_instruction": "Pick up the green cube and the yellow cone and place both on the tray.",
-  "subtasks": [
-    {
-      "id": "T1",
-      "description": "Pick up the green cube",
-      "required_skills": ["pick"],
-      "args": { "object_name": "green_cube", "location": "green_cube" },
-      "dependencies": [],
-      "parallelizable": false,
-      "priority": 1
-    },
-    {
-      "id": "T2",
-      "description": "Place the green cube on the tray",
-      "required_skills": ["place"],
-      "args": { "object_name": "green_cube", "target_location": "tray" },
-      "dependencies": ["T1"],
-      "parallelizable": false,
-      "priority": 2
-    },
-    {
-      "id": "T3",
-      "description": "Pick up the yellow cone",
-      "required_skills": ["pick"],
-      "args": { "object_name": "yellow_cone", "location": "yellow_cone" },
-      "dependencies": ["T2"],
-      "parallelizable": false,
-      "priority": 3
-    },
-    {
-      "id": "T4",
-      "description": "Place the yellow cone on the tray",
-      "required_skills": ["place"],
-      "args": { "object_name": "yellow_cone", "target_location": "tray" },
-      "dependencies": ["T3"],
-      "parallelizable": false,
-      "priority": 4
-    },
-    {
-      "id": "T5",
-      "description": "Return arm to home position",
-      "required_skills": ["home"],
-      "args": {},
-      "dependencies": ["T4"],
-      "parallelizable": false,
-      "priority": 5
-    }
-  ]
-}
-========== EXAMPLE 4 — Mobile robot navigation ==========
-Instruction: "Move to the red zone."
-Output:
-{
-  "status": "ok",
-  "plan_id": "plan_004",
-  "original_instruction": "Move to the red zone.",
-  "subtasks": [
-    {
-      "id": "T1",
-      "description": "Navigate to the red zone",
-      "required_skills": ["navigate"],
-      "robot": "wheeled",
-      "args": { "target_location": "red_zone" },
-      "dependencies": [],
-      "parallelizable": false,
-      "priority": 1
-    }
-  ]
-}
-"""
+
 
 # STEP 3 — Prompt builder
 # Follows DART-LLM's P = (I, E, R, S, F)
@@ -340,25 +166,39 @@ Rules you must follow:
    target_location verbatim, exactly as written. Do NOT paraphrase it into a
    generic placeholder like "target_position" -- the executor parses this string
    directly and a placeholder cannot be resolved to a real pose.
-13. Every subtask must include a "robot" field set to exactly "arm" or "wheeled"
-    based on which robot executes that skill:
-    - "arm": pick, place, inspect, push, home, grip, release, move_to, move_relative, rotate
-    - "wheeled": navigate, navigate_to, survey, transport, follow_path"""
+13. When an instruction acts on multiple distinct objects (e.g. "place the red
+   block on the shelf and place the green block on the shelf"), each object's
+   subtask chain is independent by default. Do NOT add a dependency from one
+   object's chain to another's unless the instruction says one must wait for
+   the other, or the physical action requires it (e.g. stacking object B onto
+   object A). Multiple robots may be available to work on independent chains
+   at the same time -- an unnecessary dependency prevents that."""
 
 
 def build_prompt(instruction: str,
                  skill_block: str,
                  plan_id: str,
-                 environment: str = None) -> str:
+                 environment: str = None,
+                 few_shot_k: int = FEW_SHOT_K) -> str:
     """
     Assembles the full prompt following DART-LLM's P = (I, E, R, S, F).
     Environment is a placeholder for now — will be replaced by
     a live object map topic subscription later.
+
+    The F component is retrieved per-instruction rather than fixed: the
+    few_shot_k examples most similar to this instruction, plus the coverage
+    guarantees enforced by the retriever.
     """
     env_section = environment if environment else (
         "Environment: Not yet specified. "
         "Use generic location names such as object_position, target_location, home_position."
     )
+
+    retrieved = retrieve_few_shot_examples(instruction, k=few_shot_k)
+    few_shot_block = format_examples_for_prompt(retrieved)
+    print("[Layer 1] Retrieved few-shot examples: " + ", ".join(
+        f"{ex['id']}({score:.2f})" for ex, score in retrieved
+    ))
 
     schema = f"""For status "ok", output this flat structure:
 {{
@@ -404,7 +244,7 @@ Use this plan_id for status "ok": {plan_id}
 {schema}
 
 === FEW-SHOT EXAMPLES ===
-{FEW_SHOT_EXAMPLES}
+{few_shot_block}
 
 === YOUR TASK ===
 Decompose the following instruction:
