@@ -137,20 +137,20 @@ def retrieve_few_shot_examples(instruction: str, k: int = FEW_SHOT_K):
 # Follows DART-LLM's P = (I, E, R, S, F)
 
 
-SYSTEM_PROMPT = """You are a task decomposition planner for a robotic arm system.
+SYSTEM_PROMPT = """You are a task decomposition planner for a multi-robot system consisting of a robotic arm and a mobile robot (TurtleBot).
 Your job is to take a high-level natural language instruction and break it down
-into atomic subtasks the arm can execute.
+into atomic subtasks that the appropriate robot can execute.
 
 Rules you must follow:
 1. BEFORE decomposing, classify the instruction into exactly one status:
    "ok", "clarification_needed", or "infeasible".
 2. Use "ok" only when the instruction is clear, physically executable, and can be
-   decomposed using only the provided robotic arm skills.
+   decomposed using only the provided skills (arm or mobile robot).
 3. Use "clarification_needed" when an unresolved referent such as "it", "the thing",
    or "over there" cannot be grounded in the environment or skill registry. Return
    only status and reason; do not produce a plan.
-4. Use "infeasible" when the instruction is unambiguous but cannot be executed:
-   outside the robot domain, missing required skills, physically impossible,
+4. Use "infeasible" when the instruction is unambiguous but cannot be executed
+   by either the arm or the mobile robot: outside the robot domain, missing required skills, physically impossible,
    temporally impossible, or self-contradictory. Return only status and reason;
    do not produce a plan.
 5. For status "ok", required_skills must only contain skill names from the provided
@@ -210,6 +210,7 @@ def build_prompt(instruction: str,
       "id": "<T1, T2, T3 ...>",
       "description": "<what this subtask does in plain English>",
       "required_skills": ["<exactly one skill name from the skill list>"],
+      "robot": "<arm | wheeled>",
       "args": {{ "<input_name>": "<value>" }},
       "dependencies": ["<ids of subtasks that must complete before this one, or empty list>"],
       "parallelizable": "<true if this can run in parallel with other independent subtasks>",
@@ -286,6 +287,15 @@ def build_dag(plan: dict) -> nx.DiGraph:
 # STEP 6 — Validator
 # Three checks following DART-LLM's validation approach
 
+SKILL_TO_ROBOT = {
+    "pick": "arm", "place": "arm", "inspect": "arm", "push": "arm",
+    "home": "arm", "grip": "arm", "release": "arm", "move_to": "arm",
+    "move_relative": "arm", "rotate": "arm",
+    "navigate": "wheeled", "navigate_to": "wheeled",
+    "survey": "wheeled", "transport": "wheeled",
+    "follow_path": "wheeled", "plan_path": "wheeled",
+}
+
 def validate_plan(plan: dict, G: nx.DiGraph, robot_config: dict) -> list[str]:
     """
     Validates the plan. Returns list of error strings.
@@ -294,6 +304,7 @@ def validate_plan(plan: dict, G: nx.DiGraph, robot_config: dict) -> list[str]:
     Check 1: No cycles in DAG
     Check 2: No dangling dependency references
     Check 3: All required_skills exist in skill registry
+    Check 4: Every subtask has a valid 'robot' field matching its skill
     """
     errors = []
     valid_skills = {s["name"] for s in robot_config["skills"]}
@@ -329,8 +340,25 @@ def validate_plan(plan: dict, G: nx.DiGraph, robot_config: dict) -> list[str]:
                     f"Valid skills: {sorted(valid_skills)}"
                 )
 
-    return errors
+    # Check 4 — Robot field validity and skill-robot consistency
+    for task in plan["subtasks"]:
+        robot = task.get("robot")
+        if robot not in ("arm", "wheeled"):
+            errors.append(
+                f"MISSING_ROBOT: task '{task['id']}' has no valid 'robot' field "
+                f"(got '{robot}'). Must be exactly 'arm' or 'wheeled'."
+            )
+            continue
 
+        skill = task["required_skills"][0] if task["required_skills"] else None
+        expected = SKILL_TO_ROBOT.get(skill)
+        if expected and robot != expected:
+            errors.append(
+                f"WRONG_ROBOT: task '{task['id']}' uses skill '{skill}' "
+                f"which requires robot='{expected}' but got robot='{robot}'."
+            )
+
+    return errors
 
 # STEP 7 — Full pipeline with retry loop
 # Mirrors DART-LLM Algorithm 2 re-prompting on failure

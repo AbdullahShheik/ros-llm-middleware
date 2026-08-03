@@ -69,6 +69,13 @@
       "inputs": [],
       "preconditions": [],
       "effects": ["arm is at home position"]
+    },
+    {
+      "name": "navigate",
+      "description": "Navigate the mobile robot to a named location using Nav2 path planning and obstacle avoidance",
+      "inputs": ["target_location"],
+      "preconditions": ["path to target exists"],
+      "effects": ["mobile robot is at target_location"]
     }
   ]
 }

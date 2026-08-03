@@ -113,12 +113,11 @@ class ActionDispatcher(Node):
         return None
 
     def _resolve_location(self, target_location):
-        """Resolve a named location (zone or object name) to a pose via
-        /object_map. Used for wheeled-robot skills (navigate, survey,
-        transport)."""
         if not target_location:
             return None
-        mapped_name = OBJECT_NAME_MAP.get(target_location, target_location)
+        # normalize spaces to underscores
+        normalized = target_location.strip().replace(" ", "_").lower()
+        mapped_name = OBJECT_NAME_MAP.get(normalized, normalized)
         if mapped_name in self.object_map:
             return dict(self.object_map[mapped_name])
         return None
