@@ -137,7 +137,7 @@ def _prepare_and_launch(context, *args, **kwargs):
             period=3.0,
             actions=[
                 ExecuteProcess(
-                    cmd=['gz', 'sim', '-r', '-v', '4', world_path],
+                    cmd=['gz', 'sim', world_path],
                     output='screen'
                 ),
             ]
@@ -151,7 +151,9 @@ def _prepare_and_launch(context, *args, **kwargs):
             actions=[
                 ExecuteProcess(
                     cmd=['bash', '-c', release_cubes_cmd],
-                    output='screen',
+                    output='screen',)
+            ]
+        ),
         # Nav2 stack at 15s: needs Gazebo world loaded + /tf, /scan flowing
         TimerAction(
             period=15.0,
@@ -286,7 +288,7 @@ def _prepare_and_launch(context, *args, **kwargs):
         # 15s, giving them time to actually load/configure/activate before
         # physics starts stepping (see unpause_world_cmd above).
         TimerAction(
-            period=16.5,
+            period=14.5,
             actions=[
                 ExecuteProcess(
                     cmd=unpause_world_cmd,
