@@ -74,11 +74,33 @@ class CosineRobotTypeRetriever:
 
 def union_skills(selected: list) -> dict:
     """Flattens selected (entry, score) pairs into one deduplicated skill
-    list -- the union of only the SELECTED types' own skills -- in the exact
-    shape build_skill_prompt_block/validate_plan expect: {"skills": [...]}.
+    list -- the union of only the SELECTED types' own skills -- in the shape
+    build_skill_prompt_block/validate_plan expect: {"skills": [...],
+    "robot_types": [...]}.
+
+    Each returned skill also carries its own "robot_types": the selected
+    type(s) whose registry actually lists it (a shared skill like "move_to"
+    can legitimately belong to more than one). This is how the caller finds
+    out which robot type is allowed to run a skill WITHOUT a hardcoded
+    skill->robot table -- the ownership comes straight from the live
+    fleet/registry data being retrieved, so a new robot type just needs to be
+    onboarded (robot_fleet.json + robots_registry.json), not wired into a
+    separate mapping that has to be kept in sync by hand.
     """
     seen = {}
+    owners = {}
     for entry, _ in selected:
         for skill in entry["skills"]:
             seen.setdefault(skill["name"], skill)
-    return {"skills": list(seen.values())}
+            owners.setdefault(skill["name"], set()).add(entry["robot_type"])
+
+    skills = []
+    for name, skill in seen.items():
+        tagged = dict(skill)
+        tagged["robot_types"] = sorted(owners[name])
+        skills.append(tagged)
+
+    return {
+        "skills": skills,
+        "robot_types": sorted({entry["robot_type"] for entry, _ in selected}),
+    }

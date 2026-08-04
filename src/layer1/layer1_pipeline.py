@@ -32,6 +32,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from RAG.few_shot_bank import bank_summary, load_examples
 from RAG.few_shot_retriever import CosineFewShotRetriever, format_examples_for_prompt
+from RAG.robot_bank import bank_summary as robot_bank_summary, load_robot_bank
+from RAG.robot_retriever import CosineRobotTypeRetriever, union_skills
 
 def _load_env_file(env_path: str) -> None:
     if not os.path.exists(env_path):
@@ -76,7 +78,52 @@ def _next_plan_id() -> str:
 
 
 
-# STEP 1 — Load robot skill registry
+# STEP 1 — Robot skills (retrieved, not hardcoded)
+# R + S components in P = (I, E, R, S, F)
+#
+# Which robot TYPES are relevant to an instruction is selected per-instruction
+# from the active fleet (robot_fleet.json + robots_registry.json +
+# master_skills.json, see RAG/robot_bank.py and RAG/robot_retriever.py).
+# Retrieval only ever picks whole robot types, never individual skills: once
+# a type is selected, its COMPLETE registered skill set -- each already
+# resolved to its full description/inputs/preconditions/effects from
+# master_skills.json -- goes into the prompt. The union of the selected
+# types' skills is what reaches the prompt and the validator.
+
+_robot_retriever = None
+
+
+def get_robot_retriever() -> CosineRobotTypeRetriever:
+    """Build the retriever once and reuse it -- vectorizing the robot bank
+    per call would redo the same work on every instruction."""
+    global _robot_retriever
+    if _robot_retriever is None:
+        bank = load_robot_bank()
+        _robot_retriever = CosineRobotTypeRetriever(bank)
+        print(f"[Layer 1] Robot bank loaded: {robot_bank_summary(bank)}")
+    return _robot_retriever
+
+
+def retrieve_robot_config(instruction: str) -> dict:
+    """Returns the {"skills": [...]} robot_config for this instruction --
+    the union of the selected robot types' own complete skill sets. Shape
+    matches what build_skill_prompt_block and validate_plan already expect."""
+    selected = get_robot_retriever().retrieve(instruction)
+    print("[Layer 1] Retrieved robot types: " + ", ".join(
+        f"{entry['robot_type']}({score:.2f})" for entry, score in selected
+    ))
+    return union_skills(selected)
+
+
+# Legacy full-catalog loading. Not used by decompose_instruction below
+# (which retrieves per-instruction instead) -- kept only because other
+# scripts (evaluate.py, evaluate_final.py, multi_robot_test.py,
+# testing_layer_1/run_dart_style_evaluation.py) still import these names.
+# NOTE: robot_skills.json no longer exists -- those scripts will fail at
+# the load_skills(SKILLS_FILE) call until they're moved onto the RAG bank too.
+SKILLS_FILE = os.path.join(os.path.dirname(__file__), "robot_skills.json")
+
+
 def load_skills(filepath: str) -> dict:
     """Load robot skill definitions from JSON file."""
     with open(filepath, "r") as f:
@@ -86,17 +133,22 @@ def load_skills(filepath: str) -> dict:
 def build_skill_prompt_block(robot_config: dict) -> str:
     """
     Convert the skill list into a readable string injected into the LLM prompt.
-    NOTE: We do NOT include robot_id or robot_type here.
-    Layer 1 only decomposes tasks — robot assignment is Layer 2's job.
+
+    Each skill's "robot_types" (which selected robot type(s) actually offer
+    it -- see union_skills) is shown here because Layer 1 now assigns the
+    "robot" field itself (see validate_plan Check 4): the model needs to see
+    which type owns a skill to fill that field correctly, not guess it.
     """
-    lines = ["Available Skills for the Robotic Arm:"]
+    lines = ["Available Skills:"]
     for skill in robot_config["skills"]:
         inputs_str = ", ".join(skill["inputs"]) if skill["inputs"] else "none"
         pre_str    = "; ".join(skill["preconditions"]) if skill["preconditions"] else "none"
         eff_str    = "; ".join(skill["effects"])       if skill["effects"]       else "none"
+        robots_str = ", ".join(skill["robot_types"])
         lines.append(
             f"\n  name         : {skill['name']}"
             f"\n  description  : {skill['description']}"
+            f"\n  robot_types  : [{robots_str}]"
             f"\n  inputs       : [{inputs_str}]"
             f"\n  preconditions: {pre_str}"
             f"\n  effects      : {eff_str}"
@@ -132,7 +184,6 @@ def retrieve_few_shot_examples(instruction: str, k: int = FEW_SHOT_K):
     return get_retriever().retrieve(instruction, k=k)
 
 
-
 # STEP 3 — Prompt builder
 # Follows DART-LLM's P = (I, E, R, S, F)
 
@@ -155,7 +206,11 @@ Rules you must follow:
    do not produce a plan.
 5. For status "ok", required_skills must only contain skill names from the provided
    skill list. No other values allowed.
-6. Do NOT assign tasks to robots. That is handled by a separate layer.
+6. Every subtask's "robot" field must be one of that subtask's skill's own
+   robot_types (shown per-skill in === ROBOT SKILLS ===). If a skill lists more
+   than one robot_type, pick whichever one is doing the rest of that subtask's
+   chain in this plan. Never write a robot type that isn't in the skill's own
+   robot_types list.
 7. Every subtask must have a unique id in the format T1, T2, T3 ...
 8. dependencies must only reference ids of other subtasks in the same plan.
 9. If a subtask has no prerequisites, set dependencies to an empty list [].
@@ -178,6 +233,7 @@ Rules you must follow:
 def build_prompt(instruction: str,
                  skill_block: str,
                  plan_id: str,
+                 robot_types: list[str],
                  environment: str = None,
                  few_shot_k: int = FEW_SHOT_K) -> str:
     """
@@ -188,6 +244,11 @@ def build_prompt(instruction: str,
     The F component is retrieved per-instruction rather than fixed: the
     few_shot_k examples most similar to this instruction, plus the coverage
     guarantees enforced by the retriever.
+
+    robot_types is the R component's active set for this instruction (from
+    retrieve_robot_config) -- the schema's "robot" placeholder is built from
+    it instead of a hardcoded literal, so it always matches whatever robot
+    types were actually retrieved, however many the fleet grows to.
     """
     env_section = environment if environment else (
         "Environment: Not yet specified. "
@@ -200,6 +261,8 @@ def build_prompt(instruction: str,
         f"{ex['id']}({score:.2f})" for ex, score in retrieved
     ))
 
+    robot_types_placeholder = " | ".join(robot_types)
+
     schema = f"""For status "ok", output this flat structure:
 {{
   "status": "ok",
@@ -210,7 +273,7 @@ def build_prompt(instruction: str,
       "id": "<T1, T2, T3 ...>",
       "description": "<what this subtask does in plain English>",
       "required_skills": ["<exactly one skill name from the skill list>"],
-      "robot": "<arm | wheeled>",
+      "robot": "<{robot_types_placeholder}>",
       "args": {{ "<input_name>": "<value>" }},
       "dependencies": ["<ids of subtasks that must complete before this one, or empty list>"],
       "parallelizable": "<true if this can run in parallel with other independent subtasks>",
@@ -285,16 +348,7 @@ def build_dag(plan: dict) -> nx.DiGraph:
 
 
 # STEP 6 — Validator
-# Three checks following DART-LLM's validation approach
-
-SKILL_TO_ROBOT = {
-    "pick": "arm", "place": "arm", "inspect": "arm", "push": "arm",
-    "home": "arm", "grip": "arm", "release": "arm", "move_to": "arm",
-    "move_relative": "arm", "rotate": "arm",
-    "navigate": "wheeled", "navigate_to": "wheeled",
-    "survey": "wheeled", "transport": "wheeled",
-    "follow_path": "wheeled", "plan_path": "wheeled",
-}
+# Four checks following DART-LLM's validation approach
 
 def validate_plan(plan: dict, G: nx.DiGraph, robot_config: dict) -> list[str]:
     """
@@ -305,10 +359,18 @@ def validate_plan(plan: dict, G: nx.DiGraph, robot_config: dict) -> list[str]:
     Check 2: No dangling dependency references
     Check 3: All required_skills exist in skill registry
     Check 4: Every subtask has a valid 'robot' field matching its skill
+
+    Check 4 has no hardcoded skill->robot table: robot_config["robot_types"]
+    (the valid values) and each skill's own "robot_types" (who may run it)
+    both come from union_skills, straight off the robot types retrieved for
+    this instruction -- so it stays correct as robot_fleet.json/
+    robots_registry.json gain new types, with nothing here to update by hand.
     """
     errors = []
-    valid_skills = {s["name"] for s in robot_config["skills"]}
-    task_ids     = {t["id"]   for t in plan["subtasks"]}
+    valid_skills      = {s["name"] for s in robot_config["skills"]}
+    skill_robot_types = {s["name"]: s["robot_types"] for s in robot_config["skills"]}
+    valid_robot_types = robot_config["robot_types"]
+    task_ids          = {t["id"] for t in plan["subtasks"]}
 
     # Check 1 — Cycle detection
     if not nx.is_directed_acyclic_graph(G):
@@ -343,19 +405,19 @@ def validate_plan(plan: dict, G: nx.DiGraph, robot_config: dict) -> list[str]:
     # Check 4 — Robot field validity and skill-robot consistency
     for task in plan["subtasks"]:
         robot = task.get("robot")
-        if robot not in ("arm", "wheeled"):
+        if robot not in valid_robot_types:
             errors.append(
                 f"MISSING_ROBOT: task '{task['id']}' has no valid 'robot' field "
-                f"(got '{robot}'). Must be exactly 'arm' or 'wheeled'."
+                f"(got '{robot}'). Must be one of: {valid_robot_types}."
             )
             continue
 
         skill = task["required_skills"][0] if task["required_skills"] else None
-        expected = SKILL_TO_ROBOT.get(skill)
-        if expected and robot != expected:
+        owners = skill_robot_types.get(skill)
+        if owners and robot not in owners:
             errors.append(
                 f"WRONG_ROBOT: task '{task['id']}' uses skill '{skill}' "
-                f"which requires robot='{expected}' but got robot='{robot}'."
+                f"which is only available on {owners}, but got robot='{robot}'."
             )
 
     return errors
@@ -366,7 +428,6 @@ def validate_plan(plan: dict, G: nx.DiGraph, robot_config: dict) -> list[str]:
 def decompose_instruction(
     instruction: str,
     client: Groq,
-    robot_config: dict,
     environment: str = None
 ) -> tuple[dict, nx.DiGraph]:
     """
@@ -374,10 +435,17 @@ def decompose_instruction(
     NLI → prompt → LLM → parse JSON → build DAG → validate → retry if needed.
     Returns (plan_dict, dag) on success.
     Raises RuntimeError if all retries are exhausted.
+
+    Robot skills (the R+S components of P = (I, E, R, S, F)) are retrieved
+    per-instruction from the active fleet rather than passed in statically --
+    see retrieve_robot_config.
     """
+    robot_config = retrieve_robot_config(instruction)
     skill_block  = build_skill_prompt_block(robot_config)
     plan_id      = _next_plan_id()
-    user_prompt  = build_prompt(instruction, skill_block, plan_id, environment)
+    user_prompt  = build_prompt(
+        instruction, skill_block, plan_id, robot_config["robot_types"], environment
+    )
     error_suffix = ""
 
     for attempt in range(1, MAX_RETRIES + 1):
@@ -480,7 +548,7 @@ def print_dag(plan: dict, G: nx.DiGraph):
 # Publishes validated subtasks to /layer1/taskplan as std_msgs/String
 
 
-def run_ros_node(robot_config: dict):
+def run_ros_node():
     """
     ROS2 node mode.
     Subscribes to /layer1/instruction (std_msgs/String)
@@ -508,7 +576,6 @@ def run_ros_node(robot_config: dict):
     class Layer1Node(Node):
         def __init__(self):
             super().__init__("layer1_node")
-            self.robot_config = robot_config
             self.client       = get_client()
             self.active_plan = None
             self.active_graph = None
@@ -548,9 +615,7 @@ def run_ros_node(robot_config: dict):
 
             self.get_logger().info(f"Received instruction: {instruction}")
             try:
-                plan, G = decompose_instruction(
-                    instruction, self.client, self.robot_config
-                )
+                plan, G = decompose_instruction(instruction, self.client)
                 print_dag(plan, G)
                 self.start_plan_dispatch(plan, G)
             except Exception as e:
@@ -781,13 +846,9 @@ def main():
     )
     args = parser.parse_args()
 
-    # Load skills
-    robot_config = load_skills(SKILLS_FILE)
-    print(f"[Layer 1] Loaded {len(robot_config['skills'])} skills.")
-
     # ── ROS2 node mode ────────────────────────────
     if args.ros:
-        run_ros_node(robot_config)
+        run_ros_node()
         return
 
     # ── Standalone modes ──────────────────────────
@@ -812,7 +873,7 @@ def main():
             # Process immediately in interactive mode
             print(f"\n{'━'*60}")
             try:
-                plan, G = decompose_instruction(user_input, client, robot_config)
+                plan, G = decompose_instruction(user_input, client)
                 print_dag(plan, G)
                 out_file = f"{plan['plan_id']}.json"
                 with open(out_file, "w") as f:
@@ -828,7 +889,7 @@ def main():
         print(f"INSTRUCTION: {instruction}")
         print('━'*60)
         try:
-            plan, G = decompose_instruction(instruction, client, robot_config)
+            plan, G = decompose_instruction(instruction, client)
             print_dag(plan, G)
             out_file = f"{plan['plan_id']}.json"
             with open(out_file, "w") as f:
