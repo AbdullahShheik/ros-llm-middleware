@@ -111,11 +111,23 @@ class CosineFewShotRetriever:
         is_rejection = lambda ex: ex["status"] != "ok"
         is_combined = lambda ex: ex["skill_domains"] == COMBINED_DOMAIN
 
-        if guarantee_rejection and not any(is_rejection(ex) for ex, _ in selected):
-            swap_in_best(is_rejection)
+        def ensure_covered(predicate) -> None:
+            """Make sure some selected example satisfies predicate. If one
+            already does -- naturally, not via a prior swap -- protect it,
+            so a later guarantee's swap can't displace it and silently
+            undo this guarantee."""
+            already_covered = next(
+                (ex["id"] for ex, _ in selected if predicate(ex)), None)
+            if already_covered is not None:
+                guaranteed_ids.add(already_covered)
+                return
+            swap_in_best(predicate)
 
-        if guarantee_combined_domain and not any(is_combined(ex) for ex, _ in selected):
-            swap_in_best(is_combined)
+        if guarantee_rejection:
+            ensure_covered(is_rejection)
+
+        if guarantee_combined_domain:
+            ensure_covered(is_combined)
 
         selected.sort(key=lambda pair: -pair[1])  # highest similarity first
         return selected
