@@ -24,6 +24,7 @@ import argparse
 import itertools
 import networkx as nx
 from groq import Groq
+from build_environment import build_environment_prompt
 
 # The RAG package lives beside this file; make it importable regardless of
 # the working directory the pipeline is launched from (ROS2 launch, the demo
@@ -62,6 +63,8 @@ SKILLS_FILE  = os.path.join(os.path.dirname(__file__), "robot_skills.json")
 # How many few-shot examples get retrieved into each prompt. The bank itself
 # can grow freely -- only these k reach the prompt.
 FEW_SHOT_K   = 4
+MAP_YAML_PATH = "/home/abdullah/HU/STRP/ros-llm-middleware/src/world/maps/panda_world_map.yaml"
+SDF_PATH      = "/home/abdullah/HU/STRP/ros-llm-middleware/src/world/worlds/panda_world.sdf"
 
 # get_client() returns the LLM client. Currently only Groq is supported.
 
@@ -577,6 +580,7 @@ def run_ros_node():
         def __init__(self):
             super().__init__("layer1_node")
             self.client       = get_client()
+            self.latest_object_map = {}        
             self.active_plan = None
             self.active_graph = None
             self.task_map = {}
@@ -594,12 +598,27 @@ def run_ros_node():
             self.feedback_subscription = self.create_subscription(
                 String, "/execution_feedback", self.feedback_callback, 10
             )
+            self.object_map_subscription = self.create_subscription( 
+                String, "/object_map", self.object_map_callback, 10
+            )
             self.get_logger().info(
                 "Layer 1 node ready. "
                 "Listening on /layer1/instruction, "
                 "listening on /execution_feedback, "
+                "listening on /object_map, "
                 "publishing to /layer1/taskplan."
             )
+            self.get_logger().info(f"Map context: {MAP_YAML_PATH}")
+            self.get_logger().info(f"SDF world:   {SDF_PATH}")
+
+        def object_map_callback(self, msg: String):
+            try:
+                self.latest_object_map = json.loads(msg.data)
+                self.get_logger().debug(
+                    f"Object map updated: {list(self.latest_object_map.keys())}"
+                )
+            except json.JSONDecodeError as e:
+                self.get_logger().warn(f"Failed to parse /object_map message: {e}")
 
         def instruction_callback(self, msg: String):
             instruction = msg.data.strip()
@@ -613,22 +632,31 @@ def run_ros_node():
                 )
                 return
 
+            if not self.latest_object_map:
+                self.get_logger().warn(
+                    "No /object_map data received yet — environment context will "
+                    "have no live object or zone positions. "
+                    "Is the perception node running?"
+                )
+
             self.get_logger().info(f"Received instruction: {instruction}")
             try:
-                plan, G = decompose_instruction(instruction, self.client)
+                environment = build_environment_prompt(
+                    map_yaml_path=MAP_YAML_PATH,
+                    sdf_path=SDF_PATH,
+                    object_map=self.latest_object_map,
+                )
+                self.get_logger().info(
+                    f"Environment context built — "
+                    f"objects: {[k for k in self.latest_object_map if k in ('red_cube','blue_cube','green_cube')]}, "
+                    f"zones: {[k for k in self.latest_object_map if 'zone' in k]}"
+                )
+                plan, G = decompose_instruction(
+                    instruction, self.client, environment=environment
+                )
                 print_dag(plan, G)
                 self.start_plan_dispatch(plan, G)
             except Exception as e:
-                # Catch everything, not just RuntimeError: decompose_instruction
-                # only retries on malformed LLM JSON -- a network blip, rate
-                # limit, or any other Groq API error propagates straight out
-                # of the client call uncaught. Left as RuntimeError-only, an
-                # unhandled exception here escapes this callback and takes
-                # down rclpy.spin(), killing the whole node -- meaning a
-                # single transient API failure on the *second* instruction
-                # (or any instruction after the first) permanently ends the
-                # session, since active_plan was never set and nothing
-                # restarts the node. Log and stay alive for the next attempt.
                 self.get_logger().error(f"Decomposition failed: {e}")
 
         def start_plan_dispatch(self, plan: dict, G: nx.DiGraph):
