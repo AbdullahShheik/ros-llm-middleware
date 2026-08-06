@@ -163,7 +163,7 @@
     </include>
 
     <model name="red_cube">
-      <pose>0.5 0 0.03 0 0 0</pose>
+      <pose>3 3 0.04 0 0 0</pose>
       <link name="link">
         <inertial>
           <mass>0.1</mass>
@@ -191,7 +191,7 @@
     </model>
 
     <model name="blue_cube">
-      <pose>0.5 0.2 0.03 0 0 0</pose>
+      <pose>-3 3 0.04 0 0 0</pose>
       <link name="link">
         <inertial>
           <mass>0.1</mass>
@@ -219,7 +219,7 @@
     </model>
 
     <model name="green_cube">
-      <pose>0.5 -0.2 0.03 0 0 0</pose>
+      <pose>3 -3 0.04 0 0 0</pose>
       <link name="link">
         <inertial>
           <mass>0.1</mass>
@@ -360,6 +360,9 @@
       <static>true</static>
       <pose>3 3 0.006 0 0 0</pose>
       <link name="link">
+        <collision name="collision">                                    
+          <geometry><box><size>0.8 0.8 0.01</size></box></geometry>    
+        </collision>
         <visual name="visual">
           <geometry><box><size>0.8 0.8 0.01</size></box></geometry>
           <material>
@@ -374,6 +377,9 @@
       <static>true</static>
       <pose>-3 3 0.006 0 0 0</pose>
       <link name="link">
+        <collision name="collision">                                   
+          <geometry><box><size>0.8 0.8 0.01</size></box></geometry>   
+        </collision>
         <visual name="visual">
           <geometry><box><size>0.8 0.8 0.01</size></box></geometry>
           <material>
@@ -388,6 +394,9 @@
       <static>true</static>
       <pose>3 -3 0.006 0 0 0</pose>
       <link name="link">
+        <collision name="collision">                                    
+          <geometry><box><size>0.8 0.8 0.01</size></box></geometry>  
+        </collision>
         <visual name="visual">
           <geometry><box><size>0.8 0.8 0.01</size></box></geometry>
           <material>
@@ -409,6 +418,23 @@
             <diffuse>0.9 0.9 0.1 1</diffuse>
           </material>
         </visual>
+      </link>
+    </model>
+
+    <model name="handoff_point">
+      <static>true</static>
+      <pose>0.85 0 0.006 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><box><size>0.2 0.2 0.01</size></box></geometry>
+          <material>
+            <ambient>0.9 0.6 0.0 1</ambient>
+            <diffuse>0.9 0.6 0.0 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry><box><size>0.2 0.2 0.01</size></box></geometry>
+        </collision>
       </link>
     </model>
   </world>
