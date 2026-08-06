@@ -354,6 +354,36 @@
       <name>turtlebot3_waffle</name>
       <uri>model://turtlebot3_waffle</uri>
       <pose>-2 0 0.02 0 0 0</pose>
+
+      <plugin filename="gz-sim-detachable-joint-system"
+              name="gz::sim::systems::DetachableJoint">
+        <parent_link>base_link</parent_link>
+        <child_model>red_cube</child_model>
+        <child_link>link</child_link>
+        <detach_topic>/red_cube/detach</detach_topic>
+        <attach_topic>/red_cube/attach</attach_topic>
+        <output_topic>/red_cube/state</output_topic>
+      </plugin>
+
+      <plugin filename="gz-sim-detachable-joint-system"
+              name="gz::sim::systems::DetachableJoint">
+        <parent_link>base_link</parent_link>
+        <child_model>blue_cube</child_model>
+        <child_link>link</child_link>
+        <detach_topic>/blue_cube/detach</detach_topic>
+        <attach_topic>/blue_cube/attach</attach_topic>
+        <output_topic>/blue_cube/state</output_topic>
+      </plugin>
+
+      <plugin filename="gz-sim-detachable-joint-system"
+              name="gz::sim::systems::DetachableJoint">
+        <parent_link>base_link</parent_link>
+        <child_model>green_cube</child_model>
+        <child_link>link</child_link>
+        <detach_topic>/green_cube/detach</detach_topic>
+        <attach_topic>/green_cube/attach</attach_topic>
+        <output_topic>/green_cube/state</output_topic>
+      </plugin>
     </include>
 
     <model name="red_zone">
