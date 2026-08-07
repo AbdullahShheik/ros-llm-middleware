@@ -1,0 +1,653 @@
+{
+  "examples": [
+    {
+      "id": "plan_001",
+      "instruction": "Pick up the red block and place it on the shelf.",
+      "output": {
+        "status": "ok",
+        "subtasks": [
+          {
+            "id": "T1",
+            "description": "Pick up the red block",
+            "required_skills": [
+              "pick"
+            ],
+            "robot": "robotic_arm",
+            "args": {
+              "object_name": "red_block",
+              "location": "red_block"
+            },
+            "dependencies": [],
+            "parallelizable": false,
+            "priority": 1
+          },
+          {
+            "id": "T2",
+            "description": "Place the red block on the shelf",
+            "required_skills": [
+              "place"
+            ],
+            "robot": "robotic_arm",
+            "args": {
+              "object_name": "red_block",
+              "target_location": "shelf"
+            },
+            "dependencies": [
+              "T1"
+            ],
+            "parallelizable": false,
+            "priority": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "plan_002",
+      "instruction": "Inspect the blue cylinder and then push it 5cm to the right.",
+      "output": {
+        "status": "ok",
+        "subtasks": [
+          {
+            "id": "T1",
+            "description": "Inspect the blue cylinder",
+            "required_skills": [
+              "inspect"
+            ],
+            "robot": "robotic_arm",
+            "args": {
+              "object_name": "blue_cylinder"
+            },
+            "dependencies": [],
+            "priority": 1
+          },
+          {
+            "id": "T2",
+            "description": "Push the blue cylinder 5cm to the right",
+            "required_skills": [
+              "push"
+            ],
+            "robot": "robotic_arm",
+            "args": {
+              "object_name": "blue_cylinder",
+              "direction": "right",
+              "distance_cm": 5
+            },
+            "dependencies": [
+              "T1"
+            ],
+            "priority": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "plan_003",
+      "instruction": "Navigate to the kitchen.",
+      "output": {
+        "status": "ok",
+        "subtasks": [
+          {
+            "id": "T1",
+            "description": "Navigate to the kitchen",
+            "required_skills": [
+              "navigate_to"
+            ],
+            "robot": "mobile_robot",
+            "args": {
+              "target_location": "kitchen"
+            },
+            "dependencies": [],
+            "priority": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "plan_004",
+      "instruction": "Go to the charging station and stop.",
+      "output": {
+        "status": "ok",
+        "subtasks": [
+          {
+            "id": "T1",
+            "description": "Navigate to charging station",
+            "required_skills": [
+              "navigate_to"
+            ],
+            "robot": "mobile_robot",
+            "args": {
+              "target_location": "charging_station"
+            },
+            "dependencies": [],
+            "priority": 1
+          },
+          {
+            "id": "T2",
+            "description": "Stop the robot",
+            "required_skills": [
+              "stop"
+            ],
+            "robot": "mobile_robot",
+            "args": {},
+            "dependencies": [
+              "T1"
+            ],
+            "priority": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "plan_005",
+      "instruction": "Scan the environment for obstacles.",
+      "output": {
+        "status": "ok",
+        "subtasks": [
+          {
+            "id": "T1",
+            "description": "Detect obstacles in the environment",
+            "required_skills": [
+              "detect_obstacle"
+            ],
+            "robot": "mobile_robot",
+            "args": {},
+            "dependencies": [],
+            "priority": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "plan_006",
+      "instruction": "Check the robot's battery level.",
+      "output": {
+        "status": "ok",
+        "subtasks": [
+          {
+            "id": "T1",
+            "description": "Check battery level",
+            "required_skills": [
+              "check_battery"
+            ],
+            "robot": "mobile_robot",
+            "args": {},
+            "dependencies": [],
+            "priority": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "plan_007",
+      "instruction": "Go to the table, pick up the cup, and bring it to the kitchen.",
+      "output": {
+        "status": "ok",
+        "subtasks": [
+          {
+            "id": "T1",
+            "description": "Navigate to table",
+            "required_skills": [
+              "navigate_to"
+            ],
+            "robot": "mobile_robot",
+            "args": {
+              "target_location": "table"
+            },
+            "dependencies": [],
+            "priority": 1
+          },
+          {
+            "id": "T2",
+            "description": "Pick up the cup",
+            "required_skills": [
+              "pick"
+            ],
+            "robot": "robotic_arm",
+            "args": {
+              "object_name": "cup",
+              "location": "table"
+            },
+            "dependencies": [
+              "T1"
+            ],
+            "priority": 2
+          },
+          {
+            "id": "T3",
+            "description": "Navigate to kitchen",
+            "required_skills": [
+              "navigate_to"
+            ],
+            "robot": "mobile_robot",
+            "args": {
+              "target_location": "kitchen"
+            },
+            "dependencies": [
+              "T2"
+            ],
+            "priority": 3
+          },
+          {
+            "id": "T4",
+            "description": "Place the cup in the kitchen",
+            "required_skills": [
+              "place"
+            ],
+            "robot": "robotic_arm",
+            "args": {
+              "object_name": "cup",
+              "target_location": "kitchen"
+            },
+            "dependencies": [
+              "T3"
+            ],
+            "priority": 4
+          }
+        ]
+      }
+    },
+    {
+      "id": "plan_008",
+      "instruction": "Bring the bottle from the shelf to the table.",
+      "output": {
+        "status": "ok",
+        "subtasks": [
+          {
+            "id": "T1",
+            "description": "Navigate to shelf",
+            "required_skills": [
+              "navigate_to"
+            ],
+            "robot": "mobile_robot",
+            "args": {
+              "target_location": "shelf"
+            },
+            "dependencies": [],
+            "priority": 1
+          },
+          {
+            "id": "T2",
+            "description": "Pick up the bottle",
+            "required_skills": [
+              "pick"
+            ],
+            "robot": "robotic_arm",
+            "args": {
+              "object_name": "bottle",
+              "location": "shelf"
+            },
+            "dependencies": [
+              "T1"
+            ],
+            "priority": 2
+          },
+          {
+            "id": "T3",
+            "description": "Navigate to table",
+            "required_skills": [
+              "navigate_to"
+            ],
+            "robot": "mobile_robot",
+            "args": {
+              "target_location": "table"
+            },
+            "dependencies": [
+              "T2"
+            ],
+            "priority": 3
+          },
+          {
+            "id": "T4",
+            "description": "Place the bottle on table",
+            "required_skills": [
+              "place"
+            ],
+            "robot": "robotic_arm",
+            "args": {
+              "object_name": "bottle",
+              "target_location": "table"
+            },
+            "dependencies": [
+              "T3"
+            ],
+            "priority": 4
+          }
+        ]
+      }
+    },
+    {
+      "id": "plan_009",
+      "instruction": "Follow the planned path to the living room.",
+      "output": {
+        "status": "ok",
+        "subtasks": [
+          {
+            "id": "T1",
+            "description": "Follow the path to the living room",
+            "required_skills": [
+              "follow_path"
+            ],
+            "robot": "mobile_robot",
+            "args": {
+              "waypoints": [
+                "hallway",
+                "living_room"
+              ]
+            },
+            "dependencies": [],
+            "priority": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "plan_010",
+      "instruction": "Go to the kitchen and scan for obstacles.",
+      "output": {
+        "status": "ok",
+        "subtasks": [
+          {
+            "id": "T1",
+            "description": "Navigate to kitchen",
+            "required_skills": [
+              "navigate_to"
+            ],
+            "robot": "mobile_robot",
+            "args": {
+              "target_location": "kitchen"
+            },
+            "dependencies": [],
+            "priority": 1
+          },
+          {
+            "id": "T2",
+            "description": "Detect obstacles",
+            "required_skills": [
+              "detect_obstacle"
+            ],
+            "robot": "mobile_robot",
+            "args": {},
+            "dependencies": [
+              "T1"
+            ],
+            "priority": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "plan_011",
+      "instruction": "Pick up the book from the desk.",
+      "output": {
+        "status": "ok",
+        "subtasks": [
+          {
+            "id": "T1",
+            "description": "Pick up the book",
+            "required_skills": [
+              "pick"
+            ],
+            "robot": "robotic_arm",
+            "args": {
+              "object_name": "book",
+              "location": "desk"
+            },
+            "dependencies": [],
+            "priority": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "plan_012",
+      "instruction": "Move forward 50cm and then stop.",
+      "output": {
+        "status": "ok",
+        "subtasks": [
+          {
+            "id": "T1",
+            "description": "Move forward 50cm",
+            "required_skills": [
+              "move_relative"
+            ],
+            "robot": "robotic_arm",
+            "args": {
+              "direction": "forward",
+              "distance_cm": 50
+            },
+            "dependencies": [],
+            "priority": 1
+          },
+          {
+            "id": "T2",
+            "description": "Stop the robot",
+            "required_skills": [
+              "stop"
+            ],
+            "robot": "robotic_arm",
+            "args": {},
+            "dependencies": [
+              "T1"
+            ],
+            "priority": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "plan_013",
+      "instruction": "Pick up the green block and place it at 0.3, -0.4.",
+      "output": {
+        "status": "ok",
+        "subtasks": [
+          {
+            "id": "T1",
+            "description": "Pick up the green block",
+            "required_skills": [
+              "pick"
+            ],
+            "robot": "robotic_arm",
+            "args": {
+              "object_name": "green_block",
+              "location": "green_block"
+            },
+            "dependencies": [],
+            "priority": 1
+          },
+          {
+            "id": "T2",
+            "description": "Place the green block at 0.3, -0.4",
+            "required_skills": [
+              "place"
+            ],
+            "robot": "robotic_arm",
+            "args": {
+              "object_name": "green_block",
+              "target_location": "0.3, -0.4"
+            },
+            "dependencies": [
+              "T1"
+            ],
+            "priority": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "plan_014",
+      "instruction": "Pick up the green cube and the yellow cone and place both on the tray.",
+      "output": {
+        "status": "ok",
+        "subtasks": [
+          {
+            "id": "T1",
+            "description": "Pick up the green cube",
+            "required_skills": [
+              "pick"
+            ],
+            "robot": "robotic_arm",
+            "args": {
+              "object_name": "green_cube",
+              "location": "green_cube"
+            },
+            "dependencies": [],
+            "priority": 1
+          },
+          {
+            "id": "T2",
+            "description": "Place the green cube on the tray",
+            "required_skills": [
+              "place"
+            ],
+            "robot": "robotic_arm",
+            "args": {
+              "object_name": "green_cube",
+              "target_location": "tray"
+            },
+            "dependencies": [
+              "T1"
+            ],
+            "priority": 2
+          },
+          {
+            "id": "T3",
+            "description": "Pick up the yellow cone",
+            "required_skills": [
+              "pick"
+            ],
+            "robot": "robotic_arm",
+            "args": {
+              "object_name": "yellow_cone",
+              "location": "yellow_cone"
+            },
+            "dependencies": [
+              "T2"
+            ],
+            "priority": 3
+          },
+          {
+            "id": "T4",
+            "description": "Place the yellow cone on the tray",
+            "required_skills": [
+              "place"
+            ],
+            "robot": "robotic_arm",
+            "args": {
+              "object_name": "yellow_cone",
+              "target_location": "tray"
+            },
+            "dependencies": [
+              "T3"
+            ],
+            "priority": 4
+          }
+        ]
+      }
+    },
+    {
+      "id": "plan_019",
+      "instruction": "Place the blue block on the shelf and place the yellow block on the shelf.",
+      "output": {
+        "status": "ok",
+        "subtasks": [
+          {
+            "id": "T1",
+            "description": "Pick up the blue block",
+            "required_skills": [
+              "pick"
+            ],
+            "robot": "robotic_arm",
+            "args": {
+              "object_name": "blue_block",
+              "location": "blue_block"
+            },
+            "dependencies": [],
+            "parallelizable": true,
+            "priority": 1
+          },
+          {
+            "id": "T2",
+            "description": "Place the blue block on the shelf",
+            "required_skills": [
+              "place"
+            ],
+            "robot": "robotic_arm",
+            "args": {
+              "object_name": "blue_block",
+              "target_location": "shelf"
+            },
+            "dependencies": [
+              "T1"
+            ],
+            "parallelizable": true,
+            "priority": 2
+          },
+          {
+            "id": "T3",
+            "description": "Pick up the yellow block",
+            "required_skills": [
+              "pick"
+            ],
+            "robot": "robotic_arm",
+            "args": {
+              "object_name": "yellow_block",
+              "location": "yellow_block"
+            },
+            "dependencies": [],
+            "parallelizable": true,
+            "priority": 1
+          },
+          {
+            "id": "T4",
+            "description": "Place the yellow block on the shelf",
+            "required_skills": [
+              "place"
+            ],
+            "robot": "robotic_arm",
+            "args": {
+              "object_name": "yellow_block",
+              "target_location": "shelf"
+            },
+            "dependencies": [
+              "T3"
+            ],
+            "parallelizable": true,
+            "priority": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "plan_015",
+      "instruction": "Put the thing over there.",
+      "output": {
+        "status": "clarification_needed",
+        "reason": "Ambiguous object and target location: 'the thing' and 'over there'."
+      }
+    },
+    {
+      "id": "plan_016",
+      "instruction": "Take it to the other one when you get a chance.",
+      "output": {
+        "status": "clarification_needed",
+        "reason": "Unresolved referents: 'it' and 'the other one' cannot be grounded in the environment."
+      }
+    },
+    {
+      "id": "plan_017",
+      "instruction": "Write a Python script to calculate the Fibonacci sequence.",
+      "output": {
+        "status": "infeasible",
+        "reason": "The instruction is outside the robot manipulation and navigation domain."
+      }
+    },
+    {
+      "id": "plan_018",
+      "instruction": "Paint the blue cylinder red.",
+      "output": {
+        "status": "infeasible",
+        "reason": "No skill in the registry can apply paint or change an object's colour."
+      }
+    }
+  ]
+}
