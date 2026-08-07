@@ -10,6 +10,7 @@ from std_msgs.msg import String
 from ros_llm_interfaces.srv import CheckIKFeasibility
 import json
 import threading
+from std_srvs.srv import Trigger
 
 # Object name mapping from LLM team naming to /object_map naming
 OBJECT_NAME_MAP = {
@@ -74,6 +75,18 @@ class ActionDispatcher(Node):
             String,
             '/execution_feedback',
             10
+        )
+
+        self.active_cube_pub = self.create_publisher(
+            String, "/active_cube", 10
+        )
+        self.attach_client = self.create_client(
+            Trigger, "/attach_cube",
+            callback_group=self.callback_group
+        )
+        self.detach_client = self.create_client(
+            Trigger, "/detach_cube",
+            callback_group=self.callback_group
         )
 
         # IK feasibility service client
@@ -143,6 +156,27 @@ class ActionDispatcher(Node):
         # plan in Layer1).
         if skill == 'home':
             self._ack(task_id, plan_id, 'complete', 'Arm already at ready position')
+            return
+
+        if skill == 'attach':
+            cube_name = OBJECT_NAME_MAP.get(llm_object_name, llm_object_name)
+            active_msg = String()
+            active_msg.data = cube_name
+            self.active_cube_pub.publish(active_msg)
+
+            success = self._call_trigger(self.attach_client, "/attach_cube")
+            if not success:
+                self._reject(task_id, plan_id, 'attach', f'Attach failed for {cube_name}')
+                return
+            self._ack(task_id, plan_id, 'complete', f'Attached {cube_name} to TurtleBot')
+            return
+
+        if skill == 'detach':
+            success = self._call_trigger(self.detach_client, "/detach_cube")
+            if not success:
+                self._reject(task_id, plan_id, 'detach', 'Detach failed')
+                return
+            self._ack(task_id, plan_id, 'complete', 'Detached cube at handoff point')
             return
 
         # Robot assignment comes from Layer1, not derived from skill.
@@ -297,6 +331,28 @@ class ActionDispatcher(Node):
     def check_nav_feasibility(self, pose):
         """Stub -- always returns True until the real nav feasibility
         service (backed by Nav2's compute_path_to_pose) is wired in."""
+        return True
+
+    def _call_trigger(self, client, service_name: str) -> bool:
+        """Call a std_srvs/Trigger service and return True on success."""
+        if not client.wait_for_service(timeout_sec=3.0):
+            self.get_logger().warn(f'{service_name} service not available')
+            return False
+
+        future = client.call_async(Trigger.Request())
+        done_event = threading.Event()
+        future.add_done_callback(lambda _f: done_event.set())
+        if not done_event.wait(timeout=10.0):
+            self.get_logger().warn(f'{service_name} timed out')
+            return False
+
+        result = future.result()
+        if result is None or not result.success:
+            msg = result.message if result else 'no response'
+            self.get_logger().error(f'{service_name} failed: {msg}')
+            return False
+
+        self.get_logger().info(f'{service_name} succeeded: {result.message}')
         return True
 
 def main(args=None):
