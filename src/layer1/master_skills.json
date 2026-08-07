@@ -122,6 +122,25 @@
       "effects": ["robot is at target_location"],
       "requires_capabilities": ["mobile_base", "navigation_stack"]
     },
+
+    {
+      "skill_id": "attach",
+      "description": "Attach a named cube to the mobile robot so it can be transported. The cube teleports onto the robot and is locked to it until detached. Use this after navigating to the cube's zone.",
+      "inputs": ["object_name"],
+      "preconditions": ["mobile robot is at the cube's zone", "cube is not already attached"],
+      "effects": ["cube is attached to mobile robot", "cube moves with mobile robot"],
+      "requires_capabilities": ["mobile_base"]
+    },
+    
+    {
+      "skill_id": "detach",
+      "description": "Detach the currently carried cube from the mobile robot, leaving it at the robot's current position. Use this after navigating to the handoff point.",
+      "inputs": [],
+      "preconditions": ["cube is attached to mobile robot", "mobile robot is at handoff point"],
+      "effects": ["cube is detached", "cube remains at handoff point"],
+      "requires_capabilities": ["mobile_base"]
+    },
+
     {
       "skill_id": "follow_path",
       "description": "Follow a pre-planned sequence of waypoints.",
