@@ -11,7 +11,7 @@ from gz.msgs10.pose_v_pb2 import Pose_V
 TRACKED_OBJECTS = {"red_cube", "blue_cube", "green_cube"}
 
 # Named places for mobile robot navigation
-TRACKED_LOCATIONS = {"drop_zone", "red_zone", "blue_zone", "green_zone", "yellow_zone", "handoff_point"}
+TRACKED_LOCATIONS = {"drop_zone", "red_zone", "blue_zone", "green_zone", "yellow_zone", "handoff_point", "pickup_point"}
 
 TRACKED_ROBOTS = {"turtlebot3_waffle"}
 

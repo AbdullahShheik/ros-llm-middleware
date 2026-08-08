@@ -30,7 +30,7 @@ _NUMBER_RE = re.compile(r'-?\d+(?:\.\d+)?')
 # an area) -- object_name resolution is skipped for these.
 NO_OBJECT_SKILLS = {"navigate", "survey"}
 
-VALID_ROBOTS = {"arm", "wheeled"}
+VALID_ROBOTS = {"arm", "wheeled", "mobile_robot", "robotic_arm"}
 
 class ActionDispatcher(Node):
     def __init__(self):
@@ -186,7 +186,7 @@ class ActionDispatcher(Node):
             self._reject(task_id, plan_id, 'dispatch', f'Unknown/missing robot field: {robot_type}')
             return
 
-        if robot_type == 'wheeled':
+        if robot_type in ('wheeled', 'mobile_robot'):
             target_location = args.get('target_location')
             pose = self._resolve_location(target_location)
             if pose is None:

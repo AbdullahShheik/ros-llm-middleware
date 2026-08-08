@@ -16,6 +16,9 @@ import json
 CUBE_NAMES = {"red_cube", "blue_cube", "green_cube"}
 
 CUBE_ATTACH_Z = 0.15
+PICKUP_POINT_X = 0.7
+PICKUP_POINT_Y = 0.0
+CUBE_PICKUP_Z  = 0.04
 
 
 class AttachDetachNode(Node):
@@ -162,6 +165,12 @@ class AttachDetachNode(Node):
             return response
 
         self.gz_detach_pubs[self.attached_cube].publish(Empty())
+        self._teleport_cube(
+            self.attached_cube,
+            PICKUP_POINT_X,
+            PICKUP_POINT_Y,
+            CUBE_PICKUP_Z
+        )
         self.get_logger().info(
             f"Detached {self.attached_cube} at "
             f"({self.turtlebot_x:.2f}, {self.turtlebot_y:.2f})"

@@ -453,7 +453,24 @@
 
     <model name="handoff_point">
       <static>true</static>
-      <pose>0.85 0 0.006 0 0 0</pose>
+      <pose>1.2 0 0.006 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><box><size>0.2 0.2 0.01</size></box></geometry>
+          <material>
+            <ambient>0.9 0.6 0.0 1</ambient>
+            <diffuse>0.9 0.6 0.0 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry><box><size>0.2 0.2 0.01</size></box></geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="pickup_point">
+      <static>true</static>
+      <pose>0.7 0 0.006 0 0 0</pose>
       <link name="link">
         <visual name="visual">
           <geometry><box><size>0.2 0.2 0.01</size></box></geometry>
