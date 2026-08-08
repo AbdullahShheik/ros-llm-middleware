@@ -7,16 +7,16 @@ import os
 import math
 import xml.etree.ElementTree as ET
 
-try:
-    from perception.perception.perception_node import (
-        TRACKED_OBJECTS,
-        TRACKED_LOCATIONS,
-    )
-except Exception:
-    from perception.perception_node import (
-        TRACKED_OBJECTS,
-        TRACKED_LOCATIONS,
-    )
+TRACKED_OBJECTS   = {"red_cube", "blue_cube", "green_cube"}
+TRACKED_LOCATIONS = {
+    "drop_zone",
+    "red_zone",
+    "blue_zone",
+    "green_zone",
+    "yellow_zone",
+    "handoff_point",
+    "pickup_point"
+}
 
 PANDA_REACH_RADIUS_M = 0.855
 

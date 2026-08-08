@@ -301,12 +301,7 @@ class ActuatorNode(Node):
         robot_type = cmd.get("robot_type")
         pose       = cmd.get("pose")
 
-        if robot_type != "arm":
-            self._publish_feedback(
-                task_id, "failed", "dispatch",
-                f"Actuator only handles robot_type='arm', got '{robot_type}'",
-                plan_id
-            )
+        if robot_type not in ('arm', 'robotic_arm'):
             return
 
         if not pose:

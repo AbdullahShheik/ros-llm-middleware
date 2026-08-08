@@ -158,6 +158,12 @@ wait_until '/execution_command topic (actuator ready)' 180 bash -c 'ros2 topic l
 echo '[demo] Full pipeline ready. Launching layer1_pipeline.py --ros...'
 python3 '$LAYER1_SCRIPT' --ros" C-m
 
+tmux new-window -t "$SESSION" -n attach_detach -c "$REPO_ROOT"
+tmux send-keys -t "${SESSION}:attach_detach" "$SOURCE_ENV && $WAIT_FN
+wait_until 'action_dispatcher node' 120 bash -c 'ros2 node list | grep -q action_dispatcher'
+echo '[demo] Launching attach_detach_node...'
+python3 '${REPO_ROOT}/src/mobile_actuator/mobile_actuator/attach_detach_node.py'" C-m
+
 # ---------------------------------------------------------------------------
 # Window 3: scratch shell for sending instructions / inspecting topics
 # ---------------------------------------------------------------------------
