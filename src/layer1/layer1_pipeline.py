@@ -14,7 +14,7 @@ Usage:
 
   # ROS2 node mode (publishes to /layer1/taskplan):
   python layer1_pipeline.py --ros
-  latest
+  latest 2.0
 """
 
 import json
