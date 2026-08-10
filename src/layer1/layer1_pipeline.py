@@ -24,6 +24,7 @@ import argparse
 import itertools
 import networkx as nx
 from groq import Groq
+from build_environment import build_environment_prompt
 
 # The RAG package lives beside this file; make it importable regardless of
 # the working directory the pipeline is launched from (ROS2 launch, the demo
@@ -592,6 +593,7 @@ def run_ros_node():
         def __init__(self):
             super().__init__("layer1_node")
             self.client       = get_client()
+            self.latest_object_map = {}        
             self.active_plan = None
             self.active_graph = None
             self.task_map = {}
@@ -663,16 +665,6 @@ def run_ros_node():
                 print_dag(plan, G)
                 self.start_plan_dispatch(plan, G)
             except Exception as e:
-                # Catch everything, not just RuntimeError: decompose_instruction
-                # only retries on malformed LLM JSON -- a network blip, rate
-                # limit, or any other Groq API error propagates straight out
-                # of the client call uncaught. Left as RuntimeError-only, an
-                # unhandled exception here escapes this callback and takes
-                # down rclpy.spin(), killing the whole node -- meaning a
-                # single transient API failure on the *second* instruction
-                # (or any instruction after the first) permanently ends the
-                # session, since active_plan was never set and nothing
-                # restarts the node. Log and stay alive for the next attempt.
                 self.get_logger().error(f"Decomposition failed: {e}")
 
         def start_plan_dispatch(self, plan: dict, G: nx.DiGraph):
