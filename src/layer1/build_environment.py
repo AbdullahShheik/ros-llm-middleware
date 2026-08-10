@@ -7,16 +7,7 @@ import os
 import math
 import xml.etree.ElementTree as ET
 
-TRACKED_OBJECTS   = {"red_cube", "blue_cube", "green_cube"}
-TRACKED_LOCATIONS = {
-    "drop_zone",
-    "red_zone",
-    "blue_zone",
-    "green_zone",
-    "yellow_zone",
-    "handoff_point",
-    "pickup_point"
-}
+from scene_tracking import get_tracked_names
 
 PANDA_REACH_RADIUS_M = 0.855
 
@@ -73,6 +64,27 @@ def get_robot_base_pose(sdf_path: str, model_name: str) -> dict:
     raise ValueError(f"Model '{model_name}' not found in {sdf_path}")
 
 
+def resolve_robot_poses(sdf_path: str, tracked_robots: frozenset, object_map: dict) -> dict:
+    """
+    For each tracked robot, prefer its LIVE position from object_map
+    (published by perception_node.py off the same Gazebo pose stream that
+    already gives us live object/zone positions). Fall back to the static
+    SDF spawn pose only if no live reading has arrived yet -- e.g. before
+    perception_node's first publish, or if it isn't running.
+
+    Returns {name: {"x", "y", "z", "live": bool}} -- "live" is surfaced in
+    the rendered prompt so a stale fallback is never silently mistaken for
+    a fresh reading.
+    """
+    poses = {}
+    for name in tracked_robots:
+        if name in object_map:
+            poses[name] = {**object_map[name], "live": True}
+        else:
+            poses[name] = {**get_robot_base_pose(sdf_path, name), "live": False}
+    return poses
+
+
 # ---------------------------------------------------------------------------
 # Map loading
 # ---------------------------------------------------------------------------
@@ -127,7 +139,9 @@ def world_to_pixel(x: float, y: float, map_meta: dict) -> tuple:
 # ASCII grid builder
 # ---------------------------------------------------------------------------
 
-def build_ascii_grid(map_meta: dict, object_map: dict, arm_center: tuple) -> str:
+def build_ascii_grid(map_meta: dict, object_map: dict, arm_center: tuple,
+                      tracked_objects: frozenset, tracked_zones: frozenset,
+                      robot_poses: dict = None) -> str:
     """
     Downsample the occupancy grid to grid_rows x grid_cols ASCII
     where each cell = 0.5m x 0.5m.
@@ -138,6 +152,7 @@ def build_ascii_grid(map_meta: dict, object_map: dict, arm_center: tuple) -> str
       A = arm workspace (do not navigate through)
       O = tracked object (cube)
       Z = named zone
+      R = robot (live position if available, else spawn -- see resolve_robot_poses)
     """
     raw = map_meta["grid"]
     img_h = map_meta["image_height"]
@@ -202,10 +217,18 @@ def build_ascii_grid(map_meta: dict, object_map: dict, arm_center: tuple) -> str
             ascii_col = min(cols - 1, max(0, int(col_px // max(1, px_per_cell_x))))
             ascii_row = min(rows - 1, max(0, int((img_h - 1 - row_px) // max(1, px_per_cell_y))))
 
-            if name in TRACKED_OBJECTS:
+            if name in tracked_objects:
                 ascii_rows[ascii_row][ascii_col] = "O"
-            elif name in TRACKED_LOCATIONS:
+            elif name in tracked_zones:
                 ascii_rows[ascii_row][ascii_col] = "Z"
+
+    # Overlay robots (live position if available, else spawn fallback)
+    if robot_poses:
+        for pos in robot_poses.values():
+            row_px, col_px = world_to_pixel(pos["x"], pos["y"], map_meta)
+            ascii_col = min(cols - 1, max(0, int(col_px // max(1, px_per_cell_x))))
+            ascii_row = min(rows - 1, max(0, int((img_h - 1 - row_px) // max(1, px_per_cell_y))))
+            ascii_rows[ascii_row][ascii_col] = "R"
 
     return "\n".join(" ".join(row) for row in ascii_rows)
 
@@ -234,13 +257,15 @@ def build_environment_prompt(
     """
     map_meta = load_map(map_yaml_path)
 
-    arm_pose = get_robot_base_pose(sdf_path, robot_model_name)
+    tracked_objects, tracked_zones, tracked_robots = get_tracked_names(sdf_path)
+    objects = {k: v for k, v in object_map.items() if k in tracked_objects}
+    zones   = {k: v for k, v in object_map.items() if k in tracked_zones}
+    robots  = resolve_robot_poses(sdf_path, tracked_robots, object_map)
+
+    arm_pose = robots.get(robot_model_name) or get_robot_base_pose(sdf_path, robot_model_name)
     arm_center = (arm_pose["x"], arm_pose["y"])
 
-    objects = {k: v for k, v in object_map.items() if k in TRACKED_OBJECTS}
-    zones   = {k: v for k, v in object_map.items() if k in TRACKED_LOCATIONS}
-
-    ascii_grid = build_ascii_grid(map_meta, object_map, arm_center)
+    ascii_grid = build_ascii_grid(map_meta, object_map, arm_center, tracked_objects, tracked_zones, robots)
 
     lines = []
     lines.append("=== ENVIRONMENT CONTEXT ===")
@@ -253,31 +278,41 @@ def build_environment_prompt(
     lines.append(
         "  # = wall/obstacle  . = free  "
         "A = arm workspace (no wheeled navigation)  "
-        "O = object  Z = zone"
+        "O = object  Z = zone  R = robot"
     )
     lines.append("")
     for row in ascii_grid.split("\n"):
         lines.append("  " + row)
 
     lines.append("")
-    lines.append(f"Arm base position (from SDF): x={arm_pose['x']}, y={arm_pose['y']}")
-    lines.append(f"Arm reach radius: {PANDA_REACH_RADIUS_M}m")
+    lines.append(f"Arm reach radius: {PANDA_REACH_RADIUS_M}m (centered on '{robot_model_name}' below)")
+
+    # Compact, structured (not prose) -- an LLM doing spatial reasoning needs
+    # name + rounded coordinates, not a natural-language sentence per object.
+    # Each robot is tagged [live] (from perception, this instant) or
+    # [spawn] (static SDF fallback -- no /object_map reading for it yet) so
+    # a stale position is never silently mistaken for a fresh one.
+    lines.append("")
+    lines.append("ROBOTS:")
+    for name, pos in sorted(robots.items()):
+        tag = "live" if pos["live"] else "spawn"
+        lines.append(f"  {name} ({pos['x']:.2f}, {pos['y']:.2f}, {pos['z']:.2f}) [{tag}]")
 
     lines.append("")
-    lines.append("Live object positions (from perception):")
+    lines.append("OBJECTS:")
     if objects:
-        for name, pos in objects.items():
-            lines.append(f"  {name}: x={pos['x']}, y={pos['y']}, z={pos['z']}")
+        for name, pos in sorted(objects.items()):
+            lines.append(f"  {name} ({pos['x']:.2f}, {pos['y']:.2f}, {pos['z']:.2f})")
     else:
-        lines.append("  (none detected)")
+        lines.append("  none")
 
     lines.append("")
-    lines.append("Zone positions (live from perception):")
+    lines.append("ZONES:")
     if zones:
-        for name, pos in zones.items():
-            lines.append(f"  {name}: x={pos['x']}, y={pos['y']}")
+        for name, pos in sorted(zones.items()):
+            lines.append(f"  {name} ({pos['x']:.2f}, {pos['y']:.2f})")
     else:
-        lines.append("  (none detected)")
+        lines.append("  none")
 
     lines.append("")
     lines.append("Constraints:")
