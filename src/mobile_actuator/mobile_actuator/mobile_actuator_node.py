@@ -57,7 +57,7 @@ NAV_RESULT_TIMEOUT_SEC = None
 # All action values from the dispatcher that physically drive NavigateToPose.
 # "survey" and "transport" are semantically distinct but use the same Nav2
 # primitive as their physical first step.
-WHEELED_NAV_ACTIONS = {"navigate", "survey", "transport"}
+WHEELED_NAV_ACTIONS = {"navigate", "navigate_to", "survey", "transport"}
 
 
 class MobileActuatorNode(Node):
@@ -111,7 +111,7 @@ class MobileActuatorNode(Node):
         # Both actuators share /execution_command and filter by robot_type,
         # mirroring actuator_node.py's pattern. Silent return for arm
         # commands, no feedback needed, the arm actuator handles those.
-        if robot_type != "wheeled":
+        if robot_type not in ('wheeled', 'mobile_robot'):
             return
 
         if not pose:
@@ -208,7 +208,7 @@ class MobileActuatorNode(Node):
 
         if status == GoalStatus.STATUS_SUCCEEDED:
             self._publish_feedback(
-                task_id, "success", "navigation",
+                task_id, "success", "complete",
                 f"Task {task_id} ('{action}') reached {pose}",
                 plan_id,
             )
@@ -219,7 +219,6 @@ class MobileActuatorNode(Node):
                 plan_id,
             )
         else:
-            # STATUS_ABORTED or any unexpected terminal status
             self._publish_feedback(
                 task_id, "failed", "navigation",
                 f"Navigation failed (GoalStatus={status})",

@@ -51,7 +51,9 @@
         "update_map",
         "localize",
         "dock",
-        "undock"
+        "undock",
+        "attach",
+        "detach"
       ],
       "date_onboarded": "manually seeded (pre-dates URDF pipeline)",
       "onboarding_method": "manual",
@@ -81,7 +83,9 @@
         "update_map",
         "localize",
         "dock",
-        "undock"
+        "undock",
+        "attach",
+        "detach"
       ],
       "date_onboarded": "2026-07-29 14:10:28",
       "onboarding_method": "urdf_llm_pipeline",
