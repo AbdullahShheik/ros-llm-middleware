@@ -75,8 +75,10 @@ class PerceptionNode(Node):
             )
 
         for pose in msg.pose:
-            if pose.name in TRACKED_OBJECTS or pose.name in TRACKED_LOCATIONS:
-                object_map[pose.name] = {
+            if (pose.name in self.tracked_objects
+                    or pose.name in self.tracked_zones
+                    or pose.name in self.tracked_robots):
+                self.latest_state[pose.name] = {
                     "x": round(pose.position.x, 4),
                     "y": round(pose.position.y, 4),
                     "z": round(pose.position.z, 4),
