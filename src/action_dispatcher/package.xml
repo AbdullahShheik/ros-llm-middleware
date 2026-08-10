@@ -11,4 +11,8 @@
   <depend>moveit_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>ros_llm_interfaces</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
 </package>
