@@ -163,7 +163,7 @@
     </include>
 
     <model name="red_cube">
-      <pose>0.5 0 0.03 0 0 0</pose>
+      <pose>3 3 0.04 0 0 0</pose>
       <link name="link">
         <inertial>
           <mass>0.1</mass>
@@ -191,7 +191,7 @@
     </model>
 
     <model name="blue_cube">
-      <pose>0.5 0.2 0.03 0 0 0</pose>
+      <pose>-3 3 0.04 0 0 0</pose>
       <link name="link">
         <inertial>
           <mass>0.1</mass>
@@ -219,7 +219,7 @@
     </model>
 
     <model name="green_cube">
-      <pose>0.5 -0.2 0.03 0 0 0</pose>
+      <pose>3 -3 0.04 0 0 0</pose>
       <link name="link">
         <inertial>
           <mass>0.1</mass>
@@ -354,12 +354,45 @@
       <name>turtlebot3_waffle</name>
       <uri>model://turtlebot3_waffle</uri>
       <pose>-2 0 0.02 0 0 0</pose>
+
+      <plugin filename="gz-sim-detachable-joint-system"
+              name="gz::sim::systems::DetachableJoint">
+        <parent_link>base_link</parent_link>
+        <child_model>red_cube</child_model>
+        <child_link>link</child_link>
+        <detach_topic>/red_cube/detach</detach_topic>
+        <attach_topic>/red_cube/attach</attach_topic>
+        <output_topic>/red_cube/state</output_topic>
+      </plugin>
+
+      <plugin filename="gz-sim-detachable-joint-system"
+              name="gz::sim::systems::DetachableJoint">
+        <parent_link>base_link</parent_link>
+        <child_model>blue_cube</child_model>
+        <child_link>link</child_link>
+        <detach_topic>/blue_cube/detach</detach_topic>
+        <attach_topic>/blue_cube/attach</attach_topic>
+        <output_topic>/blue_cube/state</output_topic>
+      </plugin>
+
+      <plugin filename="gz-sim-detachable-joint-system"
+              name="gz::sim::systems::DetachableJoint">
+        <parent_link>base_link</parent_link>
+        <child_model>green_cube</child_model>
+        <child_link>link</child_link>
+        <detach_topic>/green_cube/detach</detach_topic>
+        <attach_topic>/green_cube/attach</attach_topic>
+        <output_topic>/green_cube/state</output_topic>
+      </plugin>
     </include>
 
     <model name="red_zone">
       <static>true</static>
       <pose>3 3 0.006 0 0 0</pose>
       <link name="link">
+        <collision name="collision">                                    
+          <geometry><box><size>0.8 0.8 0.01</size></box></geometry>    
+        </collision>
         <visual name="visual">
           <geometry><box><size>0.8 0.8 0.01</size></box></geometry>
           <material>
@@ -374,6 +407,9 @@
       <static>true</static>
       <pose>-3 3 0.006 0 0 0</pose>
       <link name="link">
+        <collision name="collision">                                   
+          <geometry><box><size>0.8 0.8 0.01</size></box></geometry>   
+        </collision>
         <visual name="visual">
           <geometry><box><size>0.8 0.8 0.01</size></box></geometry>
           <material>
@@ -388,6 +424,9 @@
       <static>true</static>
       <pose>3 -3 0.006 0 0 0</pose>
       <link name="link">
+        <collision name="collision">                                    
+          <geometry><box><size>0.8 0.8 0.01</size></box></geometry>  
+        </collision>
         <visual name="visual">
           <geometry><box><size>0.8 0.8 0.01</size></box></geometry>
           <material>
@@ -409,6 +448,40 @@
             <diffuse>0.9 0.9 0.1 1</diffuse>
           </material>
         </visual>
+      </link>
+    </model>
+
+    <model name="handoff_point">
+      <static>true</static>
+      <pose>1.2 0 0.006 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><box><size>0.2 0.2 0.01</size></box></geometry>
+          <material>
+            <ambient>0.9 0.6 0.0 1</ambient>
+            <diffuse>0.9 0.6 0.0 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry><box><size>0.2 0.2 0.01</size></box></geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="pickup_point">
+      <static>true</static>
+      <pose>0.7 0 0.006 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><box><size>0.2 0.2 0.01</size></box></geometry>
+          <material>
+            <ambient>0.9 0.6 0.0 1</ambient>
+            <diffuse>0.9 0.6 0.0 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry><box><size>0.2 0.2 0.01</size></box></geometry>
+        </collision>
       </link>
     </model>
   </world>
