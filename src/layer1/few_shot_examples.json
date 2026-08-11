@@ -3,51 +3,52 @@
     {
       "id": "plan_fetch_001",
       "instruction": "Fetch the red cube and bring it to the handoff point",
-      "status": "ok",
-      "subtasks": [
-        {
-          "id": "T1",
-          "description": "Navigate to the red zone to pick up the red cube",
-          "required_skills": ["navigate_to"],
-          "robot": "mobile_robot",
-          "args": {"target_location": "red_zone"},
-          "dependencies": [],
-          "parallelizable": false,
-          "priority": 1
-        },
-        {
-          "id": "T2",
-          "description": "Attach the red cube to the mobile robot",
-          "required_skills": ["attach"],
-          "robot": "mobile_robot",
-          "args": {"object_name": "red_cube"},
-          "dependencies": ["T1"],
-          "parallelizable": false,
-          "priority": 2
-        },
-        {
-          "id": "T3",
-          "description": "Navigate to the handoff point",
-          "required_skills": ["navigate_to"],
-          "robot": "mobile_robot",
-          "args": {"target_location": "handoff_point"},
-          "dependencies": ["T2"],
-          "parallelizable": false,
-          "priority": 3
-        },
-        {
-          "id": "T4",
-          "description": "Detach the red cube at the handoff point",
-          "required_skills": ["detach"],
-          "robot": "mobile_robot",
-          "args": {},
-          "dependencies": ["T3"],
-          "parallelizable": false,
-          "priority": 4
-        }
-      ]
+      "output": {
+        "status": "ok",
+        "subtasks": [
+          {
+            "id": "T1",
+            "description": "Navigate to the red zone to pick up the red cube",
+            "required_skills": ["navigate_to"],
+            "robot": "mobile_robot",
+            "args": {"target_location": "red_zone"},
+            "dependencies": [],
+            "parallelizable": false,
+            "priority": 1
+          },
+          {
+            "id": "T2",
+            "description": "Attach the red cube to the mobile robot",
+            "required_skills": ["attach"],
+            "robot": "mobile_robot",
+            "args": {"object_name": "red_cube"},
+            "dependencies": ["T1"],
+            "parallelizable": false,
+            "priority": 2
+          },
+          {
+            "id": "T3",
+            "description": "Navigate to the handoff point",
+            "required_skills": ["navigate_to"],
+            "robot": "mobile_robot",
+            "args": {"target_location": "handoff_point"},
+            "dependencies": ["T2"],
+            "parallelizable": false,
+            "priority": 3
+          },
+          {
+            "id": "T4",
+            "description": "Detach the red cube at the handoff point",
+            "required_skills": ["detach"],
+            "robot": "mobile_robot",
+            "args": {},
+            "dependencies": ["T3"],
+            "parallelizable": false,
+            "priority": 4
+          }
+        ]
+      }
     },
-    
     {
       "id": "plan_001",
       "instruction": "Pick up the red block and place it on the shelf.",
