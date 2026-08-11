@@ -10,5 +10,13 @@ __pycache__/
 *.pyc
 *.pyo
 
-# Generated plan files
-src/layer1/*.json
+# Generated pipeline output. Deliberately narrower than the old
+# "src/layer1/*.json": that also swallowed the RAG source data
+# (master_skills.json, robots_registry.json, robot_fleet.json,
+# few_shot_examples.json), which must stay tracked. Layer 1 rewrites a
+# plan_NNN.json on every instruction, so these churn constantly.
+plan_*.json
+
+# Evaluation harness output
+dart_style_*.csv
+layer1_evaluation*.csv

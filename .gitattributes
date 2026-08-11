@@ -1,0 +1,16 @@
+# This repo is edited on Windows but built and run in WSL/Linux, so every
+# file Linux has to execute or parse must keep LF endings. With
+# core.autocrlf=true a plain checkout rewrites them to CRLF, which turns a
+# "#!/usr/bin/env python3" shebang into "python3\r" and makes the node die
+# with exit code 127 before it runs a single line.
+*.sh   text eol=lf
+*.bash text eol=lf
+*.py   text eol=lf
+
+# ROS/Gazebo descriptions and configs -- parsed by Linux-side tooling.
+*.xacro text eol=lf
+*.urdf  text eol=lf
+*.sdf   text eol=lf
+*.yaml  text eol=lf
+*.yml   text eol=lf
+*.xml   text eol=lf
