@@ -14,4 +14,28 @@
   <exec_depend>joint_trajectory_controller</exec_depend>
   <exec_depend>joint_state_broadcaster</exec_depend>
   <exec_depend>turtlebot3_gazebo</exec_depend>
+  <!-- world.launch.py brings up the full Nav2 stack (map_server, amcl,
+       planner, controller, behaviors, bt_navigator, waypoint_follower,
+       lifecycle_manager), and reads bt_navigator's installed behavior
+       trees. The metapackage covers all of them. -->
+  <exec_depend>navigation2</exec_depend>
+
+  <!-- Robot description: panda_gz.urdf.xacro is expanded at launch time and
+       pulls the Panda arm from moveit_resources_panda_description and the
+       2F-85 gripper from robotiq_description. Without these, xacro fails
+       before Gazebo is ever reached. -->
+  <exec_depend>xacro</exec_depend>
+  <exec_depend>moveit_resources_panda_description</exec_depend>
+  <exec_depend>robotiq_description</exec_depend>
+
+  <!-- Nodes world.launch.py starts directly, plus the MoveIt2 stack that
+       moveit2.launch.py brings up. -->
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>moveit_ros_move_group</exec_depend>
+  <exec_depend>moveit_resources_panda_moveit_config</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
 </package>

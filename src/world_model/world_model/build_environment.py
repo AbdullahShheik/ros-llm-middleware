@@ -7,7 +7,7 @@ import os
 import math
 import xml.etree.ElementTree as ET
 
-from scene_tracking import get_tracked_names
+from world_model.scene_tracking import get_tracked_names
 
 PANDA_REACH_RADIUS_M = 0.855
 
