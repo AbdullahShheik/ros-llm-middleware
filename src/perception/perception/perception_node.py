@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import os
-import sys
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
@@ -9,18 +8,9 @@ import json
 from gz.transport13 import Node as GzNode
 from gz.msgs10.pose_v_pb2 import Pose_V
 
-# scene_tracking.py is dependency-light (stdlib XML only) and lives beside
-# layer1_pipeline.py/build_environment.py. Reached via an explicit sys.path
-# insert -- src/layer1 isn't a proper ROS2 package (import-able as such)
-# yet, so this mirrors the same path-hack pattern layer1_pipeline.py already
-# uses for its own cross-directory imports. Revisit once both packages are
-# formally ament-packaged (e.g. move this into a real shared package and
-# install it via each package's data/entry points).
-_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
-_PROJECT_ROOT = os.path.abspath(os.path.join(_THIS_DIR, "..", "..", ".."))
-sys.path.insert(0, os.path.join(_PROJECT_ROOT, "src", "layer1"))
 from scene_tracking import get_tracked_names
 
+_PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", ".."))
 SDF_PATH = os.path.join(_PROJECT_ROOT, "src", "world", "worlds", "panda_world.sdf")
 
 # Gazebo's pose/info topic is unthrottled and reports every LINK in the

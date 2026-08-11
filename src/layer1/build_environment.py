@@ -7,6 +7,13 @@ import os
 import math
 import xml.etree.ElementTree as ET
 
+import sys
+import os
+_PERCEPTION_DIR = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), 
+    "..", "perception", "perception")
+)
+sys.path.insert(0, _PERCEPTION_DIR)
 from scene_tracking import get_tracked_names
 
 PANDA_REACH_RADIUS_M = 0.855

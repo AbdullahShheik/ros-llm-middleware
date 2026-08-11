@@ -32,6 +32,7 @@ import xml.etree.ElementTree as ET
 
 OBJECT_SUFFIX = "_cube"
 ZONE_SUFFIX = "_zone"
+POINT_SUFFIX = "_point"
 
 
 @lru_cache(maxsize=None)
@@ -63,7 +64,7 @@ def get_tracked_names(sdf_path: str) -> tuple[frozenset, frozenset, frozenset]:
             continue
         if name.endswith(OBJECT_SUFFIX):
             objects.add(name)
-        elif name.endswith(ZONE_SUFFIX):
+        elif name.endswith(ZONE_SUFFIX) or name.endswith(POINT_SUFFIX):
             zones.add(name)
 
     robots = set()
