@@ -697,6 +697,293 @@
         "status": "infeasible",
         "reason": "No skill in the registry can apply paint or change an object's colour."
       }
+    },
+    {
+      "id": "plan_fetch_place_001",
+      "instruction": "Bring the red cube from its zone and place it at 0.6, 0.1",
+      "output": {
+        "status": "ok",
+        "subtasks": [
+          {
+            "id": "T1",
+            "description": "Navigate to the red zone to pick up the red cube (red_cube is tagged reachable_by_arm: false)",
+            "required_skills": ["navigate_to"],
+            "robot": "mobile_robot",
+            "args": {"target_location": "red_zone"},
+            "dependencies": [],
+            "parallelizable": false,
+            "priority": 1
+          },
+          {
+            "id": "T2",
+            "description": "Attach the red cube to the mobile robot",
+            "required_skills": ["attach"],
+            "robot": "mobile_robot",
+            "args": {"object_name": "red_cube"},
+            "dependencies": ["T1"],
+            "parallelizable": false,
+            "priority": 2
+          },
+          {
+            "id": "T3",
+            "description": "Navigate to the handoff point",
+            "required_skills": ["navigate_to"],
+            "robot": "mobile_robot",
+            "args": {"target_location": "handoff_point"},
+            "dependencies": ["T2"],
+            "parallelizable": false,
+            "priority": 3
+          },
+          {
+            "id": "T4",
+            "description": "Detach the red cube at the handoff point",
+            "required_skills": ["detach"],
+            "robot": "mobile_robot",
+            "args": {},
+            "dependencies": ["T3"],
+            "parallelizable": false,
+            "priority": 4
+          },
+          {
+            "id": "T5",
+            "description": "Pick up the red cube now that it has been delivered",
+            "required_skills": ["pick"],
+            "robot": "robotic_arm",
+            "args": {"object_name": "red_cube", "location": "red_cube"},
+            "dependencies": ["T4"],
+            "parallelizable": false,
+            "priority": 5
+          },
+          {
+            "id": "T6",
+            "description": "Place the red cube at 0.6, 0.1",
+            "required_skills": ["place"],
+            "robot": "robotic_arm",
+            "args": {"object_name": "red_cube", "target_location": "0.6, 0.1"},
+            "dependencies": ["T5"],
+            "parallelizable": false,
+            "priority": 6
+          }
+        ]
+      }
+    },
+    {
+      "id": "plan_arrange_001",
+      "instruction": "Arrange the red cube and the blue cube in a line",
+      "output": {
+        "status": "ok",
+        "subtasks": [
+          {
+            "id": "T1",
+            "description": "Pick up the red cube directly -- red_cube is tagged reachable_by_arm: true, so per rule 14 no transport chain is needed",
+            "required_skills": ["pick"],
+            "robot": "robotic_arm",
+            "args": {"object_name": "red_cube", "location": "red_cube"},
+            "dependencies": [],
+            "parallelizable": true,
+            "priority": 1
+          },
+          {
+            "id": "T2",
+            "description": "Place the red cube at a workspace landmark as the first object in the arrangement",
+            "required_skills": ["place"],
+            "robot": "robotic_arm",
+            "args": {"object_name": "red_cube", "landmark": "top_left"},
+            "dependencies": ["T1"],
+            "parallelizable": false,
+            "priority": 2
+          },
+          {
+            "id": "T3",
+            "description": "Navigate to the blue zone to pick up the blue cube -- blue_cube is tagged reachable_by_arm: false, so per rule 14 the full transport chain is needed first",
+            "required_skills": ["navigate_to"],
+            "robot": "mobile_robot",
+            "args": {"target_location": "blue_zone"},
+            "dependencies": [],
+            "parallelizable": true,
+            "priority": 1
+          },
+          {
+            "id": "T4",
+            "description": "Attach the blue cube to the mobile robot",
+            "required_skills": ["attach"],
+            "robot": "mobile_robot",
+            "args": {"object_name": "blue_cube"},
+            "dependencies": ["T3"],
+            "parallelizable": false,
+            "priority": 2
+          },
+          {
+            "id": "T5",
+            "description": "Navigate to the handoff point",
+            "required_skills": ["navigate_to"],
+            "robot": "mobile_robot",
+            "args": {"target_location": "handoff_point"},
+            "dependencies": ["T4"],
+            "parallelizable": false,
+            "priority": 3
+          },
+          {
+            "id": "T6",
+            "description": "Detach the blue cube at the handoff point",
+            "required_skills": ["detach"],
+            "robot": "mobile_robot",
+            "args": {},
+            "dependencies": ["T5"],
+            "parallelizable": false,
+            "priority": 4
+          },
+          {
+            "id": "T7",
+            "description": "Pick up the blue cube now that it has been delivered",
+            "required_skills": ["pick"],
+            "robot": "robotic_arm",
+            "args": {"object_name": "blue_cube", "location": "blue_cube"},
+            "dependencies": ["T6"],
+            "parallelizable": false,
+            "priority": 5
+          },
+          {
+            "id": "T8",
+            "description": "Place the blue cube one cube-width to the right of the red cube, continuing the line -- depends on T2 (red cube's real resting position must be known first, per rule 16) as well as T7 (holding the blue cube)",
+            "required_skills": ["place"],
+            "robot": "robotic_arm",
+            "args": {"object_name": "blue_cube", "relative_to": "red_cube", "direction": "right", "distance": 1},
+            "dependencies": ["T7", "T2"],
+            "parallelizable": false,
+            "priority": 6
+          }
+        ]
+      }
+    },
+    {
+      "id": "plan_arrange_002",
+      "instruction": "Arrange the red cube and the blue cube in a line, both are still in their zones",
+      "output": {
+        "status": "ok",
+        "subtasks": [
+          {
+            "id": "T1",
+            "description": "Navigate to the red zone to pick up the red cube (red_cube is tagged reachable_by_arm: false)",
+            "required_skills": ["navigate_to"],
+            "robot": "mobile_robot",
+            "args": {"target_location": "red_zone"},
+            "dependencies": [],
+            "parallelizable": true,
+            "priority": 1
+          },
+          {
+            "id": "T2",
+            "description": "Attach the red cube to the mobile robot",
+            "required_skills": ["attach"],
+            "robot": "mobile_robot",
+            "args": {"object_name": "red_cube"},
+            "dependencies": ["T1"],
+            "parallelizable": false,
+            "priority": 2
+          },
+          {
+            "id": "T3",
+            "description": "Navigate to the handoff point",
+            "required_skills": ["navigate_to"],
+            "robot": "mobile_robot",
+            "args": {"target_location": "handoff_point"},
+            "dependencies": ["T2"],
+            "parallelizable": false,
+            "priority": 3
+          },
+          {
+            "id": "T4",
+            "description": "Detach the red cube at the handoff point",
+            "required_skills": ["detach"],
+            "robot": "mobile_robot",
+            "args": {},
+            "dependencies": ["T3"],
+            "parallelizable": false,
+            "priority": 4
+          },
+          {
+            "id": "T5",
+            "description": "Pick up the red cube now that it has been delivered",
+            "required_skills": ["pick"],
+            "robot": "robotic_arm",
+            "args": {"object_name": "red_cube", "location": "red_cube"},
+            "dependencies": ["T4"],
+            "parallelizable": false,
+            "priority": 5
+          },
+          {
+            "id": "T6",
+            "description": "Place the red cube at a workspace landmark as the first object in the arrangement",
+            "required_skills": ["place"],
+            "robot": "robotic_arm",
+            "args": {"object_name": "red_cube", "landmark": "top_left"},
+            "dependencies": ["T5"],
+            "parallelizable": false,
+            "priority": 6
+          },
+          {
+            "id": "T7",
+            "description": "Navigate to the blue zone to pick up the blue cube -- blue_cube is also tagged reachable_by_arm: false. This chain has no dependency on T1-T6 (rule 13: independent objects get independent chains by default); only one mobile robot exists, but that capacity limit is enforced by the scheduler splitting same-robot-type subtasks into sequential sub-waves, not by adding a dependency here",
+            "required_skills": ["navigate_to"],
+            "robot": "mobile_robot",
+            "args": {"target_location": "blue_zone"},
+            "dependencies": [],
+            "parallelizable": true,
+            "priority": 1
+          },
+          {
+            "id": "T8",
+            "description": "Attach the blue cube to the mobile robot",
+            "required_skills": ["attach"],
+            "robot": "mobile_robot",
+            "args": {"object_name": "blue_cube"},
+            "dependencies": ["T7"],
+            "parallelizable": false,
+            "priority": 2
+          },
+          {
+            "id": "T9",
+            "description": "Navigate to the handoff point",
+            "required_skills": ["navigate_to"],
+            "robot": "mobile_robot",
+            "args": {"target_location": "handoff_point"},
+            "dependencies": ["T8"],
+            "parallelizable": false,
+            "priority": 3
+          },
+          {
+            "id": "T10",
+            "description": "Detach the blue cube at the handoff point",
+            "required_skills": ["detach"],
+            "robot": "mobile_robot",
+            "args": {},
+            "dependencies": ["T9"],
+            "parallelizable": false,
+            "priority": 4
+          },
+          {
+            "id": "T11",
+            "description": "Pick up the blue cube now that it has been delivered",
+            "required_skills": ["pick"],
+            "robot": "robotic_arm",
+            "args": {"object_name": "blue_cube", "location": "blue_cube"},
+            "dependencies": ["T10"],
+            "parallelizable": false,
+            "priority": 5
+          },
+          {
+            "id": "T12",
+            "description": "Place the blue cube one cube-width to the right of the red cube, continuing the line -- depends on T6 (red cube's real resting position must be known first, per rule 16) as well as T11 (holding the blue cube)",
+            "required_skills": ["place"],
+            "robot": "robotic_arm",
+            "args": {"object_name": "blue_cube", "relative_to": "red_cube", "direction": "right", "distance": 1},
+            "dependencies": ["T11", "T6"],
+            "parallelizable": false,
+            "priority": 6
+          }
+        ]
+      }
     }
   ]
 }
