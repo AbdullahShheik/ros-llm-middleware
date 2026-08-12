@@ -83,8 +83,8 @@
     },
     {
       "skill_id": "place",
-      "description": "High-level skill: move to target location then release held object.",
-      "inputs": ["object_name", "target_location"],
+      "description": "High-level skill: move to target location then release held object. Target may be a target_location (named/literal), a landmark (top_left, top_right, bottom_left, bottom_right, center), or relative_to another object plus direction (left, right, front, behind, above, below) and distance -- see system prompt rules on spatial placement.",
+      "inputs": ["object_name", "target_location", "landmark", "relative_to", "direction", "distance"],
       "preconditions": ["gripper is holding object"],
       "effects": ["object is at target_location", "gripper is empty"],
       "requires_capabilities": ["arm", "gripper"]

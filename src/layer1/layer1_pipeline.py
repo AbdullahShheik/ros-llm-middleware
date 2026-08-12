@@ -233,7 +233,39 @@ Rules you must follow:
    object's chain to another's unless the instruction says one must wait for
    the other, or the physical action requires it (e.g. stacking object B onto
    object A). Multiple robots may be available to work on independent chains
-   at the same time -- an unnecessary dependency prevents that."""
+   at the same time -- an unnecessary dependency prevents that.
+14. Each object in === ENVIRONMENT === is tagged reachable_by_arm: true or
+   false. Before an arm subtask chain (pick -> place) acts on an object
+   tagged false, prepend a transport chain: navigate_to(the object's zone)
+   -> attach(object_name) -> navigate_to(handoff_point) -> detach, and make
+   the pick subtask depend on that chain's detach subtask. If tagged true,
+   go straight to pick -> place with no transport steps.
+15. Never compute coordinates for a "place" skill, exactly as in rule 12 --
+   use one of these instead:
+   - landmark: one of top_left, top_right, bottom_left, bottom_right, center
+     -- a named point in the arm's workspace. Use this for the first object
+     in an arrangement, or any object placed at a described workspace
+     position with no stated relation to another object.
+   - relative_to + direction + distance: relative_to is another tracked
+     object's name; direction is one of left, right (beside it), front,
+     behind, or above, below (stacked on top of / underneath it); distance
+     is an integer count of cube-widths (cube-heights for above/below),
+     default 1. Use this for "beside X", "in front of X", "on top of X",
+     etc., and for every object after the first in a multi-object
+     arrangement (a shape, a line, a corner layout, a stack) -- decompose
+     the arrangement into a chain, each object relative_to an earlier one,
+     reasoning about directions the way you would describe the arrangement
+     in words. Never populate both landmark and relative_to on one subtask.
+16. Rule 13's independence-by-default does NOT apply once a "place" subtask
+   uses relative_to referencing another object -- that object's real
+   resting position must be known first, so add a dependencies entry on
+   its own place subtask (skip this only if relative_to names a fixed
+   environment location that nothing ever moves).
+17. If the instruction text begins with "Original goal:" and includes
+   "Progress so far" and "This step failed", you are continuing a
+   partially-executed plan, not starting a fresh one. Do not repeat
+   subtasks already listed as completed, and take the stated failure
+   reason into account when planning the remaining work."""
 
 
 def build_prompt(instruction: str,
