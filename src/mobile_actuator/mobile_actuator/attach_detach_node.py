@@ -35,6 +35,20 @@ PICKUP_CLEAR_TOLERANCE_M = 0.05
 PICKUP_CLEAR_TIMEOUT_S = 30.0
 PICKUP_CLEAR_POLL_INTERVAL_S = 0.5
 
+# set_pose is fire-and-forget -- Gazebo acks the service call before the
+# pose is actually applied in a physics step, same as documented at length
+# in actuator_node.py (which this mirrors, minus the retry-cycle: that
+# exists there for a precision arm grasp, not needed for "is this cube
+# now sitting near the target x/y"). Only x/y are checked, deliberately
+# not z: for detach the cube settles at a fixed resting height so x/y
+# arrival implies z arrival anyway, but for attach the cube is teleported
+# UP into the air pre-weld and immediately starts falling under gravity
+# until the attach message welds it -- a z check there would race against
+# that fall instead of confirming anything useful.
+TELEPORT_CONFIRM_TOLERANCE_M = 0.01
+TELEPORT_CONFIRM_TIMEOUT_S = 5.0
+TELEPORT_CONFIRM_POLL_INTERVAL_S = 0.1
+
 
 class AttachDetachNode(Node):
     def __init__(self):
@@ -177,6 +191,23 @@ class AttachDetachNode(Node):
         )
         return True
 
+    def _wait_for_object_at(self, cube_name: str, x: float, y: float) -> bool:
+        """Block until /object_map reports `cube_name` within
+        TELEPORT_CONFIRM_TOLERANCE_M (x/y only, see that constant's
+        comment) of (x, y), or the timeout expires. The confirmation
+        set_pose itself doesn't provide -- its ack means "request
+        accepted", not "pose applied"."""
+        deadline = time.monotonic() + TELEPORT_CONFIRM_TIMEOUT_S
+        while True:
+            pos = self.latest_object_map.get(cube_name)
+            if pos is not None and math.hypot(
+                pos["x"] - x, pos["y"] - y
+            ) <= TELEPORT_CONFIRM_TOLERANCE_M:
+                return True
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(TELEPORT_CONFIRM_POLL_INTERVAL_S)
+
     def attach_callback(self, request, response):
         if self.attached_cube is None:
             response.success = False
@@ -195,7 +226,16 @@ class AttachDetachNode(Node):
             response.message = f"Failed to teleport {self.attached_cube}"
             return response
 
-        time.sleep(0.3)
+        if not self._wait_for_object_at(
+            self.attached_cube, self.turtlebot_x, self.turtlebot_y
+        ):
+            response.success = False
+            response.message = (
+                f"Teleport for {self.attached_cube} to the TurtleBot did not "
+                f"land within {TELEPORT_CONFIRM_TIMEOUT_S}s"
+            )
+            self.get_logger().error(response.message)
+            return response
 
         self.gz_attach_pubs[self.attached_cube].publish(Empty())
         self.get_logger().info(
@@ -236,12 +276,30 @@ class AttachDetachNode(Node):
             waited += PICKUP_CLEAR_POLL_INTERVAL_S
 
         self.gz_detach_pubs[self.attached_cube].publish(Empty())
-        self._teleport_cube(
+        ok = self._teleport_cube(
             self.attached_cube,
             PICKUP_POINT_X,
             PICKUP_POINT_Y,
             CUBE_PICKUP_Z
         )
+        if not ok or not self._wait_for_object_at(
+            self.attached_cube, PICKUP_POINT_X, PICKUP_POINT_Y
+        ):
+            # Previously this fell through to response.success = True
+            # unconditionally -- set_pose's own ack means "request
+            # accepted", not "pose applied" (same distinction actuator_node
+            # documents at length), so a caller (the arm's next pick) could
+            # be told the cube is at the pickup point when it never
+            # actually landed there, and fail its own IK check downstream
+            # with no clear reason why.
+            response.success = False
+            response.message = (
+                f"Teleport for {self.attached_cube} to the pickup point did "
+                f"not land within {TELEPORT_CONFIRM_TIMEOUT_S}s"
+            )
+            self.get_logger().error(response.message)
+            return response
+
         self.get_logger().info(
             f"Detached {self.attached_cube} at "
             f"({self.turtlebot_x:.2f}, {self.turtlebot_y:.2f})"
