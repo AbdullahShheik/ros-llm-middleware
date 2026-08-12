@@ -220,8 +220,13 @@ class ActionDispatcher(Node):
             self.get_logger().info(f'Task {task_id} dispatched to wheeled executor with pose {pose}')
             return
 
-        #map object name
-        object_name = OBJECT_NAME_MAP.get(llm_object_name)
+        #map object name -- falls back to llm_object_name itself (as every
+        # other OBJECT_NAME_MAP.get() call in this file already does) so an
+        # object referred to by its own tracked name (e.g. "red_cube", not
+        # only the "red_block" alias) doesn't get rejected here as unknown;
+        # a genuinely unrecognized name is still caught below by the
+        # object_map membership check, just with that check's own message.
+        object_name = OBJECT_NAME_MAP.get(llm_object_name, llm_object_name)
         if object_name is None and skill not in NO_OBJECT_SKILLS:
             self.get_logger().error(f'Unknown object name: {llm_object_name}')
             self._reject(task_id, plan_id, 'dispatch', f'Unknown object name: {llm_object_name}')
