@@ -170,7 +170,7 @@
     </include>
 
     <model name="red_cube">
-      <pose>3 3 0.04 0 0 0</pose>
+      <pose>3 3 0.03 0 0 0</pose>
       <link name="link">
         <inertial>
           <mass>0.1</mass>
@@ -226,7 +226,7 @@
     </model>
 
     <model name="blue_cube">
-      <pose>-3 3 0.04 0 0 0</pose>
+      <pose>-3 3 0.03 0 0 0</pose>
       <link name="link">
         <inertial>
           <mass>0.1</mass>
@@ -273,7 +273,7 @@
     </model>
 
     <model name="green_cube">
-      <pose>3 -3 0.04 0 0 0</pose>
+      <pose>3 -3 0.03 0 0 0</pose>
       <link name="link">
         <inertial>
           <mass>0.1</mass>

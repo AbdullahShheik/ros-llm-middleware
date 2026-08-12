@@ -304,10 +304,14 @@ TELEPORT_MAX_ATTEMPTS = 3
 # repeated (detaching first, so the cube can be repositioned cleanly) if it
 # drifted.
 #
-# Three cycles: today 2 of 3 cubes lost this race on the first attempt, so a
+# Originally 3 (today 2 of 3 cubes lost this race on the first attempt, so a
 # single retry is not obviously enough; at roughly coin-flip odds three cycles
-# gives two further chances while keeping the worst case bounded.
-GRASP_VERIFY_MAX_CYCLES = 3
+# gives two further chances while keeping the worst case bounded). Raised to 6
+# after runs under heavier background load (extra always-on nodes competing
+# with Gazebo's physics/service thread) needed more than 3 tries to converge
+# under TELEPORT_ARRIVAL_TOLERANCE even though each retry's held offset was
+# trending down (e.g. 16.13mm -> 9.30mm -> 5.70mm across 3 cycles).
+GRASP_VERIFY_MAX_CYCLES = 6
 # Brief settle before measuring, so the reading is the post-attach resting
 # pose rather than a pose-feed sample published just before the joint formed.
 GRASP_VERIFY_SETTLE_SEC = 0.15

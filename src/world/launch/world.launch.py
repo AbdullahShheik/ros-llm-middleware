@@ -48,11 +48,24 @@ def _prepare_and_launch(context, *args, **kwargs):
     # doesn't run until the 20s TimerAction. Repeated over ~1s (each
     # `gz topic` invocation is a fresh process that already waits briefly
     # for its own subscriber discovery) for reliability.
+    #
+    # Each cube also has a second DetachableJoint to the TurtleBot (for the
+    # mobile-robot pickup feature), which starts attached for the same
+    # reason and previously was only released by attach_detach_node.py --
+    # a node that is not part of this launch tree and had to be started
+    # separately (run_demo.sh's extra tmux window). If it wasn't running,
+    # the cube stayed permanently welded to the parked TurtleBot, fighting
+    # the arm's own grasp joint. Released here too so both joints start
+    # detached regardless of whether attach_detach_node.py is running;
+    # that node still attaches/detaches this joint on demand afterwards.
     release_cubes_cmd = ' '.join(
         [
             'for i in 1 2 3 4 5;', 'do',
         ] + [
             f"gz topic -t /model/{cube}/detachable_joint/detach -m gz.msgs.Empty -p '' ;"
+            for cube in ('red_cube', 'blue_cube', 'green_cube')
+        ] + [
+            f"gz topic -t /{cube}/detach -m gz.msgs.Empty -p '' ;"
             for cube in ('red_cube', 'blue_cube', 'green_cube')
         ] + [
             'sleep 0.2;', 'done'
