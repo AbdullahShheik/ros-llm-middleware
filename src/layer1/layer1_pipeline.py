@@ -270,7 +270,18 @@ Rules you must follow:
    "Progress so far" and "This step failed", you are continuing a
    partially-executed plan, not starting a fresh one. Do not repeat
    subtasks already listed as completed, and take the stated failure
-   reason into account when planning the remaining work."""
+   reason into account when planning the remaining work.
+18. A relative_to reference must itself be at a known, reachable
+   position before it means anything -- you cannot place an object
+   relative to another one that is still sitting wherever it happened
+   to start. If a place subtask's relative_to names an object tagged
+   reachable_by_arm: false, and nothing else in the plan already moves
+   that object to a reachable position (its own pick -> place chain,
+   with a transport chain first per rule 14), add that chain for it
+   too, even though the instruction never explicitly asked you to move
+   it -- give its own place subtask a landmark (or a named location if
+   the instruction gives one) as its target. This applies on top of
+   rule 16's dependency requirement, not instead of it."""
 
 
 def build_prompt(instruction: str,
