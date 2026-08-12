@@ -88,28 +88,3 @@ def resolve_relative(
         "y": reference_pose["y"] + dy * offset,
         "z": reference_pose["z"] + dz * offset,
     }
-
-
-def staging_slot(
-    cube_name: str,
-    cube_order: tuple,
-    anchor: tuple,
-    spacing: float = DEFAULT_SPACING_M,
-) -> dict:
-    """Fixed staging slot for a known cube near `anchor` (e.g. the pickup
-    point), so cubes transported one after another never land on top of
-    each other. Each cube in `cube_order` gets its own offset along y,
-    indexed by its position in that (stable, caller-provided) ordering --
-    reuses the same offset math as `resolve_relative` rather than a second
-    bespoke mechanism or a hardcoded coordinate table.
-    """
-    if cube_name not in cube_order:
-        raise ValueError(f"Unknown cube '{cube_name}'. Known cubes: {cube_order}")
-    index = cube_order.index(cube_name)
-    anchor_pose = {"x": anchor[0], "y": anchor[1], "z": _WORKSPACE_Z}
-    centered_index = index - (len(cube_order) - 1) / 2
-    return {
-        "x": anchor_pose["x"],
-        "y": anchor_pose["y"] + centered_index * spacing,
-        "z": anchor_pose["z"],
-    }

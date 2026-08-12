@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 
+import math
 import time
 import rclpy
 from rclpy.node import Node
+from rclpy.callback_groups import ReentrantCallbackGroup
+from rclpy.executors import MultiThreadedExecutor
 from std_msgs.msg import String
 from std_srvs.srv import Trigger
 from nav_msgs.msg import Odometry
@@ -20,10 +23,31 @@ PICKUP_POINT_X = 0.7
 PICKUP_POINT_Y = 0.0
 CUBE_PICKUP_Z  = 0.04
 
+# How close another cube has to be sitting to the pickup point to count as
+# "occupying" it -- generous over the ~0.02-0.1mm settle precision a clean
+# teleport lands at, but tight enough not to false-flag a cube resting
+# somewhere else entirely.
+PICKUP_CLEAR_TOLERANCE_M = 0.05
+# How long detach_callback will wait (parked at the handoff point, cube
+# still attached) for an earlier cube to be picked up off the pickup point
+# before giving up and reporting failure, rather than teleporting a second
+# cube on top of the first.
+PICKUP_CLEAR_TIMEOUT_S = 30.0
+PICKUP_CLEAR_POLL_INTERVAL_S = 0.5
+
 
 class AttachDetachNode(Node):
     def __init__(self):
         super().__init__("attach_detach_node")
+
+        # Reentrant so detach_callback can block/poll waiting for the
+        # pickup point to clear without stalling object_map_callback --
+        # with the default mutually-exclusive group + single-threaded
+        # spin, a blocking wait here would also block the very callback
+        # that could ever report the pickup point clear (see main()'s
+        # MultiThreadedExecutor below). Same pattern as ActionDispatcher
+        # in dispatcher_node.py.
+        self.callback_group = ReentrantCallbackGroup()
 
         self.gz_node = GzNode()
 
@@ -43,20 +67,28 @@ class AttachDetachNode(Node):
         self.startup_timer = self.create_timer(3.0, self._startup_detach_all)
 
         self.attach_service = self.create_service(
-            Trigger, "/attach_cube", self.attach_callback
+            Trigger, "/attach_cube", self.attach_callback,
+            callback_group=self.callback_group
         )
         self.detach_service = self.create_service(
-            Trigger, "/detach_cube", self.detach_callback
+            Trigger, "/detach_cube", self.detach_callback,
+            callback_group=self.callback_group
         )
 
         self.active_cube_sub = self.create_subscription(
-            String, "/active_cube", self.active_cube_callback, 10
+            String, "/active_cube", self.active_cube_callback, 10,
+            callback_group=self.callback_group
         )
 
         self.turtlebot_x = -2.0
         self.turtlebot_y = 0.0
+        # Latest live cube positions from /object_map -- {"red_cube": {"x":.., "y":.., "z":..}, ...}.
+        # Used by _is_pickup_point_clear() to check whether an earlier
+        # cube is still sitting at the pickup point.
+        self.latest_object_map = {}
         self.object_map_sub = self.create_subscription(
-            String, "/object_map", self.object_map_callback, 10
+            String, "/object_map", self.object_map_callback, 10,
+            callback_group=self.callback_group
         )
 
         self.attached_cube = None
@@ -70,11 +102,29 @@ class AttachDetachNode(Node):
     def object_map_callback(self, msg: String):
         try:
             data = json.loads(msg.data)
-            if "turtlebot3_waffle" in data:
-                self.turtlebot_x = data["turtlebot3_waffle"]["x"]
-                self.turtlebot_y = data["turtlebot3_waffle"]["y"]
         except json.JSONDecodeError:
-            pass
+            return
+        self.latest_object_map = data
+        if "turtlebot3_waffle" in data:
+            self.turtlebot_x = data["turtlebot3_waffle"]["x"]
+            self.turtlebot_y = data["turtlebot3_waffle"]["y"]
+
+    def _is_pickup_point_clear(self) -> bool:
+        """True if no OTHER known cube is currently resting at the pickup
+        point. Checked before detaching -- if an earlier cube hasn't been
+        picked up by the arm yet, teleporting a new one onto the same spot
+        would place two cubes on top of each other."""
+        for cube in CUBE_NAMES:
+            if cube == self.attached_cube:
+                continue
+            pos = self.latest_object_map.get(cube)
+            if pos is None:
+                continue
+            if math.hypot(
+                pos["x"] - PICKUP_POINT_X, pos["y"] - PICKUP_POINT_Y
+            ) <= PICKUP_CLEAR_TOLERANCE_M:
+                return False
+        return True
 
     def _startup_detach_all(self):
         """Detach all cubes at startup — DetachableJoint starts attached by default."""
@@ -164,6 +214,27 @@ class AttachDetachNode(Node):
             self.get_logger().warn("detach called but no cube is attached.")
             return response
 
+        # Wait here -- still attached, physically parked at the handoff
+        # point -- until the pickup point is clear of any earlier cube the
+        # arm hasn't picked up yet. Only meant to run into its timeout in
+        # unusual cases: fleet-capacity wave-splitting (layer1_pipeline.py)
+        # already serializes different cubes' mobile-robot subtasks
+        # against each other, but that alone doesn't guarantee the arm has
+        # finished picking up cube A by the time cube B's transport
+        # finishes -- this closes that remaining gap.
+        waited = 0.0
+        while not self._is_pickup_point_clear():
+            if waited >= PICKUP_CLEAR_TIMEOUT_S:
+                response.success = False
+                response.message = (
+                    f"Pickup point still occupied after {PICKUP_CLEAR_TIMEOUT_S}s; "
+                    "not detaching to avoid stacking cubes."
+                )
+                self.get_logger().error(response.message)
+                return response
+            time.sleep(PICKUP_CLEAR_POLL_INTERVAL_S)
+            waited += PICKUP_CLEAR_POLL_INTERVAL_S
+
         self.gz_detach_pubs[self.attached_cube].publish(Empty())
         self._teleport_cube(
             self.attached_cube,
@@ -186,8 +257,10 @@ class AttachDetachNode(Node):
 def main(args=None):
     rclpy.init(args=args)
     node = AttachDetachNode()
+    executor = MultiThreadedExecutor()
+    executor.add_node(node)
     try:
-        rclpy.spin(node)
+        executor.spin()
     finally:
         node.destroy_node()
         if rclpy.ok():

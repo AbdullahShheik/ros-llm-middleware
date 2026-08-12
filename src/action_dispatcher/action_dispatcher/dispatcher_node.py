@@ -12,6 +12,8 @@ import json
 import threading
 from std_srvs.srv import Trigger
 
+from action_dispatcher import spatial_placement
+
 # Object name mapping from LLM team naming to /object_map naming
 OBJECT_NAME_MAP = {
     "red_block": "red_cube",
@@ -230,21 +232,67 @@ class ActionDispatcher(Node):
         # separately from the pick/inspect/push path below, which targets
         # the object itself.
         if skill == 'place':
+            relative_to = args.get('relative_to')
+            landmark = args.get('landmark')
             target_location = args.get('target_location')
-            pose = self._resolve_place_pose(target_location)
-            if pose is None:
-                self.get_logger().error(f"Could not resolve target_location '{target_location}'")
-                self._reject(
-                    task_id, plan_id, 'dispatch',
-                    f"Could not resolve target_location '{target_location}' to a pose"
-                )
-                return
+
+            if relative_to:
+                # relative_to always wins over target_location/landmark if
+                # more than one is somehow present -- rule 15 tells the LLM
+                # never to populate more than one, but resolving one
+                # deterministically here is safer than silently picking a
+                # different one than the caller expected.
+                ref_name = OBJECT_NAME_MAP.get(relative_to, relative_to)
+                if ref_name not in self.object_map:
+                    self.get_logger().error(
+                        f"Could not resolve relative_to reference '{relative_to}': "
+                        "not in object map"
+                    )
+                    self._reject(
+                        task_id, plan_id, 'dispatch',
+                        f"Could not resolve relative_to reference '{relative_to}' -- "
+                        "not a known/already-placed object"
+                    )
+                    return
+                try:
+                    pose = spatial_placement.resolve_relative(
+                        self.object_map[ref_name],
+                        args.get('direction'),
+                        float(args.get('distance', 1)),
+                    )
+                except (ValueError, TypeError) as e:
+                    self.get_logger().error(f"Invalid relative placement: {e}")
+                    self._reject(task_id, plan_id, 'dispatch', str(e))
+                    return
+                # Skips the named-object IK fast-fail below (matches how a
+                # raw-coordinate target_location already behaves) -- a
+                # computed pose was never a tracked object's own name.
+                target_location = None
+
+            elif landmark:
+                try:
+                    pose = spatial_placement.resolve_landmark(landmark)
+                except ValueError as e:
+                    self.get_logger().error(f"Invalid landmark: {e}")
+                    self._reject(task_id, plan_id, 'dispatch', str(e))
+                    return
+                target_location = None
+
+            else:
+                pose = self._resolve_place_pose(target_location)
+                if pose is None:
+                    self.get_logger().error(f"Could not resolve target_location '{target_location}'")
+                    self._reject(
+                        task_id, plan_id, 'dispatch',
+                        f"Could not resolve target_location '{target_location}' to a pose"
+                    )
+                    return
 
             # Fast-fail IK check only when the target resolved to a known
             # tracked object (the feasibility service can only look up
-            # poses by name); raw-coordinate targets fall through to the
-            # arm planner itself, which already reports a clear
-            # 'planning failed' feedback if unreachable.
+            # poses by name); raw-coordinate/landmark/relative_to targets
+            # fall through to the arm planner itself, which already reports
+            # a clear 'planning failed' feedback if unreachable.
             resolved_name = OBJECT_NAME_MAP.get(target_location, target_location)
             if resolved_name in self.object_map and not self.check_ik(resolved_name):
                 self.get_logger().warn(f'IK check failed for {resolved_name}, task {task_id} rejected')
