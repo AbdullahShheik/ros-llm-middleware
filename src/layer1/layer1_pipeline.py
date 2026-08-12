@@ -33,7 +33,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from RAG.few_shot_bank import bank_summary, load_examples
 from RAG.few_shot_retriever import CosineFewShotRetriever, format_examples_for_prompt
-from RAG.robot_bank import bank_summary as robot_bank_summary, load_robot_bank
+from RAG.robot_bank import bank_summary as robot_bank_summary, load_robot_bank, FLEET_FILE
 from RAG.robot_retriever import CosineRobotTypeRetriever, union_skills
 
 def _load_env_file(env_path: str) -> None:
@@ -59,6 +59,11 @@ _load_env_file(os.path.join(_PROJECT_ROOT, ".env"))
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "YOUR_API_KEY")
 MODEL        = "llama-3.3-70b-versatile"
 MAX_RETRIES  = 3
+# How many times a single original instruction may be replanned after a
+# subtask failure before Layer1Node gives up and aborts (see
+# Layer1Node._handle_feedback). Bounded to stop a failure that reliably
+# recurs (e.g. a truly unreachable target) from replanning forever.
+MAX_REPLAN_ATTEMPTS = 1
 SKILLS_FILE  = os.path.join(os.path.dirname(__file__), "robot_skills.json")
 # How many few-shot examples get retrieved into each prompt. The bank itself
 # can grow freely -- only these k reach the prompt.
@@ -385,6 +390,45 @@ def build_dag(plan: dict) -> nx.DiGraph:
     return G
 
 
+def split_wave_by_fleet_capacity(
+    wave: list, task_map: dict, fleet_counts: dict, default_capacity: int = 1
+) -> list:
+    """Split one topological-generation wave into sequential sub-waves so
+    no robot type is ever asked to run more subtasks at once than the
+    fleet actually has instances of (robot_fleet.json).
+
+    Safe to call on any wave: tasks in the same generation have no
+    dependency edge between them (nx.topological_generations already
+    guarantees that), so re-splitting one into sequential sub-waves only
+    adds serialization -- it can never violate the DAG's ordering.
+    """
+    by_robot: dict[str, list] = {}
+    for task_id in wave:
+        robot = task_map[task_id]["robot"]
+        by_robot.setdefault(robot, []).append(task_id)
+
+    chunked_by_robot = []
+    for robot, task_ids in by_robot.items():
+        capacity = fleet_counts.get(robot, default_capacity)
+        if capacity <= 0:
+            capacity = default_capacity
+        chunks = [
+            task_ids[i : i + capacity] for i in range(0, len(task_ids), capacity)
+        ]
+        chunked_by_robot.append(chunks)
+
+    sub_waves = []
+    for chunks_at_this_step in itertools.zip_longest(*chunked_by_robot):
+        sub_wave = [
+            task_id
+            for chunk in chunks_at_this_step
+            if chunk is not None
+            for task_id in chunk
+        ]
+        sub_waves.append(sub_wave)
+    return sub_waves
+
+
 # STEP 6 — Validator
 # Four checks following DART-LLM's validation approach
 
@@ -640,6 +684,13 @@ def run_ros_node():
             self.current_wave_index = 0
             self.pending_feedback = set()
             self.completed_tasks = set()
+            # How many times the active *original* instruction has been
+            # replanned after a subtask failure. Reset only in
+            # instruction_callback (a genuinely new instruction) -- NOT in
+            # clear_active_plan(), since that also runs at the end of a
+            # successful replanned continuation and the cap must survive
+            # across it, or a failure could trigger unbounded replanning.
+            self.replan_attempts = 0
             # Latest parsed payload from /object_map -- {"red_cube": {"x":.., "y":.., "z":..}, ...}.
             # Empty until perception publishes at least once (see object_map_callback).
             self.latest_object_map = {}
@@ -684,14 +735,23 @@ def run_ros_node():
                 )
                 return
 
+            self.replan_attempts = 0
+            self.get_logger().info(f"Received instruction: {instruction}")
+            self._decompose_and_dispatch(instruction)
+
+        def _decompose_and_dispatch(self, instruction: str) -> bool:
+            """Shared by a fresh instruction and a bounded replan
+            continuation (see _handle_feedback) -- both are just "call the
+            LLM with this instruction text and this moment's environment,
+            then dispatch whatever plan comes back." Returns whether a plan
+            was successfully dispatched, so a replan caller can fall back
+            to aborting instead of leaving the old (failed) plan dangling."""
             if not self.latest_object_map:
                 self.get_logger().warn(
                     "No /object_map data received yet -- environment context will "
                     "have no live object or zone positions. "
                     "Is the perception node running?"
                 )
-
-            self.get_logger().info(f"Received instruction: {instruction}")
             try:
                 environment = build_environment_prompt(
                     map_yaml_path=MAP_YAML_PATH,
@@ -703,15 +763,42 @@ def run_ros_node():
                 )
                 print_dag(plan, G)
                 self.start_plan_dispatch(plan, G)
+                return True
             except Exception as e:
                 self.get_logger().error(f"Decomposition failed: {e}")
+                return False
 
         def start_plan_dispatch(self, plan: dict, G: nx.DiGraph):
             self.active_plan = plan
             self.active_graph = G
             self.task_map = {task["id"]: task for task in plan["subtasks"]}
+            raw_waves = [sorted(wave) for wave in nx.topological_generations(G)]
+
+            # Fleet capacity isn't accounted for by the LLM's own DAG (rule
+            # 13 gives independent objects independent, parallel-eligible
+            # chains by default) -- e.g. two different cubes' `attach`
+            # subtasks can land in the same wave even though there's only
+            # one mobile robot. Split any such wave into sequential
+            # sub-waves here rather than trusting the plan to get it right;
+            # this is what actually prevents two concurrent /attach_cube
+            # calls from racing against attach_detach_node.py's single
+            # `attached_cube` slot.
+            try:
+                with open(FLEET_FILE, "r", encoding="utf-8") as f:
+                    fleet_counts = json.load(f)["fleet"]
+            except (OSError, json.JSONDecodeError, KeyError) as e:
+                self.get_logger().warn(
+                    f"Could not load fleet capacity from {FLEET_FILE} ({e}); "
+                    "defaulting every robot type to capacity 1."
+                )
+                fleet_counts = {}
+
             self.execution_waves = [
-                sorted(wave) for wave in nx.topological_generations(G)
+                sub_wave
+                for wave in raw_waves
+                for sub_wave in split_wave_by_fleet_capacity(
+                    wave, self.task_map, fleet_counts
+                )
             ]
             self.current_wave_index = 0
             self.pending_feedback = set()
@@ -802,9 +889,22 @@ def run_ros_node():
                     return
 
             if status in {"failed", "failure", "error", "rejected", "infeasible"}:
+                if self.replan_attempts < MAX_REPLAN_ATTEMPTS:
+                    self.replan_attempts += 1
+                    self.get_logger().warn(
+                        f"Feedback reported {status} for task {task_id} in plan "
+                        f"{self.active_plan['plan_id']}; attempting replan "
+                        f"{self.replan_attempts}/{MAX_REPLAN_ATTEMPTS} instead of "
+                        "aborting."
+                    )
+                    self._trigger_replan(feedback, task_id)
+                    return
+
                 self.get_logger().error(
                     f"Feedback reported {status} for task {task_id}; "
-                    f"aborting plan {self.active_plan['plan_id']}."
+                    f"aborting plan {self.active_plan['plan_id']} "
+                    f"(replan attempts exhausted: {self.replan_attempts}/"
+                    f"{MAX_REPLAN_ATTEMPTS})."
                 )
                 self.clear_active_plan()
                 return
@@ -844,6 +944,62 @@ def run_ros_node():
             if not self.pending_feedback:
                 self.current_wave_index += 1
                 self.publish_current_wave()
+
+        def _trigger_replan(self, raw_feedback: str, failed_task_id: str):
+            """Build a continuation instruction (original goal + what's
+            done + what failed + why) and re-run decomposition for the
+            remaining work, in place of aborting outright. Reuses
+            decompose_instruction/start_plan_dispatch as-is -- this is a
+            new trigger path, not new plan-execution machinery.
+
+            Must read everything it needs from self.active_plan/task_map/
+            completed_tasks BEFORE calling _decompose_and_dispatch, since
+            that calls start_plan_dispatch which overwrites all of them
+            with the new (continuation) plan's state."""
+            original_instruction = self.active_plan.get(
+                "original_instruction", "(original instruction unavailable)"
+            )
+            failed_task = self.task_map.get(failed_task_id, {})
+
+            try:
+                detail = json.loads(raw_feedback).get("detail", raw_feedback)
+            except (json.JSONDecodeError, AttributeError):
+                detail = raw_feedback
+
+            completed_lines = [
+                f"  - {tid}: {self.task_map[tid].get('description', tid)}"
+                for tid in sorted(self.completed_tasks)
+                if tid in self.task_map
+            ]
+            completed_block = "\n".join(completed_lines) if completed_lines else "  (none)"
+
+            replan_instruction = (
+                f"Original goal: \"{original_instruction}\"\n\n"
+                f"Progress so far: The following subtasks already completed "
+                f"successfully:\n{completed_block}\n\n"
+                f"This step failed and blocked the plan:\n"
+                f"  - {failed_task_id}: {failed_task.get('description', failed_task_id)} "
+                f"(required_skills={failed_task.get('required_skills')}, "
+                f"robot={failed_task.get('robot')}, args={failed_task.get('args')})\n"
+                f"  Failure reason: {detail}\n\n"
+                f"Produce a plan to complete the REMAINING goal from the current "
+                f"state. Do not repeat subtasks that already completed "
+                f"successfully. Take the failure reason into account."
+            )
+
+            plan_id_for_log = self.active_plan.get("plan_id", "?")
+            if not self._decompose_and_dispatch(replan_instruction):
+                # The old (failed) plan is still sitting in self.active_plan
+                # at this point -- _decompose_and_dispatch only overwrites it
+                # on success (inside start_plan_dispatch). Left as-is, it
+                # would permanently block every future instruction (see the
+                # active_plan-not-None guard in instruction_callback), so an
+                # unsuccessful replan must still fall through to an abort.
+                self.get_logger().error(
+                    f"Replan attempt for plan {plan_id_for_log} itself failed to "
+                    "produce a plan; aborting."
+                )
+                self.clear_active_plan()
 
         def parse_feedback(self, feedback: str):
             plan_id = None
