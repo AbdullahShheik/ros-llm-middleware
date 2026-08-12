@@ -59,7 +59,7 @@ def _load_env_file(env_path: str) -> None:
 _PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 _load_env_file(os.path.join(_PROJECT_ROOT, ".env"))
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "YOUR_API_KEY")
-MODEL        = "llama-3.3-70b-versatile"
+MODEL        = "openai/gpt-oss-120b"
 MAX_RETRIES  = 3
 # How many times a single original instruction may be replanned after a
 # subtask failure before Layer1Node gives up and aborts (see
