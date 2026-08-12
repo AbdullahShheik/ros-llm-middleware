@@ -269,6 +269,18 @@ Rules you must follow:
      the arrangement into a chain, each object relative_to an earlier one,
      reasoning about directions the way you would describe the arrangement
      in words. Never populate both landmark and relative_to on one subtask.
+   - left/right move only along one axis, front/behind only along another,
+     above/below only along the third -- so two objects placed relative_to
+     the SAME anchor using directions from the SAME axis (e.g. one "left"
+     of it and another "right" of it) always end up collinear with it,
+     which is a LINE, never a shape with a bend or a corner in it (a
+     triangle, an L, etc). For a shape that isn't a straight line, chain at
+     least one object relative_to a SECOND object (not the shared anchor)
+     using a direction from a DIFFERENT axis, so it moves off the line the
+     first two define. Example -- a line of 3: A at a landmark, B
+     relative_to A direction=left, C relative_to A direction=right. A
+     triangle of 3 instead: A at a landmark, B relative_to A direction=left,
+     C relative_to B (not A) direction=behind.
 16. Rule 13's independence-by-default does NOT apply once a "place" subtask
    uses relative_to referencing another object -- that object's real
    resting position must be known first, so add a dependencies entry on
@@ -409,43 +421,70 @@ def build_dag(plan: dict) -> nx.DiGraph:
     return G
 
 
-def split_wave_by_fleet_capacity(
-    wave: list, task_map: dict, fleet_counts: dict, default_capacity: int = 1
+def build_resource_constrained_waves(
+    G: nx.DiGraph, task_map: dict, fleet_counts: dict, default_capacity: int = 1
 ) -> list:
-    """Split one topological-generation wave into sequential sub-waves so
-    no robot type is ever asked to run more subtasks at once than the
-    fleet actually has instances of (robot_fleet.json).
+    """Build execution waves directly from the whole DAG, respecting
+    per-robot-type fleet capacity (robot_fleet.json) at every step.
 
-    Safe to call on any wave: tasks in the same generation have no
-    dependency edge between them (nx.topological_generations already
-    guarantees that), so re-splitting one into sequential sub-waves only
-    adds serialization -- it can never violate the DAG's ordering.
-    """
-    by_robot: dict[str, list] = {}
-    for task_id in wave:
-        robot = task_map[task_id]["robot"]
-        by_robot.setdefault(robot, []).append(task_id)
+    An earlier version of this split each nx.topological_generations()
+    wave independently and concatenated the results. That is NOT enough:
+    it fully drains one whole generation's sub-waves (e.g. every chain's
+    *first* navigate_to) before touching the next generation (every
+    chain's attach) at all -- observed live as a capacity-1 mobile robot
+    reaching one cube's zone, then leaving for the next chain's zone
+    without ever attaching, because the attach for the first cube doesn't
+    become eligible until every chain's navigate_to has already run.
 
-    chunked_by_robot = []
-    for robot, task_ids in by_robot.items():
-        capacity = fleet_counts.get(robot, default_capacity)
-        if capacity <= 0:
-            capacity = default_capacity
-        chunks = [
-            task_ids[i : i + capacity] for i in range(0, len(task_ids), capacity)
+    Instead, at every wave this looks at ALL currently-ready tasks
+    (dependencies already satisfied by an earlier wave), and when more
+    tasks of one robot type are ready than that type's fleet capacity
+    allows, prefers whichever task is FURTHEST INTO an already-started
+    chain (highest `priority` -- the LLM already numbers this 1, 2, 3...
+    per chain, per rule 9) over one just starting a new chain, so a
+    constrained robot finishes what it started before beginning something
+    else. Different robot types draw from independent capacity pools, so
+    e.g. the arm placing one object and the mobile robot starting the next
+    chain can still share a wave.
+
+    Safe by construction: a task only ever enters `ready` once every
+    predecessor is in `completed`, and `completed` only grows by whole
+    waves -- matching Layer1Node's existing wave-gated dispatch (advance
+    only once every task in the current wave reports "complete"), so this
+    changes WHICH waves get built, not the gating semantics."""
+    completed = set()
+    remaining = set(G.nodes)
+    waves = []
+
+    while remaining:
+        ready = [
+            n for n in remaining
+            if all(dep in completed for dep in G.predecessors(n))
         ]
-        chunked_by_robot.append(chunks)
+        if not ready:
+            # Shouldn't happen for a validated acyclic plan -- avoid an
+            # infinite loop if it somehow does rather than hanging.
+            waves.append(sorted(remaining))
+            break
 
-    sub_waves = []
-    for chunks_at_this_step in itertools.zip_longest(*chunked_by_robot):
-        sub_wave = [
-            task_id
-            for chunk in chunks_at_this_step
-            if chunk is not None
-            for task_id in chunk
-        ]
-        sub_waves.append(sub_wave)
-    return sub_waves
+        by_robot: dict[str, list] = {}
+        for task_id in ready:
+            by_robot.setdefault(task_map[task_id]["robot"], []).append(task_id)
+
+        wave = []
+        for robot, task_ids in by_robot.items():
+            capacity = fleet_counts.get(robot, default_capacity)
+            if capacity <= 0:
+                capacity = default_capacity
+            task_ids.sort(key=lambda tid: (-task_map[tid].get("priority", 0), tid))
+            wave.extend(task_ids[:capacity])
+
+        wave.sort()
+        waves.append(wave)
+        completed.update(wave)
+        remaining -= set(wave)
+
+    return waves
 
 
 # STEP 6 — Validator
@@ -846,17 +885,18 @@ def run_ros_node():
             self.active_plan = plan
             self.active_graph = G
             self.task_map = {task["id"]: task for task in plan["subtasks"]}
-            raw_waves = [sorted(wave) for wave in nx.topological_generations(G)]
 
             # Fleet capacity isn't accounted for by the LLM's own DAG (rule
             # 13 gives independent objects independent, parallel-eligible
             # chains by default) -- e.g. two different cubes' `attach`
             # subtasks can land in the same wave even though there's only
-            # one mobile robot. Split any such wave into sequential
-            # sub-waves here rather than trusting the plan to get it right;
-            # this is what actually prevents two concurrent /attach_cube
-            # calls from racing against attach_detach_node.py's single
-            # `attached_cube` slot.
+            # one mobile robot. build_resource_constrained_waves accounts
+            # for it directly rather than trusting the plan to get it
+            # right; this is what actually prevents two concurrent
+            # /attach_cube calls from racing against attach_detach_node.py's
+            # single `attached_cube` slot -- and, just as importantly,
+            # keeps a capacity-1 robot finishing one chain before starting
+            # another instead of wandering between every chain's first step.
             try:
                 with open(FLEET_FILE, "r", encoding="utf-8") as f:
                     fleet_counts = json.load(f)["fleet"]
@@ -867,13 +907,9 @@ def run_ros_node():
                 )
                 fleet_counts = {}
 
-            self.execution_waves = [
-                sub_wave
-                for wave in raw_waves
-                for sub_wave in split_wave_by_fleet_capacity(
-                    wave, self.task_map, fleet_counts
-                )
-            ]
+            self.execution_waves = build_resource_constrained_waves(
+                G, self.task_map, fleet_counts
+            )
             self.current_wave_index = 0
             self.pending_feedback = set()
             self.completed_tasks = set()
