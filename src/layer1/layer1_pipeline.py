@@ -22,6 +22,8 @@ import os
 import sys
 import argparse
 import itertools
+import time
+from datetime import datetime, timezone
 import networkx as nx
 from groq import Groq
 from build_environment import build_environment_prompt
@@ -73,6 +75,12 @@ FEW_SHOT_K   = 4
 # works regardless of whose checkout or OS it's running on.
 MAP_YAML_PATH = os.path.join(_PROJECT_ROOT, "src", "world", "maps", "panda_world_map.yaml")
 SDF_PATH      = os.path.join(_PROJECT_ROOT, "src", "world", "worlds", "panda_world.sdf")
+# One JSON-lines record per user instruction (see Layer1Node._finalize_run):
+# success/failure, subtask completion counts, LLM call count + latency, and
+# the full plan(s) produced, for evaluation metrics (success rate, subtasks
+# completed, LLM query efficiency, plan quality, latency) without having to
+# scrape them out of console logs by hand.
+RUN_LOG_PATH  = os.path.join(os.path.dirname(__file__), "eval_runs.jsonl")
 
 # get_client() returns the LLM client. Currently only Groq is supported.
 
@@ -521,7 +529,8 @@ def validate_plan(plan: dict, G: nx.DiGraph, robot_config: dict) -> list[str]:
 def decompose_instruction(
     instruction: str,
     client: Groq,
-    environment: str = None
+    environment: str = None,
+    stats: dict = None,
 ) -> tuple[dict, nx.DiGraph]:
     """
     Full Layer 1 pipeline:
@@ -532,6 +541,11 @@ def decompose_instruction(
     Robot skills (the R+S components of P = (I, E, R, S, F)) are retrieved
     per-instruction from the active fleet rather than passed in statically --
     see retrieve_robot_config.
+
+    stats, if given, gets 'llm_calls' incremented once per actual call_llm
+    invocation (including ones that fail JSON parsing/validation and retry)
+    -- an optional out-parameter rather than a return-signature change, so
+    every existing caller (CLI mode included) is unaffected.
     """
     robot_config = retrieve_robot_config(instruction)
     skill_block  = build_skill_prompt_block(robot_config)
@@ -545,6 +559,8 @@ def decompose_instruction(
         print(f"\n[Layer 1] Attempt {attempt}/{MAX_RETRIES} — calling LLM...")
 
         raw = call_llm(client, user_prompt + error_suffix)
+        if stats is not None:
+            stats["llm_calls"] = stats.get("llm_calls", 0) + 1
 
         # Parse JSON
         try:
@@ -705,6 +721,9 @@ def run_ros_node():
             # Latest parsed payload from /object_map -- {"red_cube": {"x":.., "y":.., "z":..}, ...}.
             # Empty until perception publishes at least once (see object_map_callback).
             self.latest_object_map = {}
+            # Evaluation run record for the active *original* instruction --
+            # see _finalize_run. None whenever no instruction is in flight.
+            self.current_run = None
 
             self.publisher_ = self.create_publisher(
                 String, "/layer1/taskplan", 10
@@ -748,7 +767,25 @@ def run_ros_node():
 
             self.replan_attempts = 0
             self.get_logger().info(f"Received instruction: {instruction}")
-            self._decompose_and_dispatch(instruction)
+            self.current_run = {
+                "original_instruction": instruction,
+                "model": MODEL,
+                "start_wall": datetime.now(timezone.utc).isoformat(),
+                "start_monotonic": time.monotonic(),
+                "llm_calls": 0,
+                "decompose_calls": [],
+                "replans_used": 0,
+                "subtasks_completed_before_replan": 0,
+                "plans": [],
+            }
+            if not self._decompose_and_dispatch(instruction):
+                # Initial decomposition itself failed (clarification_needed,
+                # infeasible, or all MAX_RETRIES exhausted) -- no plan was
+                # ever dispatched, so none of this node's other three
+                # termination points (publish_current_wave's success
+                # branch, _handle_feedback's abort, _trigger_replan's
+                # abort) will ever run for this run; finalize it here.
+                self._finalize_run("failed")
 
         def _decompose_and_dispatch(self, instruction: str) -> bool:
             """Shared by a fresh instruction and a bounded replan
@@ -763,6 +800,14 @@ def run_ros_node():
                     "have no live object or zone positions. "
                     "Is the perception node running?"
                 )
+            # Created before the try (not inside it) and folded into
+            # self.current_run in BOTH the success and except paths below --
+            # decompose_instruction can raise (clarification_needed,
+            # infeasible, retries exhausted) after already making one or
+            # more real LLM calls, and those must still count toward the
+            # llm_calls metric, not just the calls from an eventual success.
+            stats = {}
+            call_start = time.monotonic()
             try:
                 environment = build_environment_prompt(
                     map_yaml_path=MAP_YAML_PATH,
@@ -770,13 +815,31 @@ def run_ros_node():
                     object_map=self.latest_object_map,
                 )
                 plan, G = decompose_instruction(
-                    instruction, self.client, environment=environment
+                    instruction, self.client, environment=environment, stats=stats
                 )
+                if self.current_run is not None:
+                    self.current_run["llm_calls"] += stats.get("llm_calls", 0)
+                    self.current_run["decompose_calls"].append({
+                        "plan_id": plan["plan_id"],
+                        "latency_s": round(time.monotonic() - call_start, 3),
+                        "llm_calls": stats.get("llm_calls", 0),
+                        "subtasks": len(plan["subtasks"]),
+                    })
+                    self.current_run["plans"].append(plan)
                 print_dag(plan, G)
                 self.start_plan_dispatch(plan, G)
                 return True
             except Exception as e:
                 self.get_logger().error(f"Decomposition failed: {e}")
+                if self.current_run is not None:
+                    self.current_run["llm_calls"] += stats.get("llm_calls", 0)
+                    self.current_run["decompose_calls"].append({
+                        "plan_id": None,
+                        "latency_s": round(time.monotonic() - call_start, 3),
+                        "llm_calls": stats.get("llm_calls", 0),
+                        "subtasks": 0,
+                    })
+                    self.current_run.setdefault("decompose_errors", []).append(str(e))
                 return False
 
         def start_plan_dispatch(self, plan: dict, G: nx.DiGraph):
@@ -830,6 +893,7 @@ def run_ros_node():
                     f"Plan {self.active_plan['plan_id']} complete; "
                     "all subtasks received feedback."
                 )
+                self._finalize_run("success")
                 self.clear_active_plan()
                 return
 
@@ -917,6 +981,7 @@ def run_ros_node():
                     f"(replan attempts exhausted: {self.replan_attempts}/"
                     f"{MAX_REPLAN_ATTEMPTS})."
                 )
+                self._finalize_run("failed")
                 self.clear_active_plan()
                 return
 
@@ -984,6 +1049,17 @@ def run_ros_node():
             ]
             completed_block = "\n".join(completed_lines) if completed_lines else "  (none)"
 
+            # Snapshot before _decompose_and_dispatch -> start_plan_dispatch
+            # resets self.completed_tasks for the continuation plan; without
+            # this, subtasks completed under the ORIGINAL (failed) plan
+            # would be silently dropped from the final subtasks_completed
+            # count in _finalize_run.
+            if self.current_run is not None:
+                self.current_run["subtasks_completed_before_replan"] += len(
+                    self.completed_tasks
+                )
+                self.current_run["replans_used"] += 1
+
             replan_instruction = (
                 f"Original goal: \"{original_instruction}\"\n\n"
                 f"Progress so far: The following subtasks already completed "
@@ -1010,7 +1086,52 @@ def run_ros_node():
                     f"Replan attempt for plan {plan_id_for_log} itself failed to "
                     "produce a plan; aborting."
                 )
+                self._finalize_run("failed")
                 self.clear_active_plan()
+
+        def _finalize_run(self, status: str):
+            """Append one JSON-lines record for the just-finished original
+            instruction to RUN_LOG_PATH, for the evaluation metrics
+            described at RUN_LOG_PATH's definition. Called from this
+            node's four termination points -- instruction_callback (initial
+            decompose failed outright), publish_current_wave (all waves
+            completed), _handle_feedback (replan cap exhausted), and
+            _trigger_replan (the replan attempt itself failed to produce a
+            plan) -- always BEFORE clear_active_plan()/start_plan_dispatch()
+            reset the state this reads (self.completed_tasks in
+            particular)."""
+            if self.current_run is None:
+                return
+            run = self.current_run
+            total_dispatched = sum(c["subtasks"] for c in run["decompose_calls"])
+            total_completed = run["subtasks_completed_before_replan"] + len(
+                self.completed_tasks
+            )
+            record = {
+                "instruction": run["original_instruction"],
+                "model": run["model"],
+                "start_wall": run["start_wall"],
+                "status": status,
+                "total_latency_s": round(
+                    time.monotonic() - run["start_monotonic"], 3
+                ),
+                "llm_calls": run["llm_calls"],
+                "replans_used": run["replans_used"],
+                "subtasks_dispatched": total_dispatched,
+                "subtasks_completed": total_completed,
+                "plan_ids": [c["plan_id"] for c in run["decompose_calls"]],
+                "decompose_calls": run["decompose_calls"],
+                "plans": run["plans"],
+            }
+            if "decompose_errors" in run:
+                record["decompose_errors"] = run["decompose_errors"]
+            try:
+                with open(RUN_LOG_PATH, "a", encoding="utf-8") as f:
+                    f.write(json.dumps(record) + "\n")
+                self.get_logger().info(f"Eval run recorded -> {RUN_LOG_PATH}")
+            except OSError as e:
+                self.get_logger().warn(f"Could not write eval run log: {e}")
+            self.current_run = None
 
         def parse_feedback(self, feedback: str):
             plan_id = None
