@@ -8,6 +8,11 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
   <depend>rclpy</depend>
   <depend>std_msgs</depend>
+  <depend>ament_index_python</depend>
+  <!-- scene_tracking: object/zone/robot classification from the world SDF -->
+  <depend>world_model</depend>
+  <!-- SDF_PATH is resolved out of world's share directory at runtime -->
+  <exec_depend>world</exec_depend>
   <exec_depend>python3-gz-transport13</exec_depend>
 
   <export>

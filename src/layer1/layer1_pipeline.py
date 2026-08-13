@@ -26,7 +26,11 @@ import time
 from datetime import datetime, timezone
 import networkx as nx
 from groq import Groq
-from build_environment import build_environment_prompt
+# NOTE: world_model.build_environment is deliberately NOT imported here.
+# It pulls in yaml/numpy/PIL and is only ever needed in --ros mode, so
+# run_ros_node() imports it locally instead -- that keeps standalone CLI
+# and the offline evaluation harnesses runnable without those deps (and
+# without a sourced ROS workspace).
 
 # The RAG package lives beside this file; make it importable regardless of
 # the working directory the pipeline is launched from (ROS2 launch, the demo
@@ -748,13 +752,14 @@ def run_ros_node():
         sys.exit(1)
 
     # Imported lazily (not at module level) for the same reason as rclpy
-    # above: build_environment.py pulls in PIL/numpy/yaml plus the
-    # perception package (which itself imports rclpy and gz.transport13) --
-    # none of that should be required just to run standalone/CLI mode.
+    # above: world_model.build_environment pulls in PIL/numpy/yaml, and
+    # reaching it at all requires a sourced ROS workspace -- none of which
+    # should be required just to run standalone/CLI mode.
     try:
-        from build_environment import build_environment_prompt
+        from world_model.build_environment import build_environment_prompt
     except ImportError as e:
-        print(f"[ERROR] build_environment dependencies not found: {e}")
+        print(f"[ERROR] world_model not importable ({e}). "
+              "Build the workspace and source install/setup.bash.")
         sys.exit(1)
 
     class Layer1Node(Node):

@@ -5,13 +5,22 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
 import json
+from ament_index_python.packages import get_package_share_directory
 from gz.transport13 import Node as GzNode
 from gz.msgs10.pose_v_pb2 import Pose_V
 
-from scene_tracking import get_tracked_names
 
-_PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", ".."))
-SDF_PATH = os.path.join(_PROJECT_ROOT, "src", "world", "worlds", "panda_world.sdf")
+from world_model.scene_tracking import get_tracked_names
+
+# Resolved through the ament index rather than relative to __file__: this
+# node runs from the install space (lib/perception/), which has no fixed
+# relative path back to the source tree. This is also the exact same file
+# world.launch.py hands to Gazebo, so the entity classification here is
+# always derived from the world actually being simulated.
+SDF_PATH = os.path.join(
+    get_package_share_directory("world"), "worlds", "panda_world.sdf"
+)
+
 
 # Gazebo's pose/info topic is unthrottled and reports every LINK in the
 # world (the Panda alone has 19), not just top-level objects/zones -- far
