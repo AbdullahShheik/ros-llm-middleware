@@ -12,6 +12,8 @@ import json
 import threading
 from std_srvs.srv import Trigger
 
+from action_dispatcher import spatial_placement
+
 # Object name mapping from LLM team naming to /object_map naming
 OBJECT_NAME_MAP = {
     "red_block": "red_cube",
@@ -164,17 +166,17 @@ class ActionDispatcher(Node):
             active_msg.data = cube_name
             self.active_cube_pub.publish(active_msg)
 
-            success = self._call_trigger(self.attach_client, "/attach_cube")
+            success, message = self._call_trigger(self.attach_client, "/attach_cube")
             if not success:
-                self._reject(task_id, plan_id, 'attach', f'Attach failed for {cube_name}')
+                self._reject(task_id, plan_id, 'attach', f'Attach failed for {cube_name}: {message}')
                 return
             self._ack(task_id, plan_id, 'complete', f'Attached {cube_name} to TurtleBot')
             return
 
         if skill == 'detach':
-            success = self._call_trigger(self.detach_client, "/detach_cube")
+            success, message = self._call_trigger(self.detach_client, "/detach_cube")
             if not success:
-                self._reject(task_id, plan_id, 'detach', 'Detach failed')
+                self._reject(task_id, plan_id, 'detach', f'Detach failed: {message}')
                 return
             self._ack(task_id, plan_id, 'complete', 'Detached cube at handoff point')
             return
@@ -218,8 +220,13 @@ class ActionDispatcher(Node):
             self.get_logger().info(f'Task {task_id} dispatched to wheeled executor with pose {pose}')
             return
 
-        #map object name
-        object_name = OBJECT_NAME_MAP.get(llm_object_name)
+        #map object name -- falls back to llm_object_name itself (as every
+        # other OBJECT_NAME_MAP.get() call in this file already does) so an
+        # object referred to by its own tracked name (e.g. "red_cube", not
+        # only the "red_block" alias) doesn't get rejected here as unknown;
+        # a genuinely unrecognized name is still caught below by the
+        # object_map membership check, just with that check's own message.
+        object_name = OBJECT_NAME_MAP.get(llm_object_name, llm_object_name)
         if object_name is None and skill not in NO_OBJECT_SKILLS:
             self.get_logger().error(f'Unknown object name: {llm_object_name}')
             self._reject(task_id, plan_id, 'dispatch', f'Unknown object name: {llm_object_name}')
@@ -230,21 +237,67 @@ class ActionDispatcher(Node):
         # separately from the pick/inspect/push path below, which targets
         # the object itself.
         if skill == 'place':
+            relative_to = args.get('relative_to')
+            landmark = args.get('landmark')
             target_location = args.get('target_location')
-            pose = self._resolve_place_pose(target_location)
-            if pose is None:
-                self.get_logger().error(f"Could not resolve target_location '{target_location}'")
-                self._reject(
-                    task_id, plan_id, 'dispatch',
-                    f"Could not resolve target_location '{target_location}' to a pose"
-                )
-                return
+
+            if relative_to:
+                # relative_to always wins over target_location/landmark if
+                # more than one is somehow present -- rule 15 tells the LLM
+                # never to populate more than one, but resolving one
+                # deterministically here is safer than silently picking a
+                # different one than the caller expected.
+                ref_name = OBJECT_NAME_MAP.get(relative_to, relative_to)
+                if ref_name not in self.object_map:
+                    self.get_logger().error(
+                        f"Could not resolve relative_to reference '{relative_to}': "
+                        "not in object map"
+                    )
+                    self._reject(
+                        task_id, plan_id, 'dispatch',
+                        f"Could not resolve relative_to reference '{relative_to}' -- "
+                        "not a known/already-placed object"
+                    )
+                    return
+                try:
+                    pose = spatial_placement.resolve_relative(
+                        self.object_map[ref_name],
+                        args.get('direction'),
+                        float(args.get('distance', 1)),
+                    )
+                except (ValueError, TypeError) as e:
+                    self.get_logger().error(f"Invalid relative placement: {e}")
+                    self._reject(task_id, plan_id, 'dispatch', str(e))
+                    return
+                # Skips the named-object IK fast-fail below (matches how a
+                # raw-coordinate target_location already behaves) -- a
+                # computed pose was never a tracked object's own name.
+                target_location = None
+
+            elif landmark:
+                try:
+                    pose = spatial_placement.resolve_landmark(landmark)
+                except ValueError as e:
+                    self.get_logger().error(f"Invalid landmark: {e}")
+                    self._reject(task_id, plan_id, 'dispatch', str(e))
+                    return
+                target_location = None
+
+            else:
+                pose = self._resolve_place_pose(target_location)
+                if pose is None:
+                    self.get_logger().error(f"Could not resolve target_location '{target_location}'")
+                    self._reject(
+                        task_id, plan_id, 'dispatch',
+                        f"Could not resolve target_location '{target_location}' to a pose"
+                    )
+                    return
 
             # Fast-fail IK check only when the target resolved to a known
             # tracked object (the feasibility service can only look up
-            # poses by name); raw-coordinate targets fall through to the
-            # arm planner itself, which already reports a clear
-            # 'planning failed' feedback if unreachable.
+            # poses by name); raw-coordinate/landmark/relative_to targets
+            # fall through to the arm planner itself, which already reports
+            # a clear 'planning failed' feedback if unreachable.
             resolved_name = OBJECT_NAME_MAP.get(target_location, target_location)
             if resolved_name in self.object_map and not self.check_ik(resolved_name):
                 self.get_logger().warn(f'IK check failed for {resolved_name}, task {task_id} rejected')
@@ -333,27 +386,38 @@ class ActionDispatcher(Node):
         service (backed by Nav2's compute_path_to_pose) is wired in."""
         return True
 
-    def _call_trigger(self, client, service_name: str) -> bool:
-        """Call a std_srvs/Trigger service and return True on success."""
+    def _call_trigger(self, client, service_name: str) -> tuple[bool, str]:
+        """Call a std_srvs/Trigger service and return (success, message).
+
+        Previously returned only a bool -- the specific reason (e.g.
+        attach_detach_node.py's "Pickup point still occupied after 30.0s"
+        or "Teleport ... did not land within 5.0s") was logged here but
+        discarded before reaching the caller, which reported a generic
+        "Detach failed"/"Attach failed" instead. That made a real failure
+        (a 3D-unaware occupancy check treating a cube held aloft in the
+        gripper as still blocking the pickup point) far harder to diagnose
+        from Layer1's feedback alone than it needed to be."""
         if not client.wait_for_service(timeout_sec=3.0):
-            self.get_logger().warn(f'{service_name} service not available')
-            return False
+            msg = f'{service_name} service not available'
+            self.get_logger().warn(msg)
+            return False, msg
 
         future = client.call_async(Trigger.Request())
         done_event = threading.Event()
         future.add_done_callback(lambda _f: done_event.set())
         if not done_event.wait(timeout=10.0):
-            self.get_logger().warn(f'{service_name} timed out')
-            return False
+            msg = f'{service_name} timed out'
+            self.get_logger().warn(msg)
+            return False, msg
 
         result = future.result()
         if result is None or not result.success:
             msg = result.message if result else 'no response'
             self.get_logger().error(f'{service_name} failed: {msg}')
-            return False
+            return False, msg
 
         self.get_logger().info(f'{service_name} succeeded: {result.message}')
-        return True
+        return True, result.message
 
 def main(args=None):
     rclpy.init(args=args)

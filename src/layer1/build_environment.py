@@ -309,7 +309,13 @@ def build_environment_prompt(
     lines.append("OBJECTS:")
     if objects:
         for name, pos in sorted(objects.items()):
-            lines.append(f"  {name} ({pos['x']:.2f}, {pos['y']:.2f}, {pos['z']:.2f})")
+            dx = pos["x"] - arm_center[0]
+            dy = pos["y"] - arm_center[1]
+            reachable = math.hypot(dx, dy) <= PANDA_REACH_RADIUS_M
+            lines.append(
+                f"  {name} ({pos['x']:.2f}, {pos['y']:.2f}, {pos['z']:.2f}) "
+                f"[reachable_by_arm: {'true' if reachable else 'false'}]"
+            )
     else:
         lines.append("  none")
 

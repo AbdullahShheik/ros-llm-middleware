@@ -20,3 +20,4 @@ plan_*.json
 # Evaluation harness output
 dart_style_*.csv
 layer1_evaluation*.csv
+eval_runs.jsonl
