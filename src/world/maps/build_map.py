@@ -39,7 +39,7 @@ fill_rect(0, 4, 8, 0.2, OCCUPIED)    # wall_north
 fill_rect(0, -4, 8, 0.2, OCCUPIED)   # wall_south
 fill_rect(4, 0, 0.2, 8, OCCUPIED)    # wall_east
 fill_rect(-4, 0, 0.2, 8, OCCUPIED)   # wall_west
-fill_rect(0.2, 0, 0.6, 0.6, OCCUPIED) 
+fill_rect(0.2, 0, 0.9, 0.9, OCCUPIED) 
 
 img = Image.fromarray(grid, mode='L')
 out_path = '/home/abdullah/HU/STRP/ros-llm-middleware/src/world/maps/panda_world_map.pgm'
