@@ -9,6 +9,7 @@ from ament_index_python.packages import get_package_share_directory
 from gz.transport13 import Node as GzNode
 from gz.msgs10.pose_v_pb2 import Pose_V
 
+
 from world_model.scene_tracking import get_tracked_names
 
 # Resolved through the ament index rather than relative to __file__: this
@@ -19,6 +20,7 @@ from world_model.scene_tracking import get_tracked_names
 SDF_PATH = os.path.join(
     get_package_share_directory("world"), "worlds", "panda_world.sdf"
 )
+
 
 # Gazebo's pose/info topic is unthrottled and reports every LINK in the
 # world (the Panda alone has 19), not just top-level objects/zones -- far

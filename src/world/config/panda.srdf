@@ -1,9 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <robot name="panda">
 
-  <!-- Panda arm group (unchanged) -->
+  <!-- Panda arm group.
+       tip_link is robotiq_85_base_link, NOT panda_link8: the two robot
+       descriptions disagree about where panda_link8 is (the URDF puts it at
+       the flange, coincident with panda_hand; model.sdf puts it 0.103m
+       beyond panda_hand), so it does not name the same physical point in
+       both and must not be used as a planning target. robotiq_85_base_link
+       does, now that panda_gz.urdf.xacro anchors the Robotiq to panda_hand.
+       kinematics.yaml declares no explicit tip for panda_arm, so the KDL
+       solver takes its tip from here. Keeping this in sync with
+       actuator_node.py's EEF_LINK is what guarantees the goal constraint and
+       the IK tip are the same link. The group's DOF is unchanged; every
+       joint between panda_link8 and robotiq_85_base_link is fixed. -->
   <group name="panda_arm">
-    <chain base_link="panda_link0" tip_link="panda_link8"/>
+    <chain base_link="panda_link0" tip_link="robotiq_85_base_link"/>
   </group>
 
   <group_state group="panda_arm" name="ready">
@@ -48,7 +59,9 @@
     <joint name="robotiq_85_left_knuckle_joint" value="0.8"/>
   </group_state>
 
-  <end_effector name="hand" parent_link="panda_link8" group="hand" parent_group="panda_arm"/>
+  <!-- parent_link tracks panda_arm's tip_link (see above); panda_link8 does
+       not name the same point in the URDF and the SDF. -->
+  <end_effector name="hand" parent_link="robotiq_85_base_link" group="hand" parent_group="panda_arm"/>
 
   <virtual_joint name="virtual_joint" type="floating" parent_frame="world" child_link="panda_link0"/>
 
@@ -87,6 +100,17 @@
   <disable_collisions link1="robotiq_85_left_finger_tip_link" link2="robotiq_85_right_finger_tip_link" reason="Never"/>
   <disable_collisions link1="robotiq_85_left_inner_knuckle_link" link2="robotiq_85_left_finger_tip_link" reason="Adjacent"/>
   <disable_collisions link1="robotiq_85_right_inner_knuckle_link" link2="robotiq_85_right_finger_tip_link" reason="Adjacent"/>
+  <!-- The two halves of each side's four-bar linkage: the finger link and the
+       inner knuckle run alongside each other and touch at some apertures, but
+       they are driven by the same mimic chain and cannot actually collide.
+       Missing here, this aborted every plan issued while the gripper was
+       closed with "CheckStartStateCollision ... 1 contact(s) detected :
+       robotiq_85_right_finger_link / robotiq_85_right_inner_knuckle_link",
+       intermittently, because the software mimic bridge
+       (action_dispatcher/gripper_mimic_bridge.py) lets the two sides' angles
+       differ slightly, so whether the meshes touch varies run to run. -->
+  <disable_collisions link1="robotiq_85_left_finger_link" link2="robotiq_85_left_inner_knuckle_link" reason="Adjacent"/>
+  <disable_collisions link1="robotiq_85_right_finger_link" link2="robotiq_85_right_inner_knuckle_link" reason="Adjacent"/>
 
   <!-- Franka finger links are still present in the base URDF xacro but
        replaced by Robotiq in simulation. Disable all their collisions

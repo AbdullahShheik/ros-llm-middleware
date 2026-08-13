@@ -985,16 +985,6 @@
                 <state_interface name="velocity"/>
             </joint>
         
-            <!-- Robotiq 2F-85: single actuated joint + mimic joints. The
-                 other 4 gripper joints are now real bullet-featherstone
-                 mimic constraints (see panda_world.sdf's physics engine
-                 selection), not free-floating -- driving this one joint
-                 also has to move that whole coupled 5-joint linkage.
-                 gz_ros2_control's default position_proportional_gain
-                 (0.1, tuned for a single free joint) turned out to have
-                 nowhere near enough authority for that: closing from
-                 fully open barely moved the joint at all inside a 30s
-                 wait, even completely unobstructed. -->
             <joint name="robotiq_85_left_knuckle_joint">
                 <command_interface name="position">
                     <param name="position_proportional_gain">20</param>

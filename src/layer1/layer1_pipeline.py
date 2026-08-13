@@ -498,6 +498,13 @@ def decompose_instruction(
         errors = validate_plan(plan, G, robot_config)
 
         if not errors:
+            # Layer 2 (robot assignment) doesn't exist yet, and every skill in
+            # robot_skills.json is arm-only for now, so default every subtask
+            # to the arm so the dispatcher's required 'robot' field is always
+            # present. Revisit once a wheeled skill is added to the registry.
+            for subtask in plan["subtasks"]:
+                subtask.setdefault("robot", "arm")
+
             print(f"  [OK] Valid plan — {len(plan['subtasks'])} subtasks, "
                   f"{G.number_of_edges()} dependency edges.")
             return plan, G

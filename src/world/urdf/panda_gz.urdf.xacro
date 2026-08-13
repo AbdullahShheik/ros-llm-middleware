@@ -6,13 +6,31 @@
 
   <!-- Robotiq 2F-85 geometry only (include_ros2_control=false, we define our own below) -->
   <xacro:include filename="$(find robotiq_description)/urdf/robotiq_2f_85_macro.urdf.xacro"/>
+  <!-- Mounted on panda_hand, NOT panda_link8, and offset by 0.103m to
+       reproduce the SDF's actual chain exactly:
+         model.sdf: panda_link7 -> panda_hand (0 0 0.107, yaw -pi/4)
+                    panda_hand  -> panda_link8 (0 0 0.103)   [end_effector_frame_fixed_joint]
+                    panda_link8 -> robotiq_85_base_link (0 0 0)
+       The stock moveit_resources_panda_description URDF has the opposite
+       parentage (panda_link7 -> panda_link8 -> panda_hand), with panda_link8
+       COINCIDENT with panda_hand and no 0.103m link at all. Mounting the
+       Robotiq off panda_link8 here therefore placed it 0.103m proximal of
+       where Gazebo actually has it (and, because the SDF's panda_link8
+       inherits panda_hand's -pi/4 yaw while the URDF's does not, 45deg
+       misrotated as well). That mismatch made MoveIt plan against a gripper
+       10cm from the real one; measured directly, TF vs Gazebo ground truth
+       differed by 0.10290m at robotiq_85_base_link while panda_hand agreed
+       to 0.09mm.
+       panda_hand is the one frame both models already agree on, so anchoring
+       here, with the SDF's own 0.103m offset, makes the two descriptions
+       coincide in both position and orientation. -->
   <xacro:robotiq_gripper
     name="RobotiqGripperHardwareInterface"
     prefix=""
-    parent="panda_link8"
+    parent="panda_hand"
     sim_ignition="false"
     include_ros2_control="false">
-    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <origin xyz="0 0 0.103" rpy="0 0 0"/>
   </xacro:robotiq_gripper>
 
   <!-- Single ros2_control block for both arm and Robotiq gripper -->
