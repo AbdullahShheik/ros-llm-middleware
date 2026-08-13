@@ -59,7 +59,7 @@ def _load_env_file(env_path: str) -> None:
 _PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 _load_env_file(os.path.join(_PROJECT_ROOT, ".env"))
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "YOUR_API_KEY")
-MODEL        = "openai/gpt-oss-120b"
+MODEL        = "llama-3.3-70b-versatile"
 MAX_RETRIES  = 3
 # How many times a single original instruction may be replanned after a
 # subtask failure before Layer1Node gives up and aborts (see
@@ -290,7 +290,15 @@ Rules you must follow:
    "Progress so far" and "This step failed", you are continuing a
    partially-executed plan, not starting a fresh one. Do not repeat
    subtasks already listed as completed, and take the stated failure
-   reason into account when planning the remaining work.
+   reason into account when planning the remaining work. The "Progress
+   so far" list is context, not something you can depend on: every id in
+   it belongs to the OLD plan and does not exist in the one you are
+   writing now. Never put one of those ids in a new subtask's
+   dependencies -- rule 8 still applies (dependencies must only reference
+   ids of other subtasks in THIS plan). If a new subtask's only
+   prerequisite is something already listed as completed, that
+   prerequisite is already satisfied -- give it an empty dependencies
+   list, don't reference the old id.
 18. A relative_to reference must itself be at a known, reachable
    position before it means anything -- you cannot place an object
    relative to another one that is still sitting wherever it happened

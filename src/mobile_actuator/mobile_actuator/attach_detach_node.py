@@ -124,19 +124,28 @@ class AttachDetachNode(Node):
             self.turtlebot_y = data["turtlebot3_waffle"]["y"]
 
     def _is_pickup_point_clear(self) -> bool:
-        """True if no OTHER known cube is currently resting at the pickup
+        """True if no OTHER known cube is currently RESTING at the pickup
         point. Checked before detaching -- if an earlier cube hasn't been
         picked up by the arm yet, teleporting a new one onto the same spot
-        would place two cubes on top of each other."""
+        would place two cubes on top of each other.
+
+        Checks x/y/z together (3D distance to the actual resting pose, not
+        just x/y) -- deliberately, not an oversight: once the arm has
+        picked a cube up, it retreats straight up before doing anything
+        else (same x/y, only z changes), so an x/y-only check would see it
+        as "still occupying" the pickup point indefinitely -- observed
+        live as a second cube's detach timing out at 30s even though the
+        first cube was safely held 0.4m up in the gripper, nowhere near
+        actually blocking the spot."""
+        target = (PICKUP_POINT_X, PICKUP_POINT_Y, CUBE_PICKUP_Z)
         for cube in CUBE_NAMES:
             if cube == self.attached_cube:
                 continue
             pos = self.latest_object_map.get(cube)
             if pos is None:
                 continue
-            if math.hypot(
-                pos["x"] - PICKUP_POINT_X, pos["y"] - PICKUP_POINT_Y
-            ) <= PICKUP_CLEAR_TOLERANCE_M:
+            if math.dist((pos["x"], pos["y"], pos["z"]), target) \
+                    <= PICKUP_CLEAR_TOLERANCE_M:
                 return False
         return True
 
