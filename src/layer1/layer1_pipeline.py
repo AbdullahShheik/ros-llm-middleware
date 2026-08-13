@@ -22,6 +22,8 @@ import os
 import sys
 import argparse
 import itertools
+import time
+from datetime import datetime, timezone
 import networkx as nx
 from groq import Groq
 # NOTE: world_model.build_environment is deliberately NOT imported here.
@@ -37,7 +39,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from RAG.few_shot_bank import bank_summary, load_examples
 from RAG.few_shot_retriever import CosineFewShotRetriever, format_examples_for_prompt
-from RAG.robot_bank import bank_summary as robot_bank_summary, load_robot_bank
+from RAG.robot_bank import bank_summary as robot_bank_summary, load_robot_bank, FLEET_FILE
 from RAG.robot_retriever import CosineRobotTypeRetriever, union_skills
 
 def _load_env_file(env_path: str) -> None:
@@ -63,6 +65,11 @@ _load_env_file(os.path.join(_PROJECT_ROOT, ".env"))
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "YOUR_API_KEY")
 MODEL        = "llama-3.3-70b-versatile"
 MAX_RETRIES  = 3
+# How many times a single original instruction may be replanned after a
+# subtask failure before Layer1Node gives up and aborts (see
+# Layer1Node._handle_feedback). Bounded to stop a failure that reliably
+# recurs (e.g. a truly unreachable target) from replanning forever.
+MAX_REPLAN_ATTEMPTS = 1
 SKILLS_FILE  = os.path.join(os.path.dirname(__file__), "robot_skills.json")
 # How many few-shot examples get retrieved into each prompt. The bank itself
 # can grow freely -- only these k reach the prompt.
@@ -72,6 +79,12 @@ FEW_SHOT_K   = 4
 # works regardless of whose checkout or OS it's running on.
 MAP_YAML_PATH = os.path.join(_PROJECT_ROOT, "src", "world", "maps", "panda_world_map.yaml")
 SDF_PATH      = os.path.join(_PROJECT_ROOT, "src", "world", "worlds", "panda_world.sdf")
+# One JSON-lines record per user instruction (see Layer1Node._finalize_run):
+# success/failure, subtask completion counts, LLM call count + latency, and
+# the full plan(s) produced, for evaluation metrics (success rate, subtasks
+# completed, LLM query efficiency, plan quality, latency) without having to
+# scrape them out of console logs by hand.
+RUN_LOG_PATH  = os.path.join(os.path.dirname(__file__), "eval_runs.jsonl")
 
 # get_client() returns the LLM client. Currently only Groq is supported.
 
@@ -237,7 +250,81 @@ Rules you must follow:
    object's chain to another's unless the instruction says one must wait for
    the other, or the physical action requires it (e.g. stacking object B onto
    object A). Multiple robots may be available to work on independent chains
-   at the same time -- an unnecessary dependency prevents that."""
+   at the same time -- an unnecessary dependency prevents that.
+14. Each object in === ENVIRONMENT === is tagged reachable_by_arm: true or
+   false. Before an arm subtask chain (pick -> place) acts on an object
+   tagged false, prepend a transport chain: navigate_to(the object's zone)
+   -> attach(object_name) -> navigate_to(handoff_point) -> detach, and make
+   the pick subtask depend on that chain's detach subtask. If tagged true,
+   go straight to pick -> place with no transport steps.
+15. Never compute coordinates for a "place" skill, exactly as in rule 12 --
+   use one of these instead:
+   - landmark: one of top_left, top_right, bottom_left, bottom_right, center
+     -- a named point in the arm's workspace. Use this for the first object
+     in an arrangement, or any object placed at a described workspace
+     position with no stated relation to another object.
+   - relative_to + direction + distance: relative_to is another tracked
+     object's name; direction is one of left, right (beside it), front,
+     behind, or above, below (stacked on top of / underneath it); distance
+     is an integer count of cube-widths (cube-heights for above/below),
+     default 1. Use this for "beside X", "in front of X", "on top of X",
+     etc., and for every object after the first in a multi-object
+     arrangement (a shape, a line, a corner layout, a stack) -- decompose
+     the arrangement into a chain, each object relative_to an earlier one,
+     reasoning about directions the way you would describe the arrangement
+     in words. Never populate both landmark and relative_to on one subtask.
+   - left/right move only along one axis, front/behind only along another,
+     above/below only along the third -- so two objects placed relative_to
+     the SAME anchor using directions from the SAME axis (e.g. one "left"
+     of it and another "right" of it) always end up collinear with it,
+     which is a LINE, never a shape with a bend or a corner in it (a
+     triangle, an L, etc). For a shape that isn't a straight line, at least
+     one object needs an offset from a DIFFERENT axis than the others.
+   - Prefer anchoring every object relative_to the SAME shared anchor
+     (using a different axis per object, as needed to avoid collinearity)
+     over chaining an object relative_to another object that is itself
+     relative_to something -- only chain through a second object when the
+     shape genuinely calls for a position defined off that specific object
+     (e.g. "stack this one on top of the second one"), not merely to avoid
+     collinearity. Chaining through an intermediate object forces that
+     object to be placed before the next one even can be, which idles
+     whichever robot delivered the next object for no reason when placing
+     it relative to the shared anchor instead would have let it proceed
+     immediately. Example -- a line of 3: A at a landmark, B relative_to A
+     direction=left, C relative_to A direction=right. A triangle of 3
+     instead: A at a landmark, B relative_to A direction=left, C
+     relative_to A (not B) direction=behind -- a different axis than B
+     used, so C is still off the line A-B, but B and C can now each be
+     placed as soon as they arrive, independently of one another.
+16. Rule 13's independence-by-default does NOT apply once a "place" subtask
+   uses relative_to referencing another object -- that object's real
+   resting position must be known first, so add a dependencies entry on
+   its own place subtask (skip this only if relative_to names a fixed
+   environment location that nothing ever moves).
+17. If the instruction text begins with "Original goal:" and includes
+   "Progress so far" and "This step failed", you are continuing a
+   partially-executed plan, not starting a fresh one. Do not repeat
+   subtasks already listed as completed, and take the stated failure
+   reason into account when planning the remaining work. The "Progress
+   so far" list is context, not something you can depend on: every id in
+   it belongs to the OLD plan and does not exist in the one you are
+   writing now. Never put one of those ids in a new subtask's
+   dependencies -- rule 8 still applies (dependencies must only reference
+   ids of other subtasks in THIS plan). If a new subtask's only
+   prerequisite is something already listed as completed, that
+   prerequisite is already satisfied -- give it an empty dependencies
+   list, don't reference the old id.
+18. A relative_to reference must itself be at a known, reachable
+   position before it means anything -- you cannot place an object
+   relative to another one that is still sitting wherever it happened
+   to start. If a place subtask's relative_to names an object tagged
+   reachable_by_arm: false, and nothing else in the plan already moves
+   that object to a reachable position (its own pick -> place chain,
+   with a transport chain first per rule 14), add that chain for it
+   too, even though the instruction never explicitly asked you to move
+   it -- give its own place subtask a landmark (or a named location if
+   the instruction gives one) as its target. This applies on top of
+   rule 16's dependency requirement, not instead of it."""
 
 
 def build_prompt(instruction: str,
@@ -357,6 +444,72 @@ def build_dag(plan: dict) -> nx.DiGraph:
     return G
 
 
+def build_resource_constrained_waves(
+    G: nx.DiGraph, task_map: dict, fleet_counts: dict, default_capacity: int = 1
+) -> list:
+    """Build execution waves directly from the whole DAG, respecting
+    per-robot-type fleet capacity (robot_fleet.json) at every step.
+
+    An earlier version of this split each nx.topological_generations()
+    wave independently and concatenated the results. That is NOT enough:
+    it fully drains one whole generation's sub-waves (e.g. every chain's
+    *first* navigate_to) before touching the next generation (every
+    chain's attach) at all -- observed live as a capacity-1 mobile robot
+    reaching one cube's zone, then leaving for the next chain's zone
+    without ever attaching, because the attach for the first cube doesn't
+    become eligible until every chain's navigate_to has already run.
+
+    Instead, at every wave this looks at ALL currently-ready tasks
+    (dependencies already satisfied by an earlier wave), and when more
+    tasks of one robot type are ready than that type's fleet capacity
+    allows, prefers whichever task is FURTHEST INTO an already-started
+    chain (highest `priority` -- the LLM already numbers this 1, 2, 3...
+    per chain, per rule 9) over one just starting a new chain, so a
+    constrained robot finishes what it started before beginning something
+    else. Different robot types draw from independent capacity pools, so
+    e.g. the arm placing one object and the mobile robot starting the next
+    chain can still share a wave.
+
+    Safe by construction: a task only ever enters `ready` once every
+    predecessor is in `completed`, and `completed` only grows by whole
+    waves -- matching Layer1Node's existing wave-gated dispatch (advance
+    only once every task in the current wave reports "complete"), so this
+    changes WHICH waves get built, not the gating semantics."""
+    completed = set()
+    remaining = set(G.nodes)
+    waves = []
+
+    while remaining:
+        ready = [
+            n for n in remaining
+            if all(dep in completed for dep in G.predecessors(n))
+        ]
+        if not ready:
+            # Shouldn't happen for a validated acyclic plan -- avoid an
+            # infinite loop if it somehow does rather than hanging.
+            waves.append(sorted(remaining))
+            break
+
+        by_robot: dict[str, list] = {}
+        for task_id in ready:
+            by_robot.setdefault(task_map[task_id]["robot"], []).append(task_id)
+
+        wave = []
+        for robot, task_ids in by_robot.items():
+            capacity = fleet_counts.get(robot, default_capacity)
+            if capacity <= 0:
+                capacity = default_capacity
+            task_ids.sort(key=lambda tid: (-task_map[tid].get("priority", 0), tid))
+            wave.extend(task_ids[:capacity])
+
+        wave.sort()
+        waves.append(wave)
+        completed.update(wave)
+        remaining -= set(wave)
+
+    return waves
+
+
 # STEP 6 — Validator
 # Four checks following DART-LLM's validation approach
 
@@ -438,7 +591,8 @@ def validate_plan(plan: dict, G: nx.DiGraph, robot_config: dict) -> list[str]:
 def decompose_instruction(
     instruction: str,
     client: Groq,
-    environment: str = None
+    environment: str = None,
+    stats: dict = None,
 ) -> tuple[dict, nx.DiGraph]:
     """
     Full Layer 1 pipeline:
@@ -449,6 +603,11 @@ def decompose_instruction(
     Robot skills (the R+S components of P = (I, E, R, S, F)) are retrieved
     per-instruction from the active fleet rather than passed in statically --
     see retrieve_robot_config.
+
+    stats, if given, gets 'llm_calls' incremented once per actual call_llm
+    invocation (including ones that fail JSON parsing/validation and retry)
+    -- an optional out-parameter rather than a return-signature change, so
+    every existing caller (CLI mode included) is unaffected.
     """
     robot_config = retrieve_robot_config(instruction)
     skill_block  = build_skill_prompt_block(robot_config)
@@ -462,6 +621,8 @@ def decompose_instruction(
         print(f"\n[Layer 1] Attempt {attempt}/{MAX_RETRIES} — calling LLM...")
 
         raw = call_llm(client, user_prompt + error_suffix)
+        if stats is not None:
+            stats["llm_calls"] = stats.get("llm_calls", 0) + 1
 
         # Parse JSON
         try:
@@ -613,9 +774,19 @@ def run_ros_node():
             self.current_wave_index = 0
             self.pending_feedback = set()
             self.completed_tasks = set()
+            # How many times the active *original* instruction has been
+            # replanned after a subtask failure. Reset only in
+            # instruction_callback (a genuinely new instruction) -- NOT in
+            # clear_active_plan(), since that also runs at the end of a
+            # successful replanned continuation and the cap must survive
+            # across it, or a failure could trigger unbounded replanning.
+            self.replan_attempts = 0
             # Latest parsed payload from /object_map -- {"red_cube": {"x":.., "y":.., "z":..}, ...}.
             # Empty until perception publishes at least once (see object_map_callback).
             self.latest_object_map = {}
+            # Evaluation run record for the active *original* instruction --
+            # see _finalize_run. None whenever no instruction is in flight.
+            self.current_run = None
 
             self.publisher_ = self.create_publisher(
                 String, "/layer1/taskplan", 10
@@ -657,14 +828,49 @@ def run_ros_node():
                 )
                 return
 
+            self.replan_attempts = 0
+            self.get_logger().info(f"Received instruction: {instruction}")
+            self.current_run = {
+                "original_instruction": instruction,
+                "model": MODEL,
+                "start_wall": datetime.now(timezone.utc).isoformat(),
+                "start_monotonic": time.monotonic(),
+                "llm_calls": 0,
+                "decompose_calls": [],
+                "replans_used": 0,
+                "subtasks_completed_before_replan": 0,
+                "plans": [],
+            }
+            if not self._decompose_and_dispatch(instruction):
+                # Initial decomposition itself failed (clarification_needed,
+                # infeasible, or all MAX_RETRIES exhausted) -- no plan was
+                # ever dispatched, so none of this node's other three
+                # termination points (publish_current_wave's success
+                # branch, _handle_feedback's abort, _trigger_replan's
+                # abort) will ever run for this run; finalize it here.
+                self._finalize_run("failed")
+
+        def _decompose_and_dispatch(self, instruction: str) -> bool:
+            """Shared by a fresh instruction and a bounded replan
+            continuation (see _handle_feedback) -- both are just "call the
+            LLM with this instruction text and this moment's environment,
+            then dispatch whatever plan comes back." Returns whether a plan
+            was successfully dispatched, so a replan caller can fall back
+            to aborting instead of leaving the old (failed) plan dangling."""
             if not self.latest_object_map:
                 self.get_logger().warn(
                     "No /object_map data received yet -- environment context will "
                     "have no live object or zone positions. "
                     "Is the perception node running?"
                 )
-
-            self.get_logger().info(f"Received instruction: {instruction}")
+            # Created before the try (not inside it) and folded into
+            # self.current_run in BOTH the success and except paths below --
+            # decompose_instruction can raise (clarification_needed,
+            # infeasible, retries exhausted) after already making one or
+            # more real LLM calls, and those must still count toward the
+            # llm_calls metric, not just the calls from an eventual success.
+            stats = {}
+            call_start = time.monotonic()
             try:
                 environment = build_environment_prompt(
                     map_yaml_path=MAP_YAML_PATH,
@@ -672,20 +878,62 @@ def run_ros_node():
                     object_map=self.latest_object_map,
                 )
                 plan, G = decompose_instruction(
-                    instruction, self.client, environment=environment
+                    instruction, self.client, environment=environment, stats=stats
                 )
+                if self.current_run is not None:
+                    self.current_run["llm_calls"] += stats.get("llm_calls", 0)
+                    self.current_run["decompose_calls"].append({
+                        "plan_id": plan["plan_id"],
+                        "latency_s": round(time.monotonic() - call_start, 3),
+                        "llm_calls": stats.get("llm_calls", 0),
+                        "subtasks": len(plan["subtasks"]),
+                    })
+                    self.current_run["plans"].append(plan)
                 print_dag(plan, G)
                 self.start_plan_dispatch(plan, G)
+                return True
             except Exception as e:
                 self.get_logger().error(f"Decomposition failed: {e}")
+                if self.current_run is not None:
+                    self.current_run["llm_calls"] += stats.get("llm_calls", 0)
+                    self.current_run["decompose_calls"].append({
+                        "plan_id": None,
+                        "latency_s": round(time.monotonic() - call_start, 3),
+                        "llm_calls": stats.get("llm_calls", 0),
+                        "subtasks": 0,
+                    })
+                    self.current_run.setdefault("decompose_errors", []).append(str(e))
+                return False
 
         def start_plan_dispatch(self, plan: dict, G: nx.DiGraph):
             self.active_plan = plan
             self.active_graph = G
             self.task_map = {task["id"]: task for task in plan["subtasks"]}
-            self.execution_waves = [
-                sorted(wave) for wave in nx.topological_generations(G)
-            ]
+
+            # Fleet capacity isn't accounted for by the LLM's own DAG (rule
+            # 13 gives independent objects independent, parallel-eligible
+            # chains by default) -- e.g. two different cubes' `attach`
+            # subtasks can land in the same wave even though there's only
+            # one mobile robot. build_resource_constrained_waves accounts
+            # for it directly rather than trusting the plan to get it
+            # right; this is what actually prevents two concurrent
+            # /attach_cube calls from racing against attach_detach_node.py's
+            # single `attached_cube` slot -- and, just as importantly,
+            # keeps a capacity-1 robot finishing one chain before starting
+            # another instead of wandering between every chain's first step.
+            try:
+                with open(FLEET_FILE, "r", encoding="utf-8") as f:
+                    fleet_counts = json.load(f)["fleet"]
+            except (OSError, json.JSONDecodeError, KeyError) as e:
+                self.get_logger().warn(
+                    f"Could not load fleet capacity from {FLEET_FILE} ({e}); "
+                    "defaulting every robot type to capacity 1."
+                )
+                fleet_counts = {}
+
+            self.execution_waves = build_resource_constrained_waves(
+                G, self.task_map, fleet_counts
+            )
             self.current_wave_index = 0
             self.pending_feedback = set()
             self.completed_tasks = set()
@@ -705,6 +953,7 @@ def run_ros_node():
                     f"Plan {self.active_plan['plan_id']} complete; "
                     "all subtasks received feedback."
                 )
+                self._finalize_run("success")
                 self.clear_active_plan()
                 return
 
@@ -775,10 +1024,24 @@ def run_ros_node():
                     return
 
             if status in {"failed", "failure", "error", "rejected", "infeasible"}:
+                if self.replan_attempts < MAX_REPLAN_ATTEMPTS:
+                    self.replan_attempts += 1
+                    self.get_logger().warn(
+                        f"Feedback reported {status} for task {task_id} in plan "
+                        f"{self.active_plan['plan_id']}; attempting replan "
+                        f"{self.replan_attempts}/{MAX_REPLAN_ATTEMPTS} instead of "
+                        "aborting."
+                    )
+                    self._trigger_replan(feedback, task_id)
+                    return
+
                 self.get_logger().error(
                     f"Feedback reported {status} for task {task_id}; "
-                    f"aborting plan {self.active_plan['plan_id']}."
+                    f"aborting plan {self.active_plan['plan_id']} "
+                    f"(replan attempts exhausted: {self.replan_attempts}/"
+                    f"{MAX_REPLAN_ATTEMPTS})."
                 )
+                self._finalize_run("failed")
                 self.clear_active_plan()
                 return
 
@@ -817,6 +1080,118 @@ def run_ros_node():
             if not self.pending_feedback:
                 self.current_wave_index += 1
                 self.publish_current_wave()
+
+        def _trigger_replan(self, raw_feedback: str, failed_task_id: str):
+            """Build a continuation instruction (original goal + what's
+            done + what failed + why) and re-run decomposition for the
+            remaining work, in place of aborting outright. Reuses
+            decompose_instruction/start_plan_dispatch as-is -- this is a
+            new trigger path, not new plan-execution machinery.
+
+            Must read everything it needs from self.active_plan/task_map/
+            completed_tasks BEFORE calling _decompose_and_dispatch, since
+            that calls start_plan_dispatch which overwrites all of them
+            with the new (continuation) plan's state."""
+            original_instruction = self.active_plan.get(
+                "original_instruction", "(original instruction unavailable)"
+            )
+            failed_task = self.task_map.get(failed_task_id, {})
+
+            try:
+                detail = json.loads(raw_feedback).get("detail", raw_feedback)
+            except (json.JSONDecodeError, AttributeError):
+                detail = raw_feedback
+
+            completed_lines = [
+                f"  - {tid}: {self.task_map[tid].get('description', tid)}"
+                for tid in sorted(self.completed_tasks)
+                if tid in self.task_map
+            ]
+            completed_block = "\n".join(completed_lines) if completed_lines else "  (none)"
+
+            # Snapshot before _decompose_and_dispatch -> start_plan_dispatch
+            # resets self.completed_tasks for the continuation plan; without
+            # this, subtasks completed under the ORIGINAL (failed) plan
+            # would be silently dropped from the final subtasks_completed
+            # count in _finalize_run.
+            if self.current_run is not None:
+                self.current_run["subtasks_completed_before_replan"] += len(
+                    self.completed_tasks
+                )
+                self.current_run["replans_used"] += 1
+
+            replan_instruction = (
+                f"Original goal: \"{original_instruction}\"\n\n"
+                f"Progress so far: The following subtasks already completed "
+                f"successfully:\n{completed_block}\n\n"
+                f"This step failed and blocked the plan:\n"
+                f"  - {failed_task_id}: {failed_task.get('description', failed_task_id)} "
+                f"(required_skills={failed_task.get('required_skills')}, "
+                f"robot={failed_task.get('robot')}, args={failed_task.get('args')})\n"
+                f"  Failure reason: {detail}\n\n"
+                f"Produce a plan to complete the REMAINING goal from the current "
+                f"state. Do not repeat subtasks that already completed "
+                f"successfully. Take the failure reason into account."
+            )
+
+            plan_id_for_log = self.active_plan.get("plan_id", "?")
+            if not self._decompose_and_dispatch(replan_instruction):
+                # The old (failed) plan is still sitting in self.active_plan
+                # at this point -- _decompose_and_dispatch only overwrites it
+                # on success (inside start_plan_dispatch). Left as-is, it
+                # would permanently block every future instruction (see the
+                # active_plan-not-None guard in instruction_callback), so an
+                # unsuccessful replan must still fall through to an abort.
+                self.get_logger().error(
+                    f"Replan attempt for plan {plan_id_for_log} itself failed to "
+                    "produce a plan; aborting."
+                )
+                self._finalize_run("failed")
+                self.clear_active_plan()
+
+        def _finalize_run(self, status: str):
+            """Append one JSON-lines record for the just-finished original
+            instruction to RUN_LOG_PATH, for the evaluation metrics
+            described at RUN_LOG_PATH's definition. Called from this
+            node's four termination points -- instruction_callback (initial
+            decompose failed outright), publish_current_wave (all waves
+            completed), _handle_feedback (replan cap exhausted), and
+            _trigger_replan (the replan attempt itself failed to produce a
+            plan) -- always BEFORE clear_active_plan()/start_plan_dispatch()
+            reset the state this reads (self.completed_tasks in
+            particular)."""
+            if self.current_run is None:
+                return
+            run = self.current_run
+            total_dispatched = sum(c["subtasks"] for c in run["decompose_calls"])
+            total_completed = run["subtasks_completed_before_replan"] + len(
+                self.completed_tasks
+            )
+            record = {
+                "instruction": run["original_instruction"],
+                "model": run["model"],
+                "start_wall": run["start_wall"],
+                "status": status,
+                "total_latency_s": round(
+                    time.monotonic() - run["start_monotonic"], 3
+                ),
+                "llm_calls": run["llm_calls"],
+                "replans_used": run["replans_used"],
+                "subtasks_dispatched": total_dispatched,
+                "subtasks_completed": total_completed,
+                "plan_ids": [c["plan_id"] for c in run["decompose_calls"]],
+                "decompose_calls": run["decompose_calls"],
+                "plans": run["plans"],
+            }
+            if "decompose_errors" in run:
+                record["decompose_errors"] = run["decompose_errors"]
+            try:
+                with open(RUN_LOG_PATH, "a", encoding="utf-8") as f:
+                    f.write(json.dumps(record) + "\n")
+                self.get_logger().info(f"Eval run recorded -> {RUN_LOG_PATH}")
+            except OSError as e:
+                self.get_logger().warn(f"Could not write eval run log: {e}")
+            self.current_run = None
 
         def parse_feedback(self, feedback: str):
             plan_id = None

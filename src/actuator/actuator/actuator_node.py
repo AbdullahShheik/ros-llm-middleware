@@ -310,8 +310,14 @@ TELEPORT_MAX_ATTEMPTS = 3
 # after runs under heavier background load (extra always-on nodes competing
 # with Gazebo's physics/service thread) needed more than 3 tries to converge
 # under TELEPORT_ARRIVAL_TOLERANCE even though each retry's held offset was
-# trending down (e.g. 16.13mm -> 9.30mm -> 5.70mm across 3 cycles).
-GRASP_VERIFY_MAX_CYCLES = 6
+# trending down (e.g. 16.13mm -> 9.30mm -> 5.70mm across 3 cycles). Raised
+# again to 9 after a run still failed at 6 cycles with a held offset of
+# 2.55mm -- just over TELEPORT_ARRIVAL_TOLERANCE, consistent with the same
+# converging-but-out-of-tries pattern, not a new failure mode. This does not
+# address the underlying set_pose reliability issue (still "not chased in
+# Phase 1" per the TODO above); it only widens the margin the retry loop
+# already exists to paper over.
+GRASP_VERIFY_MAX_CYCLES = 9
 # Brief settle before measuring, so the reading is the post-attach resting
 # pose rather than a pose-feed sample published just before the joint formed.
 GRASP_VERIFY_SETTLE_SEC = 0.15
