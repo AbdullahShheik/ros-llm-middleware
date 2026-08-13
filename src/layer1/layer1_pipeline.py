@@ -274,13 +274,24 @@ Rules you must follow:
      the SAME anchor using directions from the SAME axis (e.g. one "left"
      of it and another "right" of it) always end up collinear with it,
      which is a LINE, never a shape with a bend or a corner in it (a
-     triangle, an L, etc). For a shape that isn't a straight line, chain at
-     least one object relative_to a SECOND object (not the shared anchor)
-     using a direction from a DIFFERENT axis, so it moves off the line the
-     first two define. Example -- a line of 3: A at a landmark, B
-     relative_to A direction=left, C relative_to A direction=right. A
-     triangle of 3 instead: A at a landmark, B relative_to A direction=left,
-     C relative_to B (not A) direction=behind.
+     triangle, an L, etc). For a shape that isn't a straight line, at least
+     one object needs an offset from a DIFFERENT axis than the others.
+   - Prefer anchoring every object relative_to the SAME shared anchor
+     (using a different axis per object, as needed to avoid collinearity)
+     over chaining an object relative_to another object that is itself
+     relative_to something -- only chain through a second object when the
+     shape genuinely calls for a position defined off that specific object
+     (e.g. "stack this one on top of the second one"), not merely to avoid
+     collinearity. Chaining through an intermediate object forces that
+     object to be placed before the next one even can be, which idles
+     whichever robot delivered the next object for no reason when placing
+     it relative to the shared anchor instead would have let it proceed
+     immediately. Example -- a line of 3: A at a landmark, B relative_to A
+     direction=left, C relative_to A direction=right. A triangle of 3
+     instead: A at a landmark, B relative_to A direction=left, C
+     relative_to A (not B) direction=behind -- a different axis than B
+     used, so C is still off the line A-B, but B and C can now each be
+     placed as soon as they arrive, independently of one another.
 16. Rule 13's independence-by-default does NOT apply once a "place" subtask
    uses relative_to referencing another object -- that object's real
    resting position must be known first, so add a dependencies entry on
