@@ -77,7 +77,20 @@ class IKFeasibilityService(Node):
         ik_request.ik_request.pose_stamped.pose.position.x = pose['x'] - 0.2
         ik_request.ik_request.pose_stamped.pose.position.y = pose['y']
         ik_request.ik_request.pose_stamped.pose.position.z = pose['z']
-        ik_request.ik_request.pose_stamped.pose.orientation.w = 1.0
+        # Must match actuator_node.py's _target_pose_stamped: gripper points
+        # straight down (180deg about X), not the arm's neutral/identity
+        # orientation. Confirmed live as a real bug, not just an
+        # approximation: checking identity here was validating an entirely
+        # different, unrelated orientation from the one the arm actually
+        # grasps with -- a position this rejects as infeasible may be
+        # perfectly reachable at the real downward grasp orientation, and
+        # vice versa. Panda's joint4 has a notably restrictive range
+        # (see panda/model.sdf), so which orientation is asked for measurably
+        # changes what's reachable, it isn't a detail that washes out.
+        ik_request.ik_request.pose_stamped.pose.orientation.x = 1.0
+        ik_request.ik_request.pose_stamped.pose.orientation.y = 0.0
+        ik_request.ik_request.pose_stamped.pose.orientation.z = 0.0
+        ik_request.ik_request.pose_stamped.pose.orientation.w = 0.0
         ik_request.ik_request.timeout.sec = 3
         ik_request.ik_request.robot_state.is_diff = True
 
