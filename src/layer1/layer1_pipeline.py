@@ -348,7 +348,20 @@ Rules you must follow:
    moment arm A is free, instead of arm A doing every step of the chain
    itself with arm B idle throughout. Only object 2's own PLACE subtask
    (the one whose relative_to names object 1) needs the dependency on
-   object 1's place -- object 2's PICK does not."""
+   object 1's place -- object 2's PICK does not.
+21. When a "This step failed" pick subtask's failure reason is about the
+   ARM (e.g. "MoveIt2 failed to find a plan...", a retreat/gripper/
+   arm_motion stage, anything after the pick began moving) rather than a
+   precondition rejection ("Cannot pick: already holding..."), the object
+   is NOT still held: the arm automatically opens its gripper and
+   releases whatever it was holding as part of recovering from that
+   failure, regardless of how close the pick had gotten (even a
+   successful grasp gets released if a later stage like retreat then
+   fails). Never write a "place" for that object with no pick before it
+   in the new plan on the assumption it's still in the gripper -- add a
+   fresh pick subtask for it (and a fresh transport chain first, per rule
+   14, if it isn't currently reachable_by_arm), the same as if it had
+   never been picked up at all."""
 
 
 def build_prompt(instruction: str,

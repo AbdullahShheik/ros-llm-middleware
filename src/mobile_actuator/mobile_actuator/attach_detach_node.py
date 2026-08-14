@@ -20,16 +20,24 @@ CUBE_NAMES = {"red_cube", "blue_cube", "green_cube"}
 
 CUBE_ATTACH_Z = 0.15
 # X must clear build_map.py's merged both-arms obstacle block (spans
-# x:[-0.05,0.45], sized off the Panda's real ~0.24m base rather than the
-# original single-arm map's much more generous 0.9m pad -- see
-# build_map.py) by at least the mobile robot's own footprint (robot_radius
-# 0.22, see nav2_params.yaml) or Nav2 will never accept "handoff_point" as
-# a valid, reachable goal at all. 0.70 clears the block edge by 0.25m
-# (just past the 0.22m minimum) while keeping arm 1/2 each ~0.71m away
-# (~83% of the Panda's ~0.855m nominal max reach) -- comfortable margin on
-# both sides, unlike (0.90, 0.5) tried first, which sat right at the
-# Panda's reach limit to clear the old, larger obstacle block.
-PICKUP_POINT_X = 0.70
+# x:[0.025,0.375], sized off the Panda's real ~0.23m base measured
+# directly from link0.stl's collision mesh -- see build_map.py) by at
+# least the mobile robot's own footprint (robot_radius 0.22, see
+# nav2_params.yaml) or Nav2 will never accept "handoff_point" as a valid,
+# reachable goal at all.
+#
+# 0.70 (the value tried before this) cleared Nav2 fine but was still only
+# ~83% of nominal arm reach -- confirmed live to be enough for the initial
+# pick (descend + grasp both succeeded), but not enough for the RETREAT
+# phase right after: "Unable to sample any valid states for goal tree"
+# lifting straight up from there, with the object now rigidly attached.
+# 0.62 clears the (now smaller) block edge by 0.245m and brings arm reach
+# back to ~76%, matching the margin the original single-arm WORKSPACE_BOUNDS
+# box was tuned to and reliably worked at across a full pick (not just the
+# initial reach) -- the earlier fixes narrowed the OBSTACLE assumption
+# faster than they widened the actual usable margin, this both loosens the
+# obstacle further (build_map.py) and pulls the point back in to compensate.
+PICKUP_POINT_X = 0.62
 PICKUP_POINT_Y = 0.5
 CUBE_PICKUP_Z  = 0.04
 

@@ -172,15 +172,16 @@
     <!-- Second arm, side by side with the first along Y. 0.6m was tried
          first and confirmed live to be too tight (bodies nearly touching
          at rest). 1.0m clears both arms' bases with real margin. The
-         shared pickup_point sits at (0.70, 0.5): both arms' obstacle
+         shared pickup_point sits at (0.62, 0.5): both arms' obstacle
          footprints are merged into one block in build_map.py (a 0.10m gap
          between two separate squares was not navigable), sized off the
-         Panda's real ~0.24m base so its edge (x=0.45) leaves enough room
-         for the mobile robot to clear it AND for the pickup point to stay
-         well within arm reach. See attach_detach_node.py's
-         PICKUP_POINT_X/Y for the full margin reasoning. See
-         actuator_node.py's SHARED_ZONE_BOUNDS for the analogous
-         shared-placement-region recomputation. -->
+         Panda's real ~0.23m base (measured from link0.stl's collision
+         mesh) so its edge leaves enough room for the mobile robot to
+         clear it AND for the pickup point to stay comfortably within arm
+         reach across a full pick, not just the initial descend. See
+         attach_detach_node.py's PICKUP_POINT_X/Y for the full margin
+         reasoning. See actuator_node.py's SHARED_ZONE_BOUNDS for the
+         analogous shared-placement-region recomputation. -->
     <include>
       <name>panda2</name>
       <uri>model://panda2</uri>
@@ -588,7 +589,7 @@
 
     <model name="pickup_point">
       <static>true</static>
-      <pose>0.70 0.5 0.006 0 0 0</pose>
+      <pose>0.62 0.5 0.006 0 0 0</pose>
       <link name="link">
         <visual name="visual">
           <geometry><box><size>0.2 0.2 0.01</size></box></geometry>

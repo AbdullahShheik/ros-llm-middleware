@@ -48,16 +48,20 @@ fill_rect(-4, 0, 0.2, 8, OCCUPIED)   # wall_west
 # sliver, into a dead end). One block spanning both arms' full extent means
 # the planner never considers routing through there at all.
 #
-# 0.5x0.5 per arm (was 0.9x0.9): the Panda's real base footprint is only
-# ~0.24m, so 0.9m was always a generous pad, not the true footprint -- and
-# at that size the block's edge (x=0.65) left no room for a shared
-# pickup_point that's both Nav2-reachable (needs to clear the block edge by
-# the robot's own radius) AND within comfortable arm reach (the two
-# requirements landed almost on top of each other). Still more than 2x the
-# real base for margin, just not padded enough to eat the room both
-# constraints need. Y spans from panda's back edge (0-0.25) to panda2's
-# front edge (1.0+0.25); X unchanged in shape, just the smaller size.
-fill_rect(0.2, 0.5, 0.5, 1.5, OCCUPIED)
+# 0.35x0.35 per arm (was 0.9x0.9, then 0.5x0.5): measured directly off the
+# real collision mesh (link0.stl, panda/model.sdf) rather than guessed --
+# its footprint is only ~0.23m x 0.19m, so even 0.5m (confirmed live: the
+# retreat phase of a pick at the shared pickup point, right after a
+# successful grasp, failed to plan -- "Unable to sample any valid states
+# for goal tree" -- at the reach margin 0.5m's edge forced) was still too
+# tight a corner between Nav2 clearance and arm reach. 0.35m is still
+# ~1.5-1.8x the real base for a real pad, and this time frees up enough
+# room that the pickup point (attach_detach_node.py's PICKUP_POINT_X/Y)
+# can sit at close to the same ~76% reach margin the original single-arm
+# WORKSPACE_BOUNDS box was tuned to and reliably worked at. Y spans from
+# panda's back edge (0-0.175) to panda2's front edge (1.0+0.175); X
+# unchanged in shape, just the smaller size.
+fill_rect(0.2, 0.5, 0.35, 1.35, OCCUPIED)
 
 img = Image.fromarray(grid, mode='L')
 out_path = '/home/abdullah/HU/STRP/ros-llm-middleware/src/world/maps/panda_world_map.pgm'
