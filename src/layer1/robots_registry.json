@@ -9,7 +9,6 @@
       ],
       "skill_ids": [
         "move_to",
-        "move_relative",
         "rotate",
         "stop",
         "emergency_stop",
@@ -35,7 +34,6 @@
       ],
       "skill_ids": [
         "move_to",
-        "move_relative",
         "rotate",
         "stop",
         "emergency_stop",
@@ -62,7 +60,6 @@
       ],
       "skill_ids": [
         "move_to",
-        "move_relative",
         "rotate",
         "stop",
         "emergency_stop",
@@ -95,7 +92,6 @@
       ],
       "skill_ids": [
         "move_to",
-        "move_relative",
         "rotate",
         "stop",
         "emergency_stop",
