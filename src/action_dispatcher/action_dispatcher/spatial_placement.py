@@ -17,7 +17,7 @@ import math
 DEFAULT_SPACING_M = 0.12
 
 # Comfortably inside the Panda's ~0.855m reach from its base (0.2, 0, 0)
-# and clear of pickup_point (0.7, 0). The only hardcoded geometry here --
+# and clear of pickup_point (0.7, 0.5). The only hardcoded geometry here --
 # every named landmark below is derived from this one rectangle.
 WORKSPACE_BOUNDS = {"x_min": 0.35, "x_max": 0.75, "y_min": -0.35, "y_max": 0.35}
 _WORKSPACE_Z = 0.04
