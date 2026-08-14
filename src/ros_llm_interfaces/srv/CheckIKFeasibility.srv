@@ -1,4 +1,5 @@
 string object_name
+string robot_type
 ---
 bool feasible
 string reason

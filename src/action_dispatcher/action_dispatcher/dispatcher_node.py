@@ -318,13 +318,13 @@ class ActionDispatcher(Node):
             # fall through to the arm planner itself, which already reports
             # a clear 'planning failed' feedback if unreachable.
             resolved_name = OBJECT_NAME_MAP.get(target_location, target_location)
-            if resolved_name in self.object_map and not self.check_ik(resolved_name):
+            if resolved_name in self.object_map and not self.check_ik(resolved_name, robot_type):
                 self.get_logger().warn(f'IK check failed for {resolved_name}, task {task_id} rejected')
                 self._reject(task_id, plan_id, 'ik_check', f'IK check failed for {resolved_name}')
                 return
         else:
             #for arm tasks, check IK feasibility
-            feasible = self.check_ik(object_name)
+            feasible = self.check_ik(object_name, robot_type)
             if not feasible:
                 self.get_logger().warn(f'IK check failed for {object_name}, task {task_id} rejected')
                 self._reject(task_id, plan_id, 'ik_check', f'IK check failed for {object_name}')
@@ -375,13 +375,14 @@ class ActionDispatcher(Node):
         out.data = json.dumps(fb)
         self.feedback_pub.publish(out)
 
-    def check_ik(self, object_name):
+    def check_ik(self, object_name, robot_type):
         if not self.ik_client.wait_for_service(timeout_sec=3.0):
             self.get_logger().warn('IK feasibility service not available')
             return False
 
         request = CheckIKFeasibility.Request()
         request.object_name = object_name
+        request.robot_type = robot_type
 
         future = self.ik_client.call_async(request)
 

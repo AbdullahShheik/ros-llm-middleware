@@ -44,7 +44,19 @@ class IKFeasibilityService(Node):
 
     def handle_request(self, request, response):
         object_name = request.object_name
-        self.get_logger().info(f'Checking IK feasibility for: {object_name}')
+        # Which planning group to solve against -- move_group's combined
+        # scene (world/launch/moveit2.launch.py) has both panda_arm and
+        # panda2_arm in one tree, panda2_link0 mounted as a child of
+        # panda_link0 via a fixed joint at their true relative offset. That
+        # means the SAME world->panda_link0 frame conversion below (x-0.2,
+        # y unchanged) is correct for a panda2_arm request too -- MoveIt
+        # resolves panda2_link0's position within the tree itself. Only the
+        # group_name needs to differ. Confirmed live as a real bug, not
+        # just a gap: this used to be hardcoded to 'panda_arm' unconditionally,
+        # so any pick/place assigned to robotic_arm_2 was silently checked
+        # against arm 1's reach instead of its own.
+        group_name = 'panda2_arm' if request.robot_type == 'robotic_arm_2' else 'panda_arm'
+        self.get_logger().info(f'Checking IK feasibility for: {object_name} (group={group_name})')
 
         if object_name not in self.object_map:
             response.feasible = False
@@ -59,7 +71,7 @@ class IKFeasibilityService(Node):
             return response
 
         ik_request = GetPositionIK.Request()
-        ik_request.ik_request.group_name = 'panda_arm'
+        ik_request.ik_request.group_name = group_name
         ik_request.ik_request.pose_stamped = PoseStamped()
         ik_request.ik_request.pose_stamped.header.frame_id = 'panda_link0'
         ik_request.ik_request.pose_stamped.pose.position.x = pose['x'] - 0.2
