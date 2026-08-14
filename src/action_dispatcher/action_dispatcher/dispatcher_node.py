@@ -12,7 +12,26 @@ import json
 import threading
 from std_srvs.srv import Trigger
 
-from action_dispatcher import spatial_placement
+# Under --symlink-install, this script is a symlink back into src/, and
+# Python resolves that symlink when computing sys.path[0] -- landing on
+# this file's OWN directory (src/action_dispatcher/action_dispatcher/,
+# where spatial_placement.py is a direct sibling) rather than the
+# installed lib/action_dispatcher/ directory (where it's nested one level
+# deeper, under a copied action_dispatcher/ package dir from CMakeLists.txt's
+# `install(DIRECTORY action_dispatcher ...)` rule). Which of those two
+# layouts sys.path[0] actually lands on depends on the install mode, so
+# both import forms are tried rather than assuming one -- confirmed live:
+# the plain `from action_dispatcher import spatial_placement` alone raised
+# ModuleNotFoundError under --symlink-install, silently killing this node
+# on every launch (exit code 1, ~18s after start).
+import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+try:
+    from action_dispatcher import spatial_placement
+except ImportError:
+    import spatial_placement
 
 # Object name mapping from LLM team naming to /object_map naming
 OBJECT_NAME_MAP = {
