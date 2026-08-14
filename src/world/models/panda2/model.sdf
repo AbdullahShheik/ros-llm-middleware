@@ -997,6 +997,17 @@
         </ros2_control>
 
         <plugin filename="gz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+            <!-- Namespaced, unlike the first arm's plugin instance (which
+                 stays on the default/global controller_manager, untouched,
+                 so the existing single-arm setup keeps working exactly as
+                 before). Without this, both arms' gz_ros2_control plugin
+                 instances would each try to create a node literally named
+                 /controller_manager: a real ROS2 node name collision, not
+                 just a joint name one. This gives arm 2 its own
+                 /panda2/controller_manager and /panda2/joint_states. -->
+            <ros>
+                <namespace>panda2</namespace>
+            </ros>
             <!-- world/launch/world.launch.py rewrites this placeholder to the
                  real absolute path of panda2_ros2_controllers.yaml at launch
                  time (SDF has no package-path substitution of its own). -->

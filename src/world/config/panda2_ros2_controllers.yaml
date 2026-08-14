@@ -1,0 +1,69 @@
+# ros2_control controller_manager config for the SECOND arm, loaded by the
+# gz_ros2_control plugin embedded in models/panda2/model.sdf. Mirrors
+# panda_ros2_controllers.yaml exactly, with panda2_/robotiq2_85_ joint names
+# to match models/panda2/model.sdf's renamed links/joints -- see that file's
+# comments for why the right knuckle joint needs its own controller instead
+# of a physics-engine mimic joint (dartsim doesn't support those) and why
+# the gripper controller allows stalling (a friction grasp stopping short of
+# the commanded position IS the grasp).
+#
+# This controller_manager is namespaced under /panda2 (see the <ros><namespace>
+# block in panda2/model.sdf's plugin), so it runs as its own node
+# (/panda2/controller_manager) rather than colliding with the first arm's
+# default/global one.
+
+controller_manager:
+  ros__parameters:
+    update_rate: 100
+    use_sim_time: true
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    panda2_arm_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+    robotiq2_gripper_controller:
+      type: position_controllers/GripperActionController
+
+    right_knuckle_controller2:
+      type: forward_command_controller/ForwardCommandController
+
+panda2_arm_controller:
+  ros__parameters:
+    joints:
+      - panda2_joint1
+      - panda2_joint2
+      - panda2_joint3
+      - panda2_joint4
+      - panda2_joint5
+      - panda2_joint6
+      - panda2_joint7
+    command_interfaces:
+      - position
+    state_interfaces:
+      - position
+      - velocity
+    allow_nonzero_velocity_at_trajectory_end: true
+    initial_positions:
+      panda2_joint1: 0.0
+      panda2_joint2: -0.785
+      panda2_joint3: 0.0
+      panda2_joint4: -2.356
+      panda2_joint5: 0.0
+      panda2_joint6: 1.571
+      panda2_joint7: 0.785
+
+robotiq2_gripper_controller:
+  ros__parameters:
+    joint: robotiq2_85_left_knuckle_joint
+    action_monitor_rate: 20.0
+    allow_stalling: true
+    stall_velocity_threshold: 0.001
+    stall_timeout: 1.0
+
+right_knuckle_controller2:
+  ros__parameters:
+    joints:
+      - robotiq2_85_right_knuckle_joint
+    interface_name: position

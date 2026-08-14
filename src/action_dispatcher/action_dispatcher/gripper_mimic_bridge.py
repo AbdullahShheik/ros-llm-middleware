@@ -2,15 +2,20 @@
 """
 gripper_mimic_bridge.py
 
-Mirrors robotiq_85_left_knuckle_joint's position onto
-robotiq_85_right_knuckle_joint in software, via right_knuckle_controller
-(a ForwardCommandController). This replaces the physics-engine-level
-SDF <mimic> constraint, which dartsim does not support (and which
-gz_ros2_control's own <param name="mimic"> just wires through to
-anyway, so it doesn't help under dartsim either).
+Mirrors a gripper's left knuckle joint position onto its right knuckle
+joint in software, via a ForwardCommandController. This replaces the
+physics-engine-level SDF <mimic> constraint, which dartsim does not
+support (and which gz_ros2_control's own <param name="mimic"> just wires
+through to anyway, so it doesn't help under dartsim either).
 
-multiplier = -1 matches the URDF's own mimic multiplier for
-robotiq_85_right_knuckle_joint (see robotiq_2f_85_macro.urdf.xacro).
+Parametrized (node params, not hardcoded) so the same script serves
+either arm -- launched twice, once per arm, with different values --
+rather than needing a near-duplicate second file. Defaults match the
+first arm's names exactly, so an unparametrized launch is unchanged
+from before this was parametrized.
+
+multiplier = -1 matches the URDF's own mimic multiplier for the right
+knuckle joint (see robotiq_2f_85_macro.urdf.xacro).
 """
 
 import rclpy
@@ -18,26 +23,33 @@ from rclpy.node import Node
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Float64MultiArray
 
-LEFT_JOINT = 'robotiq_85_left_knuckle_joint'
 MULTIPLIER = -1.0
-COMMAND_TOPIC = '/right_knuckle_controller/commands'
 
 
 class GripperMimicBridge(Node):
     def __init__(self):
         super().__init__('gripper_mimic_bridge')
-        self.pub = self.create_publisher(Float64MultiArray, COMMAND_TOPIC, 10)
+        self.declare_parameter('left_joint', 'robotiq_85_left_knuckle_joint')
+        self.declare_parameter('joint_states_topic', '/joint_states')
+        self.declare_parameter('command_topic', '/right_knuckle_controller/commands')
+
+        self.left_joint = self.get_parameter('left_joint').value
+        joint_states_topic = self.get_parameter('joint_states_topic').value
+        command_topic = self.get_parameter('command_topic').value
+
+        self.pub = self.create_publisher(Float64MultiArray, command_topic, 10)
         self.sub = self.create_subscription(
-            JointState, '/joint_states', self.on_joint_states, 10
+            JointState, joint_states_topic, self.on_joint_states, 10
         )
         self.get_logger().info(
-            f'Mirroring {LEFT_JOINT} -> {COMMAND_TOPIC} (multiplier={MULTIPLIER})'
+            f'Mirroring {self.left_joint} ({joint_states_topic}) -> '
+            f'{command_topic} (multiplier={MULTIPLIER})'
         )
 
     def on_joint_states(self, msg: JointState):
-        if LEFT_JOINT not in msg.name:
+        if self.left_joint not in msg.name:
             return
-        idx = msg.name.index(LEFT_JOINT)
+        idx = msg.name.index(self.left_joint)
         left_position = msg.position[idx]
 
         out = Float64MultiArray()
