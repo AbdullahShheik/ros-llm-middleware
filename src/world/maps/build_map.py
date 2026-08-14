@@ -39,17 +39,25 @@ fill_rect(0, 4, 8, 0.2, OCCUPIED)    # wall_north
 fill_rect(0, -4, 8, 0.2, OCCUPIED)   # wall_south
 fill_rect(4, 0, 0.2, 8, OCCUPIED)    # wall_east
 fill_rect(-4, 0, 0.2, 8, OCCUPIED)   # wall_west
-# Both arms as ONE merged block rather than two separate 0.9x0.9 squares.
-# panda is at (0.2,0), panda2 at (0.2,1.0) (panda_world.sdf), 1.0m apart --
-# two separate squares would leave only a ~0.10m sliver of "free" space
-# between them (confirmed live: with robot_radius 0.22 + inflation_radius
-# 0.2, that's nowhere near enough for the mobile robot to actually pass
-# through, but the costmap didn't know that and would still let a path get
-# planned into the sliver, into a dead end). One block spanning both arms'
-# full extent means the planner never considers routing through there at
-# all. Y spans from panda's back edge (0-0.45) to panda2's front edge
-# (1.0+0.45); X unchanged from the original single-arm footprint.
-fill_rect(0.2, 0.5, 0.9, 1.9, OCCUPIED)
+# Both arms as ONE merged block rather than two separate squares -- panda
+# is at (0.2,0), panda2 at (0.2,1.0) (panda_world.sdf), 1.0m apart, and two
+# separate squares left only a ~0.10m sliver of "free" space between them
+# (confirmed live: with robot_radius 0.22 + inflation_radius 0.2, nowhere
+# near enough for the mobile robot to actually pass through, but the
+# costmap didn't know that and would still let a path get planned into the
+# sliver, into a dead end). One block spanning both arms' full extent means
+# the planner never considers routing through there at all.
+#
+# 0.5x0.5 per arm (was 0.9x0.9): the Panda's real base footprint is only
+# ~0.24m, so 0.9m was always a generous pad, not the true footprint -- and
+# at that size the block's edge (x=0.65) left no room for a shared
+# pickup_point that's both Nav2-reachable (needs to clear the block edge by
+# the robot's own radius) AND within comfortable arm reach (the two
+# requirements landed almost on top of each other). Still more than 2x the
+# real base for margin, just not padded enough to eat the room both
+# constraints need. Y spans from panda's back edge (0-0.25) to panda2's
+# front edge (1.0+0.25); X unchanged in shape, just the smaller size.
+fill_rect(0.2, 0.5, 0.5, 1.5, OCCUPIED)
 
 img = Image.fromarray(grid, mode='L')
 out_path = '/home/abdullah/HU/STRP/ros-llm-middleware/src/world/maps/panda_world_map.pgm'

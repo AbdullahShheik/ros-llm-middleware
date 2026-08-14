@@ -20,22 +20,16 @@ CUBE_NAMES = {"red_cube", "blue_cube", "green_cube"}
 
 CUBE_ATTACH_Z = 0.15
 # X must clear build_map.py's merged both-arms obstacle block (spans
-# x:[-0.25,0.65]) by at least the mobile robot's own footprint
-# (robot_radius 0.22 + inflation_radius 0.2, see nav2_params.yaml) or Nav2
-# will never accept "handoff_point" as a valid, reachable goal at all --
-# confirmed live: (0.55, 0.5) sat INSIDE that block once the two arms'
-# separate obstacle squares were merged into one (see build_map.py for why
-# they're merged), so the mobile robot could no longer navigate there.
-# 0.90 clears the block edge by 0.25m, just past the 0.22m minimum.
-#
-# That leaves arm reach as the tighter constraint instead: at (0.90, 0.5),
-# arm 1/2 are each ~0.86m away, right at the Panda's ~0.855m nominal max
-# reach (itself an approximate figure, not a hard-verified bound) -- the
-# closest the geometry allows given the merged obstacle also has to start
-# at x=0.65. Watch for IK failures at this exact spot; the ik_check ->
-# replan fallback (dispatcher_node.py / layer1_pipeline.py) is the safety
-# net if this margin turns out too tight in practice.
-PICKUP_POINT_X = 0.90
+# x:[-0.05,0.45], sized off the Panda's real ~0.24m base rather than the
+# original single-arm map's much more generous 0.9m pad -- see
+# build_map.py) by at least the mobile robot's own footprint (robot_radius
+# 0.22, see nav2_params.yaml) or Nav2 will never accept "handoff_point" as
+# a valid, reachable goal at all. 0.70 clears the block edge by 0.25m
+# (just past the 0.22m minimum) while keeping arm 1/2 each ~0.71m away
+# (~83% of the Panda's ~0.855m nominal max reach) -- comfortable margin on
+# both sides, unlike (0.90, 0.5) tried first, which sat right at the
+# Panda's reach limit to clear the old, larger obstacle block.
+PICKUP_POINT_X = 0.70
 PICKUP_POINT_Y = 0.5
 CUBE_PICKUP_Z  = 0.04
 
