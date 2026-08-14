@@ -6,7 +6,6 @@ find_package(rclpy REQUIRED)
 
 install(PROGRAMS
   perception/perception_node.py
-  perception/scene_tracking.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
