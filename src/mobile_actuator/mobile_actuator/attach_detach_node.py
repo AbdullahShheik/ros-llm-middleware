@@ -19,12 +19,15 @@ import json
 CUBE_NAMES = {"red_cube", "blue_cube", "green_cube"}
 
 CUBE_ATTACH_Z = 0.15
-# (0.7, 0.5) is reachable by BOTH arms now that panda2 sits 1.0m away in Y
+# (0.55, 0.5) is reachable by BOTH arms now that panda2 sits 1.0m away in Y
 # (panda at (0.2,0,0), panda2 at (0.2,1.0,0) in panda_world.sdf) -- roughly
-# equidistant (~0.71m) from each base, comfortably inside the Panda's
-# ~0.855m reach. The old single-arm value (0.7, 0.0) was 0.5m from arm 1
-# but would have been ~1.12m from arm 2, outside its reach entirely.
-PICKUP_POINT_X = 0.7
+# equidistant (~0.61m) from each base. (0.7, 0.5) was tried first (~0.71m,
+# 83% of the Panda's ~0.855m nominal max reach) and confirmed live to fail
+# IK feasibility for arm 1 picking a cube left there -- panda_joint4's own
+# restrictive range (-3.07 to -0.07 rad, see panda/model.sdf) makes the
+# real reachable envelope well short of the full 0.855m sphere in some
+# directions, so this pulls back to ~71% of nominal reach for real margin.
+PICKUP_POINT_X = 0.55
 PICKUP_POINT_Y = 0.5
 CUBE_PICKUP_Z  = 0.04
 
