@@ -32,7 +32,7 @@ _NUMBER_RE = re.compile(r'-?\d+(?:\.\d+)?')
 # an area) -- object_name resolution is skipped for these.
 NO_OBJECT_SKILLS = {"navigate", "survey"}
 
-VALID_ROBOTS = {"arm", "wheeled", "mobile_robot", "robotic_arm"}
+VALID_ROBOTS = {"arm", "wheeled", "mobile_robot", "robotic_arm", "robotic_arm_2"}
 
 class ActionDispatcher(Node):
     def __init__(self):

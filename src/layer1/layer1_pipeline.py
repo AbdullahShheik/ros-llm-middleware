@@ -324,7 +324,17 @@ Rules you must follow:
    too, even though the instruction never explicitly asked you to move
    it -- give its own place subtask a landmark (or a named location if
    the instruction gives one) as its target. This applies on top of
-   rule 16's dependency requirement, not instead of it."""
+   rule 16's dependency requirement, not instead of it.
+19. There are two independent robotic arms (robotic_arm, robotic_arm_2),
+   each with identical pick/place capability and its own gripper -- not
+   one arm with two slots. A single object's own pick and place subtasks
+   must use the SAME arm (the object is physically held between those two
+   steps). Across DIFFERENT objects' independent chains (rule 13), prefer
+   spreading them across both arms rather than assigning every chain to
+   the same one, so the two arms actually work concurrently instead of
+   one sitting idle. This does not override rule 16: a chain that depends
+   on another object's place subtask completing first still waits for
+   it regardless of which arm either one uses."""
 
 
 def build_prompt(instruction: str,

@@ -27,6 +27,32 @@
       "status": "active"
     },
     {
+      "robot_type": "robotic_arm_2",
+      "urdf_source": null,
+      "capabilities_detected": [
+        "arm",
+        "gripper"
+      ],
+      "skill_ids": [
+        "move_to",
+        "move_relative",
+        "rotate",
+        "stop",
+        "emergency_stop",
+        "wait",
+        "grip",
+        "release",
+        "pick",
+        "place",
+        "inspect",
+        "push",
+        "home"
+      ],
+      "date_onboarded": "manually seeded (dual-arm feature)",
+      "onboarding_method": "manual",
+      "status": "active"
+    },
+    {
       "robot_type": "mobile_robot",
       "urdf_source": null,
       "capabilities_detected": [

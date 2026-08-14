@@ -361,14 +361,32 @@ def _prepare_and_launch(context, *args, **kwargs):
             ]
         ),
 
-        # Actuator at 20s: needs controllers active first
+        # Actuator at 20s: needs controllers active first. Two instances,
+        # arm_id 1 and 2 -- see actuator.launch.py's docstring for why each
+        # gets its own single-arm MoveItPy config rather than sharing one.
+        # arm_workspace_lock_node.py is launched once here too (shared by
+        # both instances, not per-arm) -- see that file's docstring for the
+        # coordination mechanism it provides.
         TimerAction(
             period=20.0,
             actions=[
                 IncludeLaunchDescription(
                     PythonLaunchDescriptionSource(
                         os.path.join(get_package_share_directory('actuator'), 'launch', 'actuator.launch.py')
-                    )
+                    ),
+                    launch_arguments={'arm_id': '1'}.items(),
+                ),
+                IncludeLaunchDescription(
+                    PythonLaunchDescriptionSource(
+                        os.path.join(get_package_share_directory('actuator'), 'launch', 'actuator.launch.py')
+                    ),
+                    launch_arguments={'arm_id': '2'}.items(),
+                ),
+                Node(
+                    package='actuator',
+                    executable='arm_workspace_lock_node.py',
+                    name='arm_workspace_lock_node',
+                    output='screen',
                 ),
                 IncludeLaunchDescription(
                     PythonLaunchDescriptionSource(

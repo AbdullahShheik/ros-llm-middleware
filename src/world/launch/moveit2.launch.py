@@ -87,10 +87,30 @@ def generate_launch_description():
     # a second static URDF fragment.
     robot_description_arm2 = _rename_for_second_arm(robot_description_arm1)
 
+    # Concatenating both arms' bodies under one <robot> root is not enough
+    # on its own: robot_state_publisher/move_group parse robot_description
+    # into a single kinematic TREE, and with no joint connecting them,
+    # panda_link0 and panda2_link0 are each their own disconnected root --
+    # confirmed live ("Failed to find root link: Two root links found:
+    # [panda2_link0] and [panda_link0]", both robot_state_publisher and
+    # move_group crash on startup). A fixed joint below welds panda2_link0
+    # under panda_link0 at their true relative offset (0, 0.6, 0) -- same
+    # number as the world->panda2_link0 TF transform this file used to
+    # publish separately; that static_transform_publisher is removed below
+    # since robot_state_publisher now derives (and publishes) that same
+    # transform from this joint instead.
+    mount_joint = (
+        '<joint name="panda2_mount_joint" type="fixed">'
+        '<parent link="panda_link0"/><child link="panda2_link0"/>'
+        '<origin xyz="0 0.6 0" rpy="0 0 0"/>'
+        '</joint>'
+    )
+
     robot_description = (
         '<?xml version="1.0"?>\n<robot name="panda_dual">'
         + _strip_robot_wrapper(robot_description_arm1)
         + _strip_robot_wrapper(robot_description_arm2)
+        + mount_joint
         + '</robot>'
     )
 
@@ -158,25 +178,12 @@ def generate_launch_description():
             output='screen'
         ),
 
-        # Static transform world -> panda2_link0: NOT identity. This has to
-        # be the arms' TRUE relative offset in Gazebo (panda spawns at
-        # (0.2,0,0), panda2 at (0.2,0.6,0) in panda_world.sdf -- their X
-        # offset from Gazebo's world is identical, so the relative offset
-        # is just the Y difference, 0.6m) so MoveIt's shared planning scene
-        # correctly reasons about the two arms' real spacing when collision
-        # checking one against the other's current pose. Setting this to
-        # identity too (mirroring arm 1's transform naively) would make
-        # MoveIt think both arms' bases are coincident, causing constant
-        # phantom self-collisions instead of correct inter-arm awareness --
-        # the exact "perfect coordination" this design is supposed to give.
-        Node(
-            package='tf2_ros',
-            executable='static_transform_publisher',
-            name='static_transform_publisher_arm2',
-            arguments=['0', '0.6', '0', '0', '0', '0', 'panda_link0', 'panda2_link0'],
-            parameters=[{'use_sim_time': True}],
-            output='screen'
-        ),
+        # No separate panda_link0 -> panda2_link0 static transform here:
+        # robot_state_publisher now derives and publishes that transform
+        # itself from robot_description's panda2_mount_joint above (same
+        # 0.6m Y offset, matching panda2's true spawn offset from panda in
+        # panda_world.sdf). A second broadcaster of the same frame would
+        # just be a redundant, conflicting publisher.
 
         # MoveIt2 move_group -- one instance, both groups (panda_arm,
         # panda2_arm, hand, hand2) in one planning scene.
