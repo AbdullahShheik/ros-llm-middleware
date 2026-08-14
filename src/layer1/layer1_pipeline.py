@@ -334,7 +334,21 @@ Rules you must follow:
    the same one, so the two arms actually work concurrently instead of
    one sitting idle. This does not override rule 16: a chain that depends
    on another object's place subtask completing first still waits for
-   it regardless of which arm either one uses."""
+   it regardless of which arm either one uses.
+20. A serial relative_to chain (rule 16) -- e.g. stacking three objects --
+   is still worth pipelining across both arms, even though the PLACE steps
+   themselves stay strictly ordered. The next object's PICK only needs
+   that object's own delivery done (its transport chain's detach, if it
+   has one) -- it does NOT need to wait for the current object's place to
+   finish, so do not add a dependency on the earlier object's place
+   subtask to it. Assign that pick to whichever arm is not currently busy
+   placing the earlier object: while arm A is placing object 1, arm B can
+   already be picking up object 2 (which the mobile robot can be
+   delivering in parallel, per rule 13) so it is standing ready the
+   moment arm A is free, instead of arm A doing every step of the chain
+   itself with arm B idle throughout. Only object 2's own PLACE subtask
+   (the one whose relative_to names object 1) needs the dependency on
+   object 1's place -- object 2's PICK does not."""
 
 
 def build_prompt(instruction: str,
