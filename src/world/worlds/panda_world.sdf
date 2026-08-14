@@ -169,6 +169,18 @@
       <pose>0.2 0 0 0 0 0</pose>
     </include>
 
+    <!-- Second arm, side by side with the first along Y. 0.6m gap is a
+         starting point (clears both arms' bases with room to spare;
+         Panda's own reach is 0.855m, so at the existing shared workspace
+         around x~0.5-0.7 both arms' reach circles substantially overlap):
+         tune alongside spatial_placement.py's WORKSPACE_BOUNDS once
+         reachability is verified empirically in Gazebo. -->
+    <include>
+      <name>panda2</name>
+      <uri>model://panda2</uri>
+      <pose>0.2 0.6 0 0 0 0</pose>
+    </include>
+
     <model name="red_cube">
       <pose>3 3 0.03 0 0 0</pose>
       <link name="link">
@@ -223,6 +235,17 @@
         <detach_topic>/model/red_cube/detachable_joint/detach</detach_topic>
         <output_topic>/model/red_cube/detachable_joint/state</output_topic>
       </plugin>
+      <!-- Second arm's grasp joint for this cube: either arm can pick it
+           up, distinct topics from the first arm's plugin above so the two
+           don't share attach/detach state. -->
+      <plugin filename="gz-sim-detachable-joint-system" name="gz::sim::systems::DetachableJoint">
+        <parent_link>link</parent_link>
+        <child_model>panda2</child_model>
+        <child_link>robotiq2_85_base_link</child_link>
+        <attach_topic>/model/red_cube/detachable_joint2/attach</attach_topic>
+        <detach_topic>/model/red_cube/detachable_joint2/detach</detach_topic>
+        <output_topic>/model/red_cube/detachable_joint2/state</output_topic>
+      </plugin>
     </model>
 
     <model name="blue_cube">
@@ -270,6 +293,14 @@
         <detach_topic>/model/blue_cube/detachable_joint/detach</detach_topic>
         <output_topic>/model/blue_cube/detachable_joint/state</output_topic>
       </plugin>
+      <plugin filename="gz-sim-detachable-joint-system" name="gz::sim::systems::DetachableJoint">
+        <parent_link>link</parent_link>
+        <child_model>panda2</child_model>
+        <child_link>robotiq2_85_base_link</child_link>
+        <attach_topic>/model/blue_cube/detachable_joint2/attach</attach_topic>
+        <detach_topic>/model/blue_cube/detachable_joint2/detach</detach_topic>
+        <output_topic>/model/blue_cube/detachable_joint2/state</output_topic>
+      </plugin>
     </model>
 
     <model name="green_cube">
@@ -316,6 +347,14 @@
         <attach_topic>/model/green_cube/detachable_joint/attach</attach_topic>
         <detach_topic>/model/green_cube/detachable_joint/detach</detach_topic>
         <output_topic>/model/green_cube/detachable_joint/state</output_topic>
+      </plugin>
+      <plugin filename="gz-sim-detachable-joint-system" name="gz::sim::systems::DetachableJoint">
+        <parent_link>link</parent_link>
+        <child_model>panda2</child_model>
+        <child_link>robotiq2_85_base_link</child_link>
+        <attach_topic>/model/green_cube/detachable_joint2/attach</attach_topic>
+        <detach_topic>/model/green_cube/detachable_joint2/detach</detach_topic>
+        <output_topic>/model/green_cube/detachable_joint2/state</output_topic>
       </plugin>
     </model>
 
