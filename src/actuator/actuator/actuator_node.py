@@ -38,6 +38,7 @@ from sensor_msgs.msg import JointState
 from geometry_msgs.msg import PoseStamped, Pose
 from control_msgs.action import GripperCommand
 from controller_manager_msgs.srv import ListControllers
+from std_srvs.srv import Trigger
 from sensor_msgs.msg import JointState
 from moveit.planning import MoveItPy
 from moveit_msgs.msg import CollisionObject, AttachedCollisionObject
@@ -468,6 +469,32 @@ PLACE_VERIFY_SETTLE_SEC = 0.3
 # a millimetre of settle.
 PLACE_VERIFY_TOLERANCE = 0.005
 
+# Region both arms' cube-placement workspace rectangles genuinely overlap --
+# the intersection of arm1's WORKSPACE_BOUNDS (spatial_placement.py,
+# x:[0.35,0.75] y:[-0.35,0.35] around its base at world (0.2,0,0)) with the
+# same rectangle shifted by arm2's 0.6m Y spawn offset (world (0.2,0.6,0)),
+# i.e. y:[0.25,0.95]. Only this narrow overlap band needs mutual exclusion --
+# everywhere else in either arm's workspace, the two arms can move fully
+# concurrently with no lock, since their reachable spaces don't overlap
+# there. Same for both arm process instances (world-frame absolute
+# coordinates), so this is not part of configure_for_arm()'s per-arm
+# reassignment.
+SHARED_ZONE_BOUNDS = {"x_min": 0.35, "x_max": 0.75, "y_min": 0.25, "y_max": 0.35}
+
+# Arm workspace lock service names -- see arm_workspace_lock_node.py. Client
+# timeout is longer than the server's own ACQUIRE_TIMEOUT_S (60s) so a
+# legitimate "still held" response has time to come back rather than the
+# client giving up first and misreporting it as a communication failure.
+SHARED_WORKSPACE_ACQUIRE_SERVICE = "/shared_workspace/acquire"
+SHARED_WORKSPACE_RELEASE_SERVICE = "/shared_workspace/release"
+SHARED_WORKSPACE_ACQUIRE_TIMEOUT = 65.0
+SHARED_WORKSPACE_RELEASE_TIMEOUT = 5.0
+
+
+def _pose_in_shared_zone(pose: dict) -> bool:
+    b = SHARED_ZONE_BOUNDS
+    return b["x_min"] <= pose["x"] <= b["x_max"] and b["y_min"] <= pose["y"] <= b["y_max"]
+
 
 class ActuatorNode(Node):
     def __init__(self):
@@ -550,6 +577,22 @@ class ActuatorNode(Node):
         self._list_controllers_client = self.create_client(
             ListControllers,
             LIST_CONTROLLERS_SERVICE,
+            callback_group=self.callback_group,
+        )
+
+        # Mutual-exclusion lock over the region both arms' workspaces
+        # overlap (SHARED_ZONE_BOUNDS) -- see arm_workspace_lock_node.py.
+        # Reentrant callback group so awaiting these from inside the
+        # /execution_command callback doesn't deadlock the executor, same
+        # as _list_controllers_client above.
+        self._shared_workspace_acquire_client = self.create_client(
+            Trigger,
+            SHARED_WORKSPACE_ACQUIRE_SERVICE,
+            callback_group=self.callback_group,
+        )
+        self._shared_workspace_release_client = self.create_client(
+            Trigger,
+            SHARED_WORKSPACE_RELEASE_SERVICE,
             callback_group=self.callback_group,
         )
 
@@ -1545,6 +1588,30 @@ class ActuatorNode(Node):
             )
             return
 
+        # Dual-arm mutual exclusion: only the region both arms' workspaces
+        # overlap needs serializing (SHARED_ZONE_BOUNDS) -- checked against
+        # the target pose as given at entry, not re-checked as it gets
+        # refined below, since the acquired lock covers this whole
+        # operation regardless of exactly where the live-refresh moves it
+        # within that same target area. Outside this zone the two arms can
+        # move fully concurrently, no lock involved at all.
+        holding_shared_workspace = _pose_in_shared_zone(pose)
+        if holding_shared_workspace:
+            if not self._acquire_shared_workspace(task_id, plan_id):
+                # Plain return, NOT _recover_after_failure: nothing has
+                # moved yet, so there is no awkward pose to recover from,
+                # and if this is a "place" recovery would force-drop
+                # whatever is currently held just because the lock wasn't
+                # available -- worse than leaving it held for a retry.
+                return
+
+        try:
+            self._run_pick_or_place_locked(task_id, plan_id, action, pose)
+        finally:
+            if holding_shared_workspace:
+                self._release_shared_workspace()
+
+    def _run_pick_or_place_locked(self, task_id: str, plan_id: str, action: str, pose: dict):
         # Which tracked object (if any) this task concerns, and register
         # it as a real collision object in the planning scene *before*
         # planning anything. Previously MoveIt had zero knowledge of any
@@ -1933,6 +2000,65 @@ class ActuatorNode(Node):
         if not done_event.wait(timeout=timeout_sec):
             return None
         return future.result()
+
+    # ------------------------------------------------------------------
+    # Shared-workspace mutual exclusion (dual-arm coordination)
+    # ------------------------------------------------------------------
+
+    def _acquire_shared_workspace(self, task_id: str, plan_id: str) -> bool:
+        """Blocks until the region both arms' workspaces overlap is free.
+        Fails closed: any service-availability or timeout problem is
+        treated as "did not acquire" rather than proceeding unlocked, since
+        the whole point of this lock is to guarantee the other arm can't be
+        in this space at the same time."""
+        if not self._shared_workspace_acquire_client.wait_for_service(
+            timeout_sec=CONTROLLER_QUERY_TIMEOUT
+        ):
+            self._publish_feedback(
+                task_id, "failed", "precondition",
+                f"Shared workspace lock service ({SHARED_WORKSPACE_ACQUIRE_SERVICE}) "
+                "unavailable.",
+                plan_id
+            )
+            return False
+        resp = self._wait_for_future(
+            self._shared_workspace_acquire_client.call_async(Trigger.Request()),
+            timeout_sec=SHARED_WORKSPACE_ACQUIRE_TIMEOUT,
+        )
+        if resp is None or not resp.success:
+            self._publish_feedback(
+                task_id, "failed", "precondition",
+                "Could not acquire the shared workspace lock: "
+                f"{resp.message if resp is not None else 'no response'}",
+                plan_id
+            )
+            return False
+        return True
+
+    def _release_shared_workspace(self) -> None:
+        """Best-effort: release is idempotent server-side (see
+        arm_workspace_lock_node.py), so there's nothing useful to do here
+        with a failure beyond logging it -- retrying would just delay
+        clearing this arm's own subsequent tasks, and the server-side
+        idempotency means a lost release message is the only real risk,
+        not a stuck true-positive lock."""
+        if not self._shared_workspace_release_client.wait_for_service(
+            timeout_sec=CONTROLLER_QUERY_TIMEOUT
+        ):
+            self.get_logger().error(
+                f"Shared workspace lock release service "
+                f"({SHARED_WORKSPACE_RELEASE_SERVICE}) unavailable."
+            )
+            return
+        resp = self._wait_for_future(
+            self._shared_workspace_release_client.call_async(Trigger.Request()),
+            timeout_sec=SHARED_WORKSPACE_RELEASE_TIMEOUT,
+        )
+        if resp is None or not resp.success:
+            self.get_logger().error(
+                "Failed to release the shared workspace lock: "
+                f"{resp.message if resp is not None else 'no response'}"
+            )
 
     def _send_gripper_command(
         self, task_id: str, position: float, plan_id: str = "", wait_for_result: bool = True
