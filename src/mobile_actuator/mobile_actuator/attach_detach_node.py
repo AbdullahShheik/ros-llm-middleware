@@ -19,15 +19,23 @@ import json
 CUBE_NAMES = {"red_cube", "blue_cube", "green_cube"}
 
 CUBE_ATTACH_Z = 0.15
-# (0.55, 0.5) is reachable by BOTH arms now that panda2 sits 1.0m away in Y
-# (panda at (0.2,0,0), panda2 at (0.2,1.0,0) in panda_world.sdf) -- roughly
-# equidistant (~0.61m) from each base. (0.7, 0.5) was tried first (~0.71m,
-# 83% of the Panda's ~0.855m nominal max reach) and confirmed live to fail
-# IK feasibility for arm 1 picking a cube left there -- panda_joint4's own
-# restrictive range (-3.07 to -0.07 rad, see panda/model.sdf) makes the
-# real reachable envelope well short of the full 0.855m sphere in some
-# directions, so this pulls back to ~71% of nominal reach for real margin.
-PICKUP_POINT_X = 0.55
+# X must clear build_map.py's merged both-arms obstacle block (spans
+# x:[-0.25,0.65]) by at least the mobile robot's own footprint
+# (robot_radius 0.22 + inflation_radius 0.2, see nav2_params.yaml) or Nav2
+# will never accept "handoff_point" as a valid, reachable goal at all --
+# confirmed live: (0.55, 0.5) sat INSIDE that block once the two arms'
+# separate obstacle squares were merged into one (see build_map.py for why
+# they're merged), so the mobile robot could no longer navigate there.
+# 0.90 clears the block edge by 0.25m, just past the 0.22m minimum.
+#
+# That leaves arm reach as the tighter constraint instead: at (0.90, 0.5),
+# arm 1/2 are each ~0.86m away, right at the Panda's ~0.855m nominal max
+# reach (itself an approximate figure, not a hard-verified bound) -- the
+# closest the geometry allows given the merged obstacle also has to start
+# at x=0.65. Watch for IK failures at this exact spot; the ik_check ->
+# replan fallback (dispatcher_node.py / layer1_pipeline.py) is the safety
+# net if this margin turns out too tight in practice.
+PICKUP_POINT_X = 0.90
 PICKUP_POINT_Y = 0.5
 CUBE_PICKUP_Z  = 0.04
 

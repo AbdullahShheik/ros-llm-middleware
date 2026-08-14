@@ -39,7 +39,17 @@ fill_rect(0, 4, 8, 0.2, OCCUPIED)    # wall_north
 fill_rect(0, -4, 8, 0.2, OCCUPIED)   # wall_south
 fill_rect(4, 0, 0.2, 8, OCCUPIED)    # wall_east
 fill_rect(-4, 0, 0.2, 8, OCCUPIED)   # wall_west
-fill_rect(0.2, 0, 0.9, 0.9, OCCUPIED) 
+# Both arms as ONE merged block rather than two separate 0.9x0.9 squares.
+# panda is at (0.2,0), panda2 at (0.2,1.0) (panda_world.sdf), 1.0m apart --
+# two separate squares would leave only a ~0.10m sliver of "free" space
+# between them (confirmed live: with robot_radius 0.22 + inflation_radius
+# 0.2, that's nowhere near enough for the mobile robot to actually pass
+# through, but the costmap didn't know that and would still let a path get
+# planned into the sliver, into a dead end). One block spanning both arms'
+# full extent means the planner never considers routing through there at
+# all. Y spans from panda's back edge (0-0.45) to panda2's front edge
+# (1.0+0.45); X unchanged from the original single-arm footprint.
+fill_rect(0.2, 0.5, 0.9, 1.9, OCCUPIED)
 
 img = Image.fromarray(grid, mode='L')
 out_path = '/home/abdullah/HU/STRP/ros-llm-middleware/src/world/maps/panda_world_map.pgm'

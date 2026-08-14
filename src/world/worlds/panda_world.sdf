@@ -171,15 +171,17 @@
 
     <!-- Second arm, side by side with the first along Y. 0.6m was tried
          first and confirmed live to be too tight (bodies nearly touching
-         at rest). 1.0m clears both arms' bases with real margin, and still
-         leaves genuine reach overlap in the middle: Panda's own reach is
-         ~0.855m, so a point like the shared pickup_point at (0.55, 0.5),
-         roughly equidistant from both bases at ~0.61m, is comfortably
-         reachable by either arm (confirmed live: (0.7, 0.5), at ~0.71m/83%
-         of nominal reach, failed a real IK check, see
-         attach_detach_node.py's PICKUP_POINT_X/Y for why). See
-         actuator_node.py's SHARED_ZONE_BOUNDS for the analogous
-         shared-placement-region recomputation. -->
+         at rest). 1.0m clears both arms' bases with real margin. The
+         shared pickup_point sits at (0.90, 0.5), pulled out to x=0.90
+         specifically so the mobile robot can physically reach it: with
+         both arms' obstacle footprints merged into one block in
+         build_map.py (a 0.10m gap between two separate squares was not
+         navigable), the block's edge is at x=0.65, and the robot's own
+         footprint needs to clear that by its own radius. See
+         attach_detach_node.py's PICKUP_POINT_X/Y for the full margin
+         trade-off this forces on arm reach. See actuator_node.py's
+         SHARED_ZONE_BOUNDS for the analogous shared-placement-region
+         recomputation. -->
     <include>
       <name>panda2</name>
       <uri>model://panda2</uri>
@@ -587,7 +589,7 @@
 
     <model name="pickup_point">
       <static>true</static>
-      <pose>0.55 0.5 0.006 0 0 0</pose>
+      <pose>0.90 0.5 0.006 0 0 0</pose>
       <link name="link">
         <visual name="visual">
           <geometry><box><size>0.2 0.2 0.01</size></box></geometry>

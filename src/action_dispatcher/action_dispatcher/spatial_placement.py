@@ -25,11 +25,10 @@ DEFAULT_SPACING_M = 0.12
 # between the arms the way the feature was meant to work. Every corner
 # stays within ~76% of the Panda's ~0.855m reach from EITHER base (roughly
 # the same margin the single-arm version of this box kept from arm1's own
-# base), and the whole box sits clear of pickup_point (0.55, 0.5, see
-# attach_detach_node.py's PICKUP_POINT_X/Y) by at least ~0.14m so a cube
-# waiting to be picked up doesn't overlap one already placed. The only
-# hardcoded geometry here -- every named landmark below is derived from
-# this one rectangle.
+# base), and the whole box sits well clear of pickup_point (0.90, 0.5, see
+# attach_detach_node.py's PICKUP_POINT_X/Y) so a cube waiting to be picked
+# up doesn't overlap one already placed. The only hardcoded geometry here --
+# every named landmark below is derived from this one rectangle.
 WORKSPACE_BOUNDS = {"x_min": 0.35, "x_max": 0.45, "y_min": 0.40, "y_max": 0.60}
 _WORKSPACE_Z = 0.04
 
