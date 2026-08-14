@@ -37,6 +37,10 @@ def _rename_for_second_arm(text: str) -> str:
     text = text.replace('end_effector_frame_fixed_joint', 'panda2_end_effector_frame_fixed_joint')
     text = text.replace('"hand"', '"hand2"')
     text = text.replace('name="virtual_joint"', 'name="virtual_joint2"')
+    # See moveit2.launch.py's identical line for why: panda_gz.urdf.xacro's
+    # <ros2_control name="GazeboSimSystem"> is bare and must be renamed too,
+    # matching panda2/model.sdf's own GazeboSimSystem2.
+    text = text.replace('name="GazeboSimSystem"', 'name="GazeboSimSystem2"')
     text = text.replace('panda_', 'panda2_')
     text = text.replace('robotiq_85_', 'robotiq2_85_')
     return text

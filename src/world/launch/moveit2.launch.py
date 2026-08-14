@@ -28,6 +28,25 @@ def _rename_for_second_arm(text: str) -> str:
     # attribute values in the file).
     text = text.replace('"hand"', '"hand2"')
     text = text.replace('name="virtual_joint"', 'name="virtual_joint2"')
+    # panda_gz.urdf.xacro's <ros2_control name="GazeboSimSystem"> is also
+    # bare (no panda_/robotiq_85_ substring) -- confirmed live as a real
+    # bug, not just a hygiene issue: when both arms' xacro output get
+    # merged into one combined robot_description below, an unrenamed
+    # second copy collides on this exact name, and ros2_control's URDF
+    # parser silently keeps only the LAST-parsed of two same-named
+    # <ros2_control> blocks. Arm 1's own (unnamespaced) controller_manager
+    # subscribes to this combined description's global /robot_description
+    # topic (see the second, panda2-namespaced robot_state_publisher
+    # below, added for a related but distinct reason) and ended up with
+    # arm 2's joints bound under its own hardware component -- confirmed
+    # via `ros2 control list_hardware_components`: component "GazeboSimSystem"
+    # under the unnamespaced /controller_manager listed panda2_joint1..7,
+    # not its own panda_joint1..7, and panda_arm_controller then failed to
+    # activate since its required interfaces were never actually bound.
+    # Renaming this arm's copy to GazeboSimSystem2 makes it match
+    # panda2/model.sdf's own already-correctly-renamed <ros2_control
+    # name="GazeboSimSystem2">, removing the collision entirely.
+    text = text.replace('name="GazeboSimSystem"', 'name="GazeboSimSystem2"')
     text = text.replace('panda_', 'panda2_')
     text = text.replace('robotiq_85_', 'robotiq2_85_')
     return text
