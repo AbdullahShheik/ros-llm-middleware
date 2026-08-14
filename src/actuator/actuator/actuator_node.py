@@ -57,6 +57,25 @@ import numpy as np
 # World -> panda_link0 frame offset — must match ik_feasibility_service.py
 FRAME_OFFSET = {"x": -0.2, "y": 0.0, "z": 0.0}
 
+# This whole module is written against a single arm's constants (ARM_GROUP,
+# BASE_FRAME, etc. below) as plain module-level globals, referenced
+# throughout ~2000 lines of already-heavily-tuned planning/grasp logic.
+# Rather than threading an arm identity through every one of those
+# references (real risk of missing one in code this delicate), a single
+# arm's worth of constants is defined below as before, and
+# configure_for_arm() (bottom of file) reassigns all of them via `global`
+# for the second arm -- called once, at the very top of main(), before
+# ActuatorNode() is ever constructed, so every reference below sees the
+# right values for whichever arm this process instance is. Default values
+# (arm 1) are exactly what this file already used before it supported two
+# arms, so an unparametrized launch is unchanged.
+NODE_NAME = "actuator_node"
+MOVEIT_NODE_NAME = "actuator_moveit_py"
+# robot_type values in /execution_command this instance claims. Arm 1 keeps
+# accepting the pre-dual-arm values ("arm", "robotic_arm") for backward
+# compatibility, plus its own explicit "robotic_arm_1".
+ACCEPTED_ROBOT_TYPES = ('arm', 'robotic_arm', 'robotic_arm_1')
+
 ARM_GROUP  = "panda_arm"
 BASE_FRAME = "panda_link0"
 # NOT panda_link8: the URDF and model.sdf disagree about where that link is
@@ -86,6 +105,11 @@ GRIPPER_TOUCH_LINKS = [
 
 GRIPPER_ACTION = "/robotiq_gripper_controller/gripper_cmd"
 GRIPPER_JOINT_NAME = "robotiq_85_left_knuckle_joint"
+
+# Panda's own reach (0.855m) with the second arm 0.6m away from the first
+# (see panda_world.sdf's panda2 <include><pose>) means either arm can
+# physically reach cubes near the shared workspace between them --
+# nothing here restricts which cubes an arm may be asked to handle.
 
 # Robotiq 2F-85: 0.0 = open, 0.8 = closed. The grasping close is NOT 0.8 --
 # see GRIPPER_POSITION below the grasp-geometry block, which derives it from
@@ -140,8 +164,12 @@ COLLISION_PROXY_SIZE = 0.04
 DETACHABLE_CUBES = ("red_cube", "blue_cube", "green_cube")
 
 
-def _detachable_joint_topics(cube_name: str) -> dict:
-    base = f"/model/{cube_name}/detachable_joint"
+def _detachable_joint_topics(cube_name: str, suffix: str = "") -> dict:
+    # suffix distinguishes each arm's own DetachableJoint plugin per cube
+    # (panda_world.sdf gives every cube one such plugin per arm) -- "" for
+    # arm 1 (unchanged topic names), "2" for arm 2
+    # (/model/<cube>/detachable_joint2/*).
+    base = f"/model/{cube_name}/detachable_joint{suffix}"
     return {"attach": f"{base}/attach", "detach": f"{base}/detach", "state": f"{base}/state"}
 
 
@@ -443,7 +471,7 @@ PLACE_VERIFY_TOLERANCE = 0.005
 
 class ActuatorNode(Node):
     def __init__(self):
-        super().__init__("actuator_node")
+        super().__init__(NODE_NAME)
         self.callback_group = ReentrantCallbackGroup()
 
         self._have_joint_state = False
@@ -582,7 +610,7 @@ class ActuatorNode(Node):
             time.sleep(0.1)
 
         self.get_logger().info("Initializing MoveItPy (this can take a few seconds)...")
-        self.moveit = MoveItPy(node_name="actuator_moveit_py")
+        self.moveit = MoveItPy(node_name=MOVEIT_NODE_NAME)
         self.arm = self.moveit.get_planning_component(ARM_GROUP)
         self._scene_monitor = self.moveit.get_planning_scene_monitor()
 
@@ -1420,7 +1448,7 @@ class ActuatorNode(Node):
         robot_type = cmd.get("robot_type")
         pose       = cmd.get("pose")
 
-        if robot_type not in ('arm', 'robotic_arm'):
+        if robot_type not in ACCEPTED_ROBOT_TYPES:
             return
 
         if not pose:
@@ -1998,7 +2026,58 @@ class ActuatorNode(Node):
         self.get_logger().info(f"[{task_id}] {status} @ {stage}: {detail}")
 
 
+def configure_for_arm(arm_id: str) -> None:
+    """Reassigns every constant this module hardcodes for a single arm to
+    the second arm's equivalents -- see the comment above NODE_NAME for
+    why this is a wholesale `global` reassignment rather than threading an
+    arm identity through ~2000 lines of already-tuned logic. Call once, at
+    the very top of main(), before ActuatorNode() is constructed. arm_id
+    "1" (or anything else) leaves every default as-is; only "2" changes
+    anything, so an unparametrized launch is unaffected."""
+    if arm_id != "2":
+        return
+
+    global NODE_NAME, MOVEIT_NODE_NAME, ACCEPTED_ROBOT_TYPES
+    global FRAME_OFFSET, ARM_GROUP, BASE_FRAME, EEF_LINK, GRIPPER_BASE_LINK
+    global GRIPPER_TOUCH_LINKS, GRIPPER_ACTION, GRIPPER_JOINT_NAME
+    global DETACHABLE_JOINT_TOPICS, ARM_CONTROLLER_NAME, LIST_CONTROLLERS_SERVICE
+
+    NODE_NAME = "actuator_node2"
+    MOVEIT_NODE_NAME = "actuator_moveit_py2"
+    ACCEPTED_ROBOT_TYPES = ('robotic_arm_2',)
+
+    # panda2 spawns at (0.2, 0.6, 0) in panda_world.sdf -- same reasoning
+    # as arm 1's own FRAME_OFFSET (the negative of where this arm's
+    # MoveIt-frame origin, panda2_link0, actually sits in Gazebo's world).
+    FRAME_OFFSET = {"x": -0.2, "y": -0.6, "z": 0.0}
+    ARM_GROUP = "panda2_arm"
+    BASE_FRAME = "panda2_link0"
+    EEF_LINK = "robotiq2_85_base_link"
+    GRIPPER_BASE_LINK = "robotiq2_85_base_link"
+    GRIPPER_TOUCH_LINKS = [
+        name.replace("panda_", "panda2_").replace("robotiq_85_", "robotiq2_85_")
+        for name in GRIPPER_TOUCH_LINKS
+    ]
+    # Namespaced under /panda2 (see panda2/model.sdf's <ros><namespace>
+    # block and panda2_ros2_controllers.yaml's controller names).
+    GRIPPER_ACTION = "/panda2/robotiq2_gripper_controller/gripper_cmd"
+    GRIPPER_JOINT_NAME = "robotiq2_85_left_knuckle_joint"
+    DETACHABLE_JOINT_TOPICS = {
+        name: _detachable_joint_topics(name, suffix="2") for name in DETACHABLE_CUBES
+    }
+    ARM_CONTROLLER_NAME = "panda2_arm_controller"
+    LIST_CONTROLLERS_SERVICE = "/panda2/controller_manager/list_controllers"
+
+
 def main(args=None):
+    # Which arm this process instance controls -- set via the
+    # ACTUATOR_ARM_ID environment variable (world.launch.py's two actuator
+    # Node entries set it differently per instance via additional_env).
+    # Read before rclpy.init()/ActuatorNode() since it determines this
+    # node's own name, not just a parameter read after construction.
+    import os
+    configure_for_arm(os.environ.get("ACTUATOR_ARM_ID", "1"))
+
     rclpy.init(args=args)
     node = ActuatorNode()
     executor = MultiThreadedExecutor()
