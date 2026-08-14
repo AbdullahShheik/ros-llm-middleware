@@ -164,6 +164,42 @@ def generate_launch_description():
             output='screen'
         ),
 
+        # A SECOND robot_state_publisher, namespaced under panda2, publishing
+        # arm 2's own (un-combined) URDF to /panda2/robot_description. This
+        # is not about TF or MoveIt -- it's what arm 2's gz_ros2_control
+        # controller_manager needs: its SDF plugin config namespaces that
+        # node under /panda2 (see panda2/model.sdf's <ros><namespace>),
+        # which namespaces the topic it waits on for its own robot model too
+        # (relative topic "robot_description" -> /panda2/robot_description).
+        # Confirmed live: without this, arm 2's controller_manager logged
+        # "Waiting for data on 'robot_description' topic to finish
+        # initialization" forever and never loaded any controller. The
+        # combined robot_description above is unnamespaced and therefore
+        # invisible to it.
+        #
+        # Side effect worth knowing about: this node also subscribes to
+        # /panda2/joint_states (relative "joint_states" under this
+        # namespace) and publishes panda2's live-updating TF under
+        # /panda2/tf, separate from the global /tf tree the combined
+        # publisher above emits (which includes panda2's links too, but
+        # frozen at their URDF defaults there, since that one only listens
+        # on the unnamespaced /joint_states -- arm 1's topic). Harmless
+        # today: nothing reads panda2's pose via global TF -- actuator_node.py
+        # gets it from its own MoveItPy state (fed by JOINT_STATES_TOPIC),
+        # and ik_feasibility_service.py (this file's one move_group
+        # consumer) only ever queries the panda_arm group.
+        Node(
+            package='robot_state_publisher',
+            executable='robot_state_publisher',
+            name='robot_state_publisher_arm2',
+            namespace='panda2',
+            parameters=[
+                {'robot_description': robot_description_arm2},
+                {'use_sim_time': True}
+            ],
+            output='screen'
+        ),
+
         # Static transform world -> panda_link0: identity, unchanged from
         # before this file supported two arms. MoveIt's "world" frame is
         # defined to coincide with panda_link0 (not Gazebo's true world

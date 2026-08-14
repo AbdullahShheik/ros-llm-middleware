@@ -77,6 +77,16 @@ MOVEIT_NODE_NAME = "actuator_moveit_py"
 # compatibility, plus its own explicit "robotic_arm_1".
 ACCEPTED_ROBOT_TYPES = ('arm', 'robotic_arm', 'robotic_arm_1')
 
+# gz_ros2_control's controller_manager for arm 2 is namespaced (SDF's
+# <ros><namespace>panda2</namespace>), which namespaces every topic its own
+# controllers publish too -- confirmed live: arm 2's controller_manager sat
+# forever on "Waiting for data on 'robot_description' topic" for the same
+# reason (see moveit2.launch.py's second robot_state_publisher, which fixes
+# that separate instance of this same issue). Arm 1's default /joint_states
+# is arm 1's own joint_state_broadcaster's topic, not a global bus both arms
+# publish to -- arm 2's is /panda2/joint_states.
+JOINT_STATES_TOPIC = "/joint_states"
+
 ARM_GROUP  = "panda_arm"
 BASE_FRAME = "panda_link0"
 # NOT panda_link8: the URDF and model.sdf disagree about where that link is
@@ -537,7 +547,7 @@ class ActuatorNode(Node):
         # Joint state readiness gate
         self.create_subscription(
             JointState,
-            "/joint_states",
+            JOINT_STATES_TOPIC,
             self._joint_state_callback,
             10,
             callback_group=self.callback_group,
@@ -2163,7 +2173,7 @@ def configure_for_arm(arm_id: str) -> None:
     if arm_id != "2":
         return
 
-    global NODE_NAME, MOVEIT_NODE_NAME, ACCEPTED_ROBOT_TYPES
+    global NODE_NAME, MOVEIT_NODE_NAME, ACCEPTED_ROBOT_TYPES, JOINT_STATES_TOPIC
     global FRAME_OFFSET, ARM_GROUP, BASE_FRAME, EEF_LINK, GRIPPER_BASE_LINK
     global GRIPPER_TOUCH_LINKS, GRIPPER_ACTION, GRIPPER_JOINT_NAME
     global DETACHABLE_JOINT_TOPICS, ARM_CONTROLLER_NAME, LIST_CONTROLLERS_SERVICE
@@ -2171,6 +2181,7 @@ def configure_for_arm(arm_id: str) -> None:
     NODE_NAME = "actuator_node2"
     MOVEIT_NODE_NAME = "actuator_moveit_py2"
     ACCEPTED_ROBOT_TYPES = ('robotic_arm_2',)
+    JOINT_STATES_TOPIC = "/panda2/joint_states"
 
     # panda2 spawns at (0.2, 0.6, 0) in panda_world.sdf -- same reasoning
     # as arm 1's own FRAME_OFFSET (the negative of where this arm's

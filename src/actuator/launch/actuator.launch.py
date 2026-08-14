@@ -127,6 +127,17 @@ def _generate(context, *args, **kwargs):
         moveit_config['ompl']['panda2_arm'] = {
             'planner_configs': list(moveit_config['ompl']['panda_arm']['planner_configs'])
         }
+        # moveit_cpp.yaml's default joint_state_topic ("/joint_states") is
+        # arm 1's own joint_state_broadcaster's topic -- gz_ros2_control's
+        # namespaced controller_manager for arm 2 (SDF's
+        # <ros><namespace>panda2</namespace>) publishes its joint states to
+        # /panda2/joint_states instead, so MoveItPy's planning scene monitor
+        # has to be pointed there or it never sees a real joint state and
+        # refuses to plan (same reasoning as actuator_node.py's own
+        # JOINT_STATES_TOPIC, a separate subscription in the same process).
+        moveit_config['planning_scene_monitor_options']['joint_state_topic'] = (
+            '/panda2/joint_states'
+        )
 
     controllers_config = load_yaml_file(custom_moveit_controllers)
 
