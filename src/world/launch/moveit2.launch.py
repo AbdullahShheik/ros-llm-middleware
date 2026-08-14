@@ -113,15 +113,12 @@ def generate_launch_description():
     # confirmed live ("Failed to find root link: Two root links found:
     # [panda2_link0] and [panda_link0]", both robot_state_publisher and
     # move_group crash on startup). A fixed joint below welds panda2_link0
-    # under panda_link0 at their true relative offset (0, 0.6, 0) -- same
-    # number as the world->panda2_link0 TF transform this file used to
-    # publish separately; that static_transform_publisher is removed below
-    # since robot_state_publisher now derives (and publishes) that same
-    # transform from this joint instead.
+    # under panda_link0 at their true relative offset (0, 1.0, 0) -- must
+    # match panda_world.sdf's panda2 spawn offset exactly.
     mount_joint = (
         '<joint name="panda2_mount_joint" type="fixed">'
         '<parent link="panda_link0"/><child link="panda2_link0"/>'
-        '<origin xyz="0 0.6 0" rpy="0 0 0"/>'
+        '<origin xyz="0 1.0 0" rpy="0 0 0"/>'
         '</joint>'
     )
 
@@ -236,7 +233,7 @@ def generate_launch_description():
         # No separate panda_link0 -> panda2_link0 static transform here:
         # robot_state_publisher now derives and publishes that transform
         # itself from robot_description's panda2_mount_joint above (same
-        # 0.6m Y offset, matching panda2's true spawn offset from panda in
+        # 1.0m Y offset, matching panda2's true spawn offset from panda in
         # panda_world.sdf). A second broadcaster of the same frame would
         # just be a redundant, conflicting publisher.
 

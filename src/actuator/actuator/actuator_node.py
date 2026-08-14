@@ -117,7 +117,7 @@ GRIPPER_TOUCH_LINKS = [
 GRIPPER_ACTION = "/robotiq_gripper_controller/gripper_cmd"
 GRIPPER_JOINT_NAME = "robotiq_85_left_knuckle_joint"
 
-# Panda's own reach (0.855m) with the second arm 0.6m away from the first
+# Panda's own reach (0.855m) with the second arm 1.0m away from the first
 # (see panda_world.sdf's panda2 <include><pose>) means either arm can
 # physically reach cubes near the shared workspace between them --
 # nothing here restricts which cubes an arm may be asked to handle.
@@ -479,17 +479,23 @@ PLACE_VERIFY_SETTLE_SEC = 0.3
 # a millimetre of settle.
 PLACE_VERIFY_TOLERANCE = 0.005
 
-# Region both arms' cube-placement workspace rectangles genuinely overlap --
-# the intersection of arm1's WORKSPACE_BOUNDS (spatial_placement.py,
-# x:[0.35,0.75] y:[-0.35,0.35] around its base at world (0.2,0,0)) with the
-# same rectangle shifted by arm2's 0.6m Y spawn offset (world (0.2,0.6,0)),
-# i.e. y:[0.25,0.95]. Only this narrow overlap band needs mutual exclusion --
-# everywhere else in either arm's workspace, the two arms can move fully
-# concurrently with no lock, since their reachable spaces don't overlap
-# there. Same for both arm process instances (world-frame absolute
-# coordinates), so this is not part of configure_for_arm()'s per-arm
-# reassignment.
-SHARED_ZONE_BOUNDS = {"x_min": 0.35, "x_max": 0.75, "y_min": 0.25, "y_max": 0.35}
+# Region both arms can genuinely reach, needing mutual exclusion. NOT
+# derived from arm1's WORKSPACE_BOUNDS (spatial_placement.py, x:[0.35,0.75]
+# y:[-0.35,0.35] around its base at world (0.2,0,0)) overlapping the same
+# rectangle shifted by arm2's spawn offset (world (0.2,1.0,0), see
+# panda_world.sdf) -- at a 1.0m gap those two rectangles (each only
+# +-0.35m in Y from its own base) don't overlap at all (arm1's tops out at
+# y=0.35, arm2's starts at y=0.65). Chosen independently instead, centered
+# on the pickup_point's own Y (0.5, the midpoint between the two bases --
+# see attach_detach_node.py's PICKUP_POINT_X/Y): the farthest corner,
+# (0.65, 0.60), is ~0.75m from either base, comfortably inside the Panda's
+# ~0.855m reach (about the same margin WORKSPACE_BOUNDS's own farthest
+# corner keeps from arm1's base). Everywhere else in either arm's
+# workspace, the two arms can move fully concurrently with no lock, since
+# their reachable spaces don't overlap there. Same for both arm process
+# instances (world-frame absolute coordinates), so this is not part of
+# configure_for_arm()'s per-arm reassignment.
+SHARED_ZONE_BOUNDS = {"x_min": 0.35, "x_max": 0.65, "y_min": 0.40, "y_max": 0.60}
 
 # Arm workspace lock service names -- see arm_workspace_lock_node.py. Client
 # timeout is longer than the server's own ACQUIRE_TIMEOUT_S (60s) so a
@@ -2183,10 +2189,10 @@ def configure_for_arm(arm_id: str) -> None:
     ACCEPTED_ROBOT_TYPES = ('robotic_arm_2',)
     JOINT_STATES_TOPIC = "/panda2/joint_states"
 
-    # panda2 spawns at (0.2, 0.6, 0) in panda_world.sdf -- same reasoning
+    # panda2 spawns at (0.2, 1.0, 0) in panda_world.sdf -- same reasoning
     # as arm 1's own FRAME_OFFSET (the negative of where this arm's
     # MoveIt-frame origin, panda2_link0, actually sits in Gazebo's world).
-    FRAME_OFFSET = {"x": -0.2, "y": -0.6, "z": 0.0}
+    FRAME_OFFSET = {"x": -0.2, "y": -1.0, "z": 0.0}
     ARM_GROUP = "panda2_arm"
     BASE_FRAME = "panda2_link0"
     EEF_LINK = "robotiq2_85_base_link"
