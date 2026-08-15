@@ -58,6 +58,44 @@ import numpy as np
 # World -> panda_link0 frame offset — must match ik_feasibility_service.py
 FRAME_OFFSET = {"x": -0.2, "y": 0.0, "z": 0.0}
 
+# This arm's mounting yaw (radians, about world Z) relative to world axes.
+# 0 for arm 1 (spawned axis-aligned with world, see panda_world.sdf). Arm
+# 2 is spawned rotated -90deg to face arm 1 instead of the same +X
+# direction (see panda_world.sdf's panda2 <include><pose> for why) --
+# configure_for_arm() reassigns this to that same -90deg for arm 2, and
+# every world<->BASE_FRAME conversion below goes through
+# _world_to_base()/_base_to_world() instead of a bare FRAME_OFFSET add so
+# it stays correct for a rotated base, not just a translated one.
+BASE_YAW = 0.0
+
+
+def _world_to_base(x: float, y: float, z: float):
+    """World-frame (Gazebo) point -> this arm's BASE_FRAME-local point.
+    Reduces to the plain FRAME_OFFSET translation the single-arm system
+    always used when BASE_YAW is 0 (arm 1); applies the arm's mounting
+    rotation too when it isn't (arm 2)."""
+    dx = x + FRAME_OFFSET["x"]
+    dy = y + FRAME_OFFSET["y"]
+    c, s = math.cos(BASE_YAW), math.sin(BASE_YAW)
+    return (dx * c + dy * s, -dx * s + dy * c, z + FRAME_OFFSET["z"])
+
+
+def _base_to_world(x: float, y: float, z: float):
+    """Inverse of _world_to_base."""
+    c, s = math.cos(BASE_YAW), math.sin(BASE_YAW)
+    wx, wy = x * c - y * s, x * s + y * c
+    return (wx - FRAME_OFFSET["x"], wy - FRAME_OFFSET["y"], z - FRAME_OFFSET["z"])
+
+
+def _base_yaw_rotation_matrix():
+    """3x3 rotation-about-Z matrix for BASE_YAW, used to compose a
+    BASE_FRAME-local orientation (e.g. from MoveIt's own FK, which has no
+    notion of this arm's Gazebo spawn rotation) into the true world-frame
+    orientation needed for a Gazebo SetPose call. Identity when BASE_YAW
+    is 0 (arm 1), so this is a no-op there -- only arm 2 needs it."""
+    c, s = math.cos(BASE_YAW), math.sin(BASE_YAW)
+    return np.array([[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]])
+
 # This whole module is written against a single arm's constants (ARM_GROUP,
 # BASE_FRAME, etc. below) as plain module-level globals, referenced
 # throughout ~2000 lines of already-heavily-tuned planning/grasp logic.
@@ -479,23 +517,21 @@ PLACE_VERIFY_SETTLE_SEC = 0.3
 # a millimetre of settle.
 PLACE_VERIFY_TOLERANCE = 0.005
 
-# Region both arms can genuinely reach, needing mutual exclusion. NOT
-# derived from arm1's WORKSPACE_BOUNDS (spatial_placement.py, x:[0.35,0.75]
-# y:[-0.35,0.35] around its base at world (0.2,0,0)) overlapping the same
-# rectangle shifted by arm2's spawn offset (world (0.2,1.0,0), see
-# panda_world.sdf) -- at a 1.0m gap those two rectangles (each only
-# +-0.35m in Y from its own base) don't overlap at all (arm1's tops out at
-# y=0.35, arm2's starts at y=0.65). Chosen independently instead, centered
-# on the pickup_point's own Y (0.5, the midpoint between the two bases --
-# see attach_detach_node.py's PICKUP_POINT_X/Y): the farthest corner,
-# (0.65, 0.60), is ~0.75m from either base, comfortably inside the Panda's
-# ~0.855m reach (about the same margin WORKSPACE_BOUNDS's own farthest
-# corner keeps from arm1's base). Everywhere else in either arm's
-# workspace, the two arms can move fully concurrently with no lock, since
-# their reachable spaces don't overlap there. Same for both arm process
-# instances (world-frame absolute coordinates), so this is not part of
-# configure_for_arm()'s per-arm reassignment.
-SHARED_ZONE_BOUNDS = {"x_min": 0.35, "x_max": 0.65, "y_min": 0.40, "y_max": 0.60}
+# Region both arms can genuinely reach, needing mutual exclusion. A
+# bounding box around the two actual shared regions both arms use --
+# spatial_placement.py's WORKSPACE_BOUNDS (x:[0.25,0.35] y:[0.28,0.38],
+# the shared build/landmark area) and the shared pickup_point (0.62, 0.42,
+# see attach_detach_node.py's PICKUP_POINT_X/Y), padded ~0.05m around the
+# point -- rather than one simple rectangle derived from a formula, since
+# panda2 is rotated -90deg to face panda (see panda_world.sdf and
+# BASE_YAW below) and the two shared regions no longer sit on one clean
+# line the way they did when both arms faced the same direction.
+# Everywhere else in either arm's workspace, the two arms can move fully
+# concurrently with no lock, since their reachable spaces don't overlap
+# there. Same for both arm process instances (world-frame absolute
+# coordinates), so this is not part of configure_for_arm()'s per-arm
+# reassignment.
+SHARED_ZONE_BOUNDS = {"x_min": 0.25, "x_max": 0.67, "y_min": 0.28, "y_max": 0.47}
 
 # Arm workspace lock service names -- see arm_workspace_lock_node.py. Client
 # timeout is longer than the server's own ACQUIRE_TIMEOUT_S (60s) so a
@@ -957,9 +993,9 @@ class ActuatorNode(Node):
 
     def _object_pose_stamped(self, pose: dict) -> Pose:
         p = Pose()
-        p.position.x = pose["x"] + FRAME_OFFSET["x"]
-        p.position.y = pose["y"] + FRAME_OFFSET["y"]
-        p.position.z = pose["z"] + FRAME_OFFSET["z"]
+        p.position.x, p.position.y, p.position.z = _world_to_base(
+            pose["x"], pose["y"], pose["z"]
+        )
         p.orientation.w = 1.0
         return p
 
@@ -1027,9 +1063,7 @@ class ActuatorNode(Node):
             return
         cube = self._gz_pose_of(name)
         g = self._gripper_transform(wait=False)[:3, 3]
-        gw = (float(g[0]) - FRAME_OFFSET["x"],
-              float(g[1]) - FRAME_OFFSET["y"],
-              float(g[2]) - FRAME_OFFSET["z"])
+        gw = _base_to_world(float(g[0]), float(g[1]), float(g[2]))
         with self._object_map_lock:
             om = self._object_map.get(name)
         bits = [f"[GRASP_DEBUG] {name:11s} {tag:<16s} t=+{(time.monotonic()-t0)*1000.0:8.1f}ms"]
@@ -1115,15 +1149,18 @@ class ActuatorNode(Node):
         grasp = origin + rot @ np.asarray(GRASP_OFFSET_IN_GRIPPER)
 
         # BASE_FRAME -> world is the inverse of the world -> BASE_FRAME shift
-        # every other pose in this node goes through (_object_pose_stamped);
-        # the panda is placed axis-aligned in panda_world.sdf, so it is a pure
-        # translation with no rotation to undo.
-        world = {
-            "x": float(grasp[0]) - FRAME_OFFSET["x"],
-            "y": float(grasp[1]) - FRAME_OFFSET["y"],
-            "z": float(grasp[2]) - FRAME_OFFSET["z"],
-        }
-        quat = self._quat_from_matrix(rot)
+        # every other pose in this node goes through (_object_pose_stamped),
+        # via _base_to_world -- a pure translation for arm 1 (axis-aligned
+        # spawn), a real rotation to undo for arm 2 (spawned facing arm 1
+        # instead of world +X, see BASE_YAW). `rot` itself is MoveIt's own
+        # FK, entirely local to this arm's kinematic tree -- it has no idea
+        # about the Gazebo spawn rotation at all -- so it must be composed
+        # with that same rotation too, or a rotated arm's grasp would
+        # teleport the object with the wrong WORLD orientation even though
+        # the position were correct.
+        gx, gy, gz = _base_to_world(float(grasp[0]), float(grasp[1]), float(grasp[2]))
+        world = {"x": gx, "y": gy, "z": gz}
+        quat = self._quat_from_matrix(_base_yaw_rotation_matrix() @ rot)
 
         self._grasp_dbg_t0 = time.monotonic()
         self._grasp_dbg_target = world
@@ -1904,24 +1941,31 @@ class ActuatorNode(Node):
     def _target_pose_stamped(self, pose: dict) -> PoseStamped:
         target = PoseStamped()
         target.header.frame_id = BASE_FRAME
-        # No X/Y correction needed: the fingertip pads are symmetric about
-        # EEF_LINK's own x=0/y=0 (see GRASP_OFFSET_IN_GRIPPER's derivation --
-        # the pads meet exactly on the centreline), so EEF_LINK's X/Y is
-        # already the grasp centre at this orientation.
-        target.pose.position.x = pose["x"] + FRAME_OFFSET["x"]
-        target.pose.position.y = pose["y"] + FRAME_OFFSET["y"]
+        # No X/Y correction needed beyond the frame conversion itself: the
+        # fingertip pads are symmetric about EEF_LINK's own x=0/y=0 (see
+        # GRASP_OFFSET_IN_GRIPPER's derivation -- the pads meet exactly on
+        # the centreline), so EEF_LINK's X/Y is already the grasp centre
+        # at this orientation.
+        #
         # EEF_LINK (robotiq_85_base_link, what MoveIt actually plans to) sits
         # EEF_TO_GRASP_Z above the fingertip pads' contact patch at this fixed
         # grasp orientation, so commanding it to "pose[z]" alone would leave
         # the pads that far above the target. See EEF_TO_GRASP_Z for the full
         # derivation from model.sdf plus the fingertip collision mesh.
-        target.pose.position.z = pose["z"] + FRAME_OFFSET["z"] + EEF_TO_GRASP_Z
-        # Point gripper straight down: pure 180deg about X, no yaw twist.
-        # The cube collision boxes in panda_world.sdf are axis-aligned with
-        # no rotation, so closing the gripper along a world-axis-aligned
-        # line (rather than the previous ~45deg-yawed line) lets the
-        # fingers close flush against opposite faces instead of catching
-        # them at an angle and sliding/pushing the object.
+        bx, by, bz = _world_to_base(pose["x"], pose["y"], pose["z"] + EEF_TO_GRASP_Z)
+        target.pose.position.x = bx
+        target.pose.position.y = by
+        target.pose.position.z = bz
+        # Point gripper straight down: pure 180deg about X, no yaw twist,
+        # expressed in BASE_FRAME's OWN local axes -- MoveIt's planning is
+        # entirely local to this arm's kinematic tree (it has no notion of
+        # this arm's Gazebo spawn rotation at all, see BASE_YAW), so this
+        # needs no rotation correction for arm 2, unlike position above.
+        # The cube collision boxes in panda_world.sdf are axis-aligned in
+        # WORLD frame; for arm 2 this orientation closes the pads along
+        # world Y instead of world X (a consequence of its -90deg spawn
+        # rotation), but that is still one of the cube's two axis-aligned
+        # face pairs -- harmless for a symmetric cube, not a diagonal grip.
         target.pose.orientation.x = 1.0
         target.pose.orientation.y = 0.0
         target.pose.orientation.z = 0.0
@@ -2180,7 +2224,7 @@ def configure_for_arm(arm_id: str) -> None:
         return
 
     global NODE_NAME, MOVEIT_NODE_NAME, ACCEPTED_ROBOT_TYPES, JOINT_STATES_TOPIC
-    global FRAME_OFFSET, ARM_GROUP, BASE_FRAME, EEF_LINK, GRIPPER_BASE_LINK
+    global FRAME_OFFSET, BASE_YAW, ARM_GROUP, BASE_FRAME, EEF_LINK, GRIPPER_BASE_LINK
     global GRIPPER_TOUCH_LINKS, GRIPPER_ACTION, GRIPPER_JOINT_NAME
     global DETACHABLE_JOINT_TOPICS, ARM_CONTROLLER_NAME, LIST_CONTROLLERS_SERVICE
 
@@ -2189,10 +2233,15 @@ def configure_for_arm(arm_id: str) -> None:
     ACCEPTED_ROBOT_TYPES = ('robotic_arm_2',)
     JOINT_STATES_TOPIC = "/panda2/joint_states"
 
-    # panda2 spawns at (0.2, 1.0, 0) in panda_world.sdf -- same reasoning
-    # as arm 1's own FRAME_OFFSET (the negative of where this arm's
-    # MoveIt-frame origin, panda2_link0, actually sits in Gazebo's world).
+    # panda2 spawns at (0.2, 1.0, 0), rotated -90deg (yaw) to face arm 1
+    # instead of the same +X direction arm 1 faces -- see panda_world.sdf's
+    # panda2 <include><pose> for why. FRAME_OFFSET is still just the
+    # negative of where this arm's MoveIt-frame origin (panda2_link0)
+    # sits in Gazebo's world (same reasoning as arm 1's); BASE_YAW is the
+    # new piece, carrying the rotation that FRAME_OFFSET alone can't
+    # represent -- see _world_to_base/_base_to_world.
     FRAME_OFFSET = {"x": -0.2, "y": -1.0, "z": 0.0}
+    BASE_YAW = -math.pi / 2
     ARM_GROUP = "panda2_arm"
     BASE_FRAME = "panda2_link0"
     EEF_LINK = "robotiq2_85_base_link"

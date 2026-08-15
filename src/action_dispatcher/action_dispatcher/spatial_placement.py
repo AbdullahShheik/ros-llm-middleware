@@ -16,20 +16,26 @@ import math
 # gripper. The unit "1" in `distance` always means this many meters.
 DEFAULT_SPACING_M = 0.12
 
-# Centered in the SHARED region between the two arm bases (panda at
-# (0.2,0,0), panda2 at (0.2,1.0,0) -- y=0.5 is the midpoint), not just
-# arm1's own reach as this box used to be. Confirmed live as a real bug,
-# not just a leftover: "landmark: center" (the default anchor most
-# multi-object arrangements start from) resolved to a point in front of
-# arm1 alone, so a two-arm build never actually happened in the space
-# between the arms the way the feature was meant to work. Every corner
-# stays within ~76% of the Panda's ~0.855m reach from EITHER base (roughly
-# the same margin the single-arm version of this box kept from arm1's own
-# base), and the whole box sits well clear of pickup_point (0.62, 0.5, see
+# Centered in the SHARED region both arm bases can reach, not just arm1's
+# own reach as this box used to be. Confirmed live as a real bug, not just
+# a leftover: "landmark: center" (the default anchor most multi-object
+# arrangements start from) resolved to a point in front of arm1 alone, so
+# a two-arm build never actually happened in the space between the arms
+# the way the feature was meant to work.
+#
+# panda2 is rotated -90deg to face panda (see panda_world.sdf and
+# actuator_node.py's BASE_YAW), so "shared" here means low LATERAL offset
+# for BOTH arms under their own (different) local axes, not a simple
+# midpoint in world Y -- three earlier attempts at a plain world-Y midpoint
+# all failed at the same lateral-reach dead zone (see
+# attach_detach_node.py's PICKUP_POINT_X/Y for the full story). Every
+# corner keeps each arm's own lateral offset under ~0.4m and total reach
+# under 85% of the Panda's ~0.855m nominal max (arm1 33-48%, arm2 73-86%),
+# and the whole box sits well clear of pickup_point (0.62, 0.42, see
 # attach_detach_node.py's PICKUP_POINT_X/Y) so a cube waiting to be picked
 # up doesn't overlap one already placed. The only hardcoded geometry here --
 # every named landmark below is derived from this one rectangle.
-WORKSPACE_BOUNDS = {"x_min": 0.35, "x_max": 0.45, "y_min": 0.40, "y_max": 0.60}
+WORKSPACE_BOUNDS = {"x_min": 0.25, "x_max": 0.35, "y_min": 0.28, "y_max": 0.38}
 _WORKSPACE_Z = 0.04
 
 # Horizontal directions offset x/y in the workspace plane; `above`/`below`

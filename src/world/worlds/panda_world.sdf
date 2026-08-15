@@ -171,21 +171,27 @@
 
     <!-- Second arm, side by side with the first along Y. 0.6m was tried
          first and confirmed live to be too tight (bodies nearly touching
-         at rest). 1.0m clears both arms' bases with real margin. The
-         shared pickup_point sits at (0.62, 0.5): both arms' obstacle
-         footprints are merged into one block in build_map.py (a 0.10m gap
-         between two separate squares was not navigable), sized off the
-         Panda's real ~0.23m base (measured from link0.stl's collision
-         mesh) so its edge leaves enough room for the mobile robot to
-         clear it AND for the pickup point to stay comfortably within arm
-         reach across a full pick, not just the initial descend. See
-         attach_detach_node.py's PICKUP_POINT_X/Y for the full margin
-         reasoning. See actuator_node.py's SHARED_ZONE_BOUNDS for the
-         analogous shared-placement-region recomputation. -->
+         at rest). 1.0m clears both arms' bases with real margin.
+
+         panda2 is rotated -90deg (yaw) so it FACES panda, instead of
+         facing the same +X direction panda does. Confirmed live, three
+         times over, that a shared point at a large lateral (Y) offset
+         from an unrotated arm's own centerline reliably fails partway
+         through a pick (retreat, specifically: "no valid states for
+         goal tree", an orientation/joint-limit dead zone, not a distance
+         problem; descend-and-grasp at the SAME point always succeeded).
+         Rotating panda2 to face panda turns what was a lateral reach for
+         BOTH arms into something much closer to each arm's own proven,
+         reliable straight-ahead reach for at least one axis of the
+         shared point. See actuator_node.py's BASE_YAW/_world_to_base for
+         the matching frame-conversion change this requires, and
+         moveit2.launch.py's panda2_mount_joint, which must carry the
+         identical rotation for the combined planning scene
+         (ik_feasibility_service.py's one consumer) to agree with it. -->
     <include>
       <name>panda2</name>
       <uri>model://panda2</uri>
-      <pose>0.2 1.0 0 0 0 0</pose>
+      <pose>0.2 1.0 0 0 0 -1.5707963</pose>
     </include>
 
     <model name="red_cube">
@@ -589,7 +595,7 @@
 
     <model name="pickup_point">
       <static>true</static>
-      <pose>0.62 0.5 0.006 0 0 0</pose>
+      <pose>0.62 0.42 0.006 0 0 0</pose>
       <link name="link">
         <visual name="visual">
           <geometry><box><size>0.2 0.2 0.01</size></box></geometry>

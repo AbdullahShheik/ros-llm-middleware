@@ -26,19 +26,26 @@ CUBE_ATTACH_Z = 0.15
 # nav2_params.yaml) or Nav2 will never accept "handoff_point" as a valid,
 # reachable goal at all.
 #
-# 0.70 (the value tried before this) cleared Nav2 fine but was still only
-# ~83% of nominal arm reach -- confirmed live to be enough for the initial
-# pick (descend + grasp both succeeded), but not enough for the RETREAT
-# phase right after: "Unable to sample any valid states for goal tree"
-# lifting straight up from there, with the object now rigidly attached.
-# 0.62 clears the (now smaller) block edge by 0.245m and brings arm reach
-# back to ~76%, matching the margin the original single-arm WORKSPACE_BOUNDS
-# box was tuned to and reliably worked at across a full pick (not just the
-# initial reach) -- the earlier fixes narrowed the OBSTACLE assumption
-# faster than they widened the actual usable margin, this both loosens the
-# obstacle further (build_map.py) and pulls the point back in to compensate.
+# Three X values were tried at y=0.5 before this (0.7, 0.55, 0.62) -- all
+# cleared Nav2 fine, and the initial descend-and-grasp always succeeded at
+# all three, but the RETREAT phase right after (lifting straight up with
+# the object now rigidly attached) failed every single time, at the same
+# height, with the same error ("Unable to sample any valid states for goal
+# tree"). That ruled out X/distance as the actual variable -- the common
+# factor was y=0.5 itself: a 0.5m LATERAL offset from an unrotated arm's
+# own centerline, combined with the fixed straight-down grasp orientation,
+# hitting a real joint-limit dead zone panda_joint4's restricted range
+# creates for sideways reach specifically (not for forward reach, which is
+# what the whole single-arm system was ever proven at). panda2 is now
+# rotated -90deg to face panda instead of the same +X direction (see
+# panda_world.sdf) precisely so this point doesn't need to be a lateral
+# reach for either arm: (0.62, 0.42) puts arm 1 at a ~0.42m lateral offset
+# (down from 0.5) and arm 2, thanks to the rotation, at that same ~0.42m
+# offset along its OWN now-different lateral axis -- both comfortably
+# under 85% of nominal reach (arm1 ~70%, arm2 ~84%), and neither one at
+# the exact value that failed three times running.
 PICKUP_POINT_X = 0.62
-PICKUP_POINT_Y = 0.5
+PICKUP_POINT_Y = 0.42
 CUBE_PICKUP_Z  = 0.04
 
 # How close another cube has to be sitting to the pickup point to count as

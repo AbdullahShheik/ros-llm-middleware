@@ -113,12 +113,15 @@ def generate_launch_description():
     # confirmed live ("Failed to find root link: Two root links found:
     # [panda2_link0] and [panda_link0]", both robot_state_publisher and
     # move_group crash on startup). A fixed joint below welds panda2_link0
-    # under panda_link0 at their true relative offset (0, 1.0, 0) -- must
-    # match panda_world.sdf's panda2 spawn offset exactly.
+    # under panda_link0 at their true relative pose -- must match
+    # panda_world.sdf's panda2 spawn pose exactly, INCLUDING its -90deg yaw
+    # (panda2 faces panda rather than the same +X direction panda does --
+    # see that file's comment for why), or this combined scene would
+    # disagree with the real Gazebo geometry it's meant to describe.
     mount_joint = (
         '<joint name="panda2_mount_joint" type="fixed">'
         '<parent link="panda_link0"/><child link="panda2_link0"/>'
-        '<origin xyz="0 1.0 0" rpy="0 0 0"/>'
+        '<origin xyz="0 1.0 0" rpy="0 0 -1.5707963"/>'
         '</joint>'
     )
 
