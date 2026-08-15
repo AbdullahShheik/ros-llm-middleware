@@ -12,16 +12,16 @@ from geometry_msgs.msg import PoseStamped
 from ros_llm_interfaces.srv import CheckIKFeasibility
 import json
 
-# World -> panda_link0 frame conversion. Both arms are rotated 45deg
-# inward (mirrored, see panda_world.sdf), so panda_link0 itself is no
-# longer axis-aligned with world -- must match actuator_node.py's
+# World -> panda_link0 frame conversion. Both arms are rotated inward
+# (mirrored, see panda_world.sdf for why 50deg), so panda_link0 itself is
+# no longer axis-aligned with world -- must match actuator_node.py's
 # FRAME_OFFSET/BASE_YAW for arm 1 exactly (both groups this service can
 # check are resolved through the SAME panda_link0 root frame, since
 # panda2_link0 is mounted as a child of it in the combined scene -- see
 # moveit2.launch.py's panda2_mount_joint -- so only arm 1's own rotation
 # matters here, not arm 2's separately).
 FRAME_OFFSET = {"x": -0.2, "y": 0.0}
-BASE_YAW = math.pi / 4
+BASE_YAW = math.radians(50)
 
 
 def _world_to_base_xy(x: float, y: float):

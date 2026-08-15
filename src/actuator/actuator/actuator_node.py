@@ -59,16 +59,19 @@ import numpy as np
 FRAME_OFFSET = {"x": -0.2, "y": 0.0, "z": 0.0}
 
 # This arm's mounting yaw (radians, about world Z) relative to world axes.
-# Both arms are rotated 45deg inward, mirrored (see panda_world.sdf for
-# why: a single-arm rotation was tried first and still left a real
-# lateral-reach problem, since only the AXIS that's lateral changed, not
-# whether one existed). +45deg for arm 1 here; configure_for_arm()
-# reassigns this to -45deg for arm 2. Every world<->BASE_FRAME conversion
-# below goes through _world_to_base()/_base_to_world() instead of a bare
-# FRAME_OFFSET add so it stays correct for a rotated base, not just a
-# translated one -- this is no longer an arm-2-only concern, arm 1 is not
-# the simple axis-aligned reference it used to be either.
-BASE_YAW = math.pi / 4
+# Both arms are rotated inward, mirrored (see panda_world.sdf for the full
+# history: a single-arm rotation was tried first and still left a real
+# lateral-reach problem, then 45deg each still left retreat -- the phase
+# right after grasping, object now attached -- failing on total reach at
+# the lift height needed; 50deg plus a smaller retreat lift is the
+# combination that actually addresses it). +50deg for arm 1 here;
+# configure_for_arm() reassigns this to -50deg for arm 2. Every
+# world<->BASE_FRAME conversion below goes through
+# _world_to_base()/_base_to_world() instead of a bare FRAME_OFFSET add so
+# it stays correct for a rotated base, not just a translated one -- this
+# is no longer an arm-2-only concern, arm 1 is not the simple axis-aligned
+# reference it used to be either.
+BASE_YAW = math.radians(50)
 
 
 def _world_to_base(x: float, y: float, z: float):
@@ -521,18 +524,18 @@ PLACE_VERIFY_TOLERANCE = 0.005
 
 # Region both arms can genuinely reach, needing mutual exclusion. A
 # bounding box around the two actual shared regions both arms use --
-# spatial_placement.py's WORKSPACE_BOUNDS (x:[0.42,0.52] y:[0.42,0.58],
-# the shared build/landmark area) and the shared pickup_point (0.70, 0.50,
+# spatial_placement.py's WORKSPACE_BOUNDS (x:[0.38,0.46] y:[0.42,0.58],
+# the shared build/landmark area) and the shared pickup_point (0.62, 0.50,
 # see attach_detach_node.py's PICKUP_POINT_X/Y), padded ~0.05m around the
-# point. Both arms are now rotated 45deg inward, mirrored (see
-# panda_world.sdf and BASE_YAW below), so this shared region is centered
-# on the point both arms' straight-ahead reach converges on, not derived
-# from a simple per-arm-workspace-overlap formula. Everywhere else in
-# either arm's workspace, the two arms can move fully concurrently with
-# no lock, since their reachable spaces don't overlap there. Same for
-# both arm process instances (world-frame absolute coordinates), so this
-# is not part of configure_for_arm()'s per-arm reassignment.
-SHARED_ZONE_BOUNDS = {"x_min": 0.42, "x_max": 0.75, "y_min": 0.42, "y_max": 0.58}
+# point. Both arms are now rotated inward, mirrored (see panda_world.sdf
+# and BASE_YAW below), so this shared region is centered on the point
+# both arms' straight-ahead reach converges on, not derived from a simple
+# per-arm-workspace-overlap formula. Everywhere else in either arm's
+# workspace, the two arms can move fully concurrently with no lock, since
+# their reachable spaces don't overlap there. Same for both arm process
+# instances (world-frame absolute coordinates), so this is not part of
+# configure_for_arm()'s per-arm reassignment.
+SHARED_ZONE_BOUNDS = {"x_min": 0.38, "x_max": 0.67, "y_min": 0.42, "y_max": 0.58}
 
 # Arm workspace lock service names -- see arm_workspace_lock_node.py. Client
 # timeout is longer than the server's own ACQUIRE_TIMEOUT_S (60s) so a
@@ -1885,7 +1888,20 @@ class ActuatorNode(Node):
 
     def _retreat(self, task_id: str, pose: dict, plan_id: str, return_to_ready: bool) -> bool:
         cleared = False
-        for z_offset in (0.4, 0.5):
+        # Was (0.4, 0.5) -- confirmed live, across many different XY pickup
+        # points and TWO different arm rotation schemes (a single-arm
+        # -90deg turn, then both arms at +-45deg), that retreat consistently
+        # fails at the SAME height ("Unable to sample any valid states for
+        # goal tree") while the descend+grasp at the identical XY always
+        # succeeds. That position-independence is what actually rules out
+        # XY/lateral-offset as the cause -- it's the vertical lift itself,
+        # combined with the fixed straight-down grasp orientation and
+        # whatever forward reach the shared point requires, asking for more
+        # total reach than this arm has at the reach distances a two-arm
+        # shared point needs (greater than the closer points the original
+        # single-arm system mostly used). A smaller lift is still enough to
+        # clear a 0.06m cube by a wide margin.
+        for z_offset in (0.15, 0.25):
             lift_pose = {"x": pose["x"], "y": pose["y"], "z": pose["z"] + z_offset}
             # Straight (in small hops) lift for the same reason as the
             # descent in _run_pick_or_place: an OMPL swing here can drag a
@@ -2234,8 +2250,8 @@ def configure_for_arm(arm_id: str) -> None:
     ACCEPTED_ROBOT_TYPES = ('robotic_arm_2',)
     JOINT_STATES_TOPIC = "/panda2/joint_states"
 
-    # panda2 spawns at (0.2, 1.0, 0), rotated -45deg (yaw) -- the mirror
-    # image of arm 1's own +45deg -- so both arms angle inward toward each
+    # panda2 spawns at (0.2, 1.0, 0), rotated -50deg (yaw) -- the mirror
+    # image of arm 1's own +50deg -- so both arms angle inward toward each
     # other instead of both facing the same +X direction. See
     # panda_world.sdf's panda2 <include><pose> for the full reasoning.
     # FRAME_OFFSET is still just the negative of where this arm's
@@ -2243,7 +2259,7 @@ def configure_for_arm(arm_id: str) -> None:
     # arm 1's, translation only); BASE_YAW carries the rotation that
     # FRAME_OFFSET alone can't represent -- see _world_to_base/_base_to_world.
     FRAME_OFFSET = {"x": -0.2, "y": -1.0, "z": 0.0}
-    BASE_YAW = -math.pi / 4
+    BASE_YAW = -math.radians(50)
     ARM_GROUP = "panda2_arm"
     BASE_FRAME = "panda2_link0"
     EEF_LINK = "robotiq2_85_base_link"

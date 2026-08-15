@@ -49,19 +49,20 @@ fill_rect(-4, 0, 0.2, 8, OCCUPIED)   # wall_west
 # spanning both arms' full extent means the planner never considers
 # routing through there at all.
 #
-# Both arms are now rotated 45deg inward (mirrored, see panda_world.sdf)
-# instead of both facing +X, so their footprints are no longer simple
-# axis-aligned squares -- this block is the actual axis-aligned bounding
-# box of each arm's real collision mesh (link0.stl, panda/model.sdf,
-# measured directly: x:[-0.154,0.072] y:[-0.095,0.095] in link-local
-# coordinates) after rotating it +45/-45deg and placing it at each arm's
-# real spawn pose, union'd together. Deliberately computed from the real
-# mesh rather than a padded guess -- multiple earlier guesses (0.9m, then
-# 0.5m, then 0.35m per arm, all symmetric squares centered on the base)
-# were each too large in some direction and too small in another, which is
-# what kept forcing an uncomfortable trade-off between Nav2 clearance and
-# arm reach margin at the shared pickup point.
-fill_rect(0.171, 0.5, 0.2942, 1.3521, OCCUPIED)
+# Both arms are now rotated inward (mirrored, see panda_world.sdf) instead
+# of both facing +X, so their footprints are no longer simple axis-aligned
+# squares -- this block is the actual axis-aligned bounding box of each
+# arm's real collision mesh (link0.stl, panda/model.sdf, measured
+# directly: x:[-0.154,0.072] y:[-0.095,0.095] in link-local coordinates)
+# after rotating it +/-50deg (see panda_world.sdf for why 50deg, not the
+# 45deg tried first) and placing it at each arm's real spawn pose, union'd
+# together. Deliberately computed from the real mesh rather than a padded
+# guess -- multiple earlier guesses (0.9m, then 0.5m, then 0.35m per arm,
+# all symmetric squares centered on the base) were each too large in some
+# direction and too small in another, which is what kept forcing an
+# uncomfortable trade-off between Nav2 clearance and arm reach margin at
+# the shared pickup point.
+fill_rect(0.1736, 0.5, 0.2908, 1.3581, OCCUPIED)
 
 img = Image.fromarray(grid, mode='L')
 out_path = '/home/abdullah/HU/STRP/ros-llm-middleware/src/world/maps/panda_world_map.pgm'
