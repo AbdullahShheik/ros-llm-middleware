@@ -42,26 +42,26 @@ fill_rect(-4, 0, 0.2, 8, OCCUPIED)   # wall_west
 # Both arms as ONE merged block rather than two separate squares -- panda
 # is at (0.2,0), panda2 at (0.2,1.0) (panda_world.sdf), 1.0m apart, and two
 # separate squares left only a ~0.10m sliver of "free" space between them
-# (confirmed live: with robot_radius 0.22 + inflation_radius 0.2, nowhere
-# near enough for the mobile robot to actually pass through, but the
-# costmap didn't know that and would still let a path get planned into the
-# sliver, into a dead end). One block spanning both arms' full extent means
-# the planner never considers routing through there at all.
+# in an earlier version of this file (with robot_radius 0.22 +
+# inflation_radius 0.2, nowhere near enough for the mobile robot to
+# actually pass through, but the costmap didn't know that and would still
+# let a path get planned into the sliver, into a dead end). One block
+# spanning both arms' full extent means the planner never considers
+# routing through there at all.
 #
-# 0.35x0.35 per arm (was 0.9x0.9, then 0.5x0.5): measured directly off the
-# real collision mesh (link0.stl, panda/model.sdf) rather than guessed --
-# its footprint is only ~0.23m x 0.19m, so even 0.5m (confirmed live: the
-# retreat phase of a pick at the shared pickup point, right after a
-# successful grasp, failed to plan -- "Unable to sample any valid states
-# for goal tree" -- at the reach margin 0.5m's edge forced) was still too
-# tight a corner between Nav2 clearance and arm reach. 0.35m is still
-# ~1.5-1.8x the real base for a real pad, and this time frees up enough
-# room that the pickup point (attach_detach_node.py's PICKUP_POINT_X/Y)
-# can sit at close to the same ~76% reach margin the original single-arm
-# WORKSPACE_BOUNDS box was tuned to and reliably worked at. Y spans from
-# panda's back edge (0-0.175) to panda2's front edge (1.0+0.175); X
-# unchanged in shape, just the smaller size.
-fill_rect(0.2, 0.5, 0.35, 1.35, OCCUPIED)
+# Both arms are now rotated 45deg inward (mirrored, see panda_world.sdf)
+# instead of both facing +X, so their footprints are no longer simple
+# axis-aligned squares -- this block is the actual axis-aligned bounding
+# box of each arm's real collision mesh (link0.stl, panda/model.sdf,
+# measured directly: x:[-0.154,0.072] y:[-0.095,0.095] in link-local
+# coordinates) after rotating it +45/-45deg and placing it at each arm's
+# real spawn pose, union'd together. Deliberately computed from the real
+# mesh rather than a padded guess -- multiple earlier guesses (0.9m, then
+# 0.5m, then 0.35m per arm, all symmetric squares centered on the base)
+# were each too large in some direction and too small in another, which is
+# what kept forcing an uncomfortable trade-off between Nav2 clearance and
+# arm reach margin at the shared pickup point.
+fill_rect(0.171, 0.5, 0.2942, 1.3521, OCCUPIED)
 
 img = Image.fromarray(grid, mode='L')
 out_path = '/home/abdullah/HU/STRP/ros-llm-middleware/src/world/maps/panda_world_map.pgm'

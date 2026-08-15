@@ -113,15 +113,23 @@ def generate_launch_description():
     # confirmed live ("Failed to find root link: Two root links found:
     # [panda2_link0] and [panda_link0]", both robot_state_publisher and
     # move_group crash on startup). A fixed joint below welds panda2_link0
-    # under panda_link0 at their true relative pose -- must match
-    # panda_world.sdf's panda2 spawn pose exactly, INCLUDING its -90deg yaw
-    # (panda2 faces panda rather than the same +X direction panda does --
-    # see that file's comment for why), or this combined scene would
-    # disagree with the real Gazebo geometry it's meant to describe.
+    # under panda_link0 at their true RELATIVE pose.
+    #
+    # Both arms are rotated 45deg inward now (mirrored, see
+    # panda_world.sdf for why), not just panda2, so this joint's transform
+    # is no longer the world-frame spawn offset (0, 1.0, 0) directly --
+    # panda_link0 itself is rotated relative to world, so panda2_link0's
+    # pose relative to IT has to be expressed in panda_link0's own rotated
+    # frame. Two arms rotated by equal and opposite angles (+45/-45) means
+    # their RELATIVE rotation is a clean 90deg regardless of the exact
+    # angle chosen, and the position offset (0, 1.0, 0) rotated into
+    # panda_link0's frame by -45deg works out to (sin45, cos45, 0) =
+    # (0.7071, 0.7071, 0) -- see actuator_node.py's BASE_YAW for the
+    # matching per-arm frame conversion this requires elsewhere.
     mount_joint = (
         '<joint name="panda2_mount_joint" type="fixed">'
         '<parent link="panda_link0"/><child link="panda2_link0"/>'
-        '<origin xyz="0 1.0 0" rpy="0 0 -1.5707963"/>'
+        '<origin xyz="0.7071068 0.7071068 0" rpy="0 0 -1.5707963"/>'
         '</joint>'
     )
 
@@ -219,16 +227,20 @@ def generate_launch_description():
             output='screen'
         ),
 
-        # Static transform world -> panda_link0: identity, unchanged from
-        # before this file supported two arms. MoveIt's "world" frame is
-        # defined to coincide with panda_link0 (not Gazebo's true world
-        # origin, which is 0.2m away) -- actuator_node.py's own FRAME_OFFSET
-        # already handles that conversion for arm 1 and continues to.
+        # Static transform world -> panda_link0. MoveIt's "world" frame is
+        # defined to coincide with panda_link0's position (not Gazebo's
+        # true world origin, which is 0.2m away in X) -- actuator_node.py's
+        # own FRAME_OFFSET already handles that translation for arm 1 and
+        # continues to. NOT identity any more, though: arm 1 is now
+        # rotated 45deg (see panda_world.sdf), so panda_link0 itself is
+        # rotated relative to world too -- actuator_node.py's BASE_YAW
+        # carries the matching rotation for arm 1's own (separate,
+        # standalone) MoveItPy instance.
         Node(
             package='tf2_ros',
             executable='static_transform_publisher',
             name='static_transform_publisher',
-            arguments=['0', '0', '0', '0', '0', '0', 'world', 'panda_link0'],
+            arguments=['0', '0', '0', '0.7853981634', '0', '0', 'world', 'panda_link0'],
             parameters=[{'use_sim_time': True}],
             output='screen'
         ),

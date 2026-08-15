@@ -23,19 +23,21 @@ DEFAULT_SPACING_M = 0.12
 # a two-arm build never actually happened in the space between the arms
 # the way the feature was meant to work.
 #
-# panda2 is rotated -90deg to face panda (see panda_world.sdf and
-# actuator_node.py's BASE_YAW), so "shared" here means low LATERAL offset
-# for BOTH arms under their own (different) local axes, not a simple
-# midpoint in world Y -- three earlier attempts at a plain world-Y midpoint
+# Both arms are now rotated 45deg inward, mirrored, so they angle toward
+# each other instead of both facing the same +X direction (see
+# panda_world.sdf and actuator_node.py's BASE_YAW) -- earlier attempts at
+# a plain world-Y midpoint (unrotated arms) or a single-arm 90deg rotation
 # all failed at the same lateral-reach dead zone (see
-# attach_detach_node.py's PICKUP_POINT_X/Y for the full story). Every
-# corner keeps each arm's own lateral offset under ~0.4m and total reach
-# under 85% of the Panda's ~0.855m nominal max (arm1 33-48%, arm2 73-86%),
-# and the whole box sits well clear of pickup_point (0.62, 0.42, see
-# attach_detach_node.py's PICKUP_POINT_X/Y) so a cube waiting to be picked
-# up doesn't overlap one already placed. The only hardcoded geometry here --
-# every named landmark below is derived from this one rectangle.
-WORKSPACE_BOUNDS = {"x_min": 0.25, "x_max": 0.35, "y_min": 0.28, "y_max": 0.38}
+# attach_detach_node.py's PICKUP_POINT_X/Y for the full story). This box
+# sits near pickup_point (0.70, 0.50, the exact point both arms' straight-
+# ahead reach converges on) but offset enough that a cube waiting to be
+# picked up doesn't overlap one already placed (~0.2-0.3m clearance).
+# Every corner keeps each arm's own lateral offset under ~0.26m (well
+# under the value that failed every earlier attempt) and total reach
+# under 80% of the Panda's ~0.855m nominal max. The only hardcoded
+# geometry here -- every named landmark below is derived from this one
+# rectangle.
+WORKSPACE_BOUNDS = {"x_min": 0.42, "x_max": 0.52, "y_min": 0.42, "y_max": 0.58}
 _WORKSPACE_Z = 0.04
 
 # Horizontal directions offset x/y in the workspace plane; `above`/`below`

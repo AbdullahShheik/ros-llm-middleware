@@ -59,14 +59,16 @@ import numpy as np
 FRAME_OFFSET = {"x": -0.2, "y": 0.0, "z": 0.0}
 
 # This arm's mounting yaw (radians, about world Z) relative to world axes.
-# 0 for arm 1 (spawned axis-aligned with world, see panda_world.sdf). Arm
-# 2 is spawned rotated -90deg to face arm 1 instead of the same +X
-# direction (see panda_world.sdf's panda2 <include><pose> for why) --
-# configure_for_arm() reassigns this to that same -90deg for arm 2, and
-# every world<->BASE_FRAME conversion below goes through
-# _world_to_base()/_base_to_world() instead of a bare FRAME_OFFSET add so
-# it stays correct for a rotated base, not just a translated one.
-BASE_YAW = 0.0
+# Both arms are rotated 45deg inward, mirrored (see panda_world.sdf for
+# why: a single-arm rotation was tried first and still left a real
+# lateral-reach problem, since only the AXIS that's lateral changed, not
+# whether one existed). +45deg for arm 1 here; configure_for_arm()
+# reassigns this to -45deg for arm 2. Every world<->BASE_FRAME conversion
+# below goes through _world_to_base()/_base_to_world() instead of a bare
+# FRAME_OFFSET add so it stays correct for a rotated base, not just a
+# translated one -- this is no longer an arm-2-only concern, arm 1 is not
+# the simple axis-aligned reference it used to be either.
+BASE_YAW = math.pi / 4
 
 
 def _world_to_base(x: float, y: float, z: float):
@@ -519,19 +521,18 @@ PLACE_VERIFY_TOLERANCE = 0.005
 
 # Region both arms can genuinely reach, needing mutual exclusion. A
 # bounding box around the two actual shared regions both arms use --
-# spatial_placement.py's WORKSPACE_BOUNDS (x:[0.25,0.35] y:[0.28,0.38],
-# the shared build/landmark area) and the shared pickup_point (0.62, 0.42,
+# spatial_placement.py's WORKSPACE_BOUNDS (x:[0.42,0.52] y:[0.42,0.58],
+# the shared build/landmark area) and the shared pickup_point (0.70, 0.50,
 # see attach_detach_node.py's PICKUP_POINT_X/Y), padded ~0.05m around the
-# point -- rather than one simple rectangle derived from a formula, since
-# panda2 is rotated -90deg to face panda (see panda_world.sdf and
-# BASE_YAW below) and the two shared regions no longer sit on one clean
-# line the way they did when both arms faced the same direction.
-# Everywhere else in either arm's workspace, the two arms can move fully
-# concurrently with no lock, since their reachable spaces don't overlap
-# there. Same for both arm process instances (world-frame absolute
-# coordinates), so this is not part of configure_for_arm()'s per-arm
-# reassignment.
-SHARED_ZONE_BOUNDS = {"x_min": 0.25, "x_max": 0.67, "y_min": 0.28, "y_max": 0.47}
+# point. Both arms are now rotated 45deg inward, mirrored (see
+# panda_world.sdf and BASE_YAW below), so this shared region is centered
+# on the point both arms' straight-ahead reach converges on, not derived
+# from a simple per-arm-workspace-overlap formula. Everywhere else in
+# either arm's workspace, the two arms can move fully concurrently with
+# no lock, since their reachable spaces don't overlap there. Same for
+# both arm process instances (world-frame absolute coordinates), so this
+# is not part of configure_for_arm()'s per-arm reassignment.
+SHARED_ZONE_BOUNDS = {"x_min": 0.42, "x_max": 0.75, "y_min": 0.42, "y_max": 0.58}
 
 # Arm workspace lock service names -- see arm_workspace_lock_node.py. Client
 # timeout is longer than the server's own ACQUIRE_TIMEOUT_S (60s) so a
@@ -2233,15 +2234,16 @@ def configure_for_arm(arm_id: str) -> None:
     ACCEPTED_ROBOT_TYPES = ('robotic_arm_2',)
     JOINT_STATES_TOPIC = "/panda2/joint_states"
 
-    # panda2 spawns at (0.2, 1.0, 0), rotated -90deg (yaw) to face arm 1
-    # instead of the same +X direction arm 1 faces -- see panda_world.sdf's
-    # panda2 <include><pose> for why. FRAME_OFFSET is still just the
-    # negative of where this arm's MoveIt-frame origin (panda2_link0)
-    # sits in Gazebo's world (same reasoning as arm 1's); BASE_YAW is the
-    # new piece, carrying the rotation that FRAME_OFFSET alone can't
-    # represent -- see _world_to_base/_base_to_world.
+    # panda2 spawns at (0.2, 1.0, 0), rotated -45deg (yaw) -- the mirror
+    # image of arm 1's own +45deg -- so both arms angle inward toward each
+    # other instead of both facing the same +X direction. See
+    # panda_world.sdf's panda2 <include><pose> for the full reasoning.
+    # FRAME_OFFSET is still just the negative of where this arm's
+    # MoveIt-frame origin (panda2_link0) sits in Gazebo's world (same as
+    # arm 1's, translation only); BASE_YAW carries the rotation that
+    # FRAME_OFFSET alone can't represent -- see _world_to_base/_base_to_world.
     FRAME_OFFSET = {"x": -0.2, "y": -1.0, "z": 0.0}
-    BASE_YAW = -math.pi / 2
+    BASE_YAW = -math.pi / 4
     ARM_GROUP = "panda2_arm"
     BASE_FRAME = "panda2_link0"
     EEF_LINK = "robotiq2_85_base_link"

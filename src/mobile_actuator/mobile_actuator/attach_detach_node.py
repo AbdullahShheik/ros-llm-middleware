@@ -19,33 +19,35 @@ import json
 CUBE_NAMES = {"red_cube", "blue_cube", "green_cube"}
 
 CUBE_ATTACH_Z = 0.15
-# X must clear build_map.py's merged both-arms obstacle block (spans
-# x:[0.025,0.375], sized off the Panda's real ~0.23m base measured
-# directly from link0.stl's collision mesh -- see build_map.py) by at
-# least the mobile robot's own footprint (robot_radius 0.22, see
-# nav2_params.yaml) or Nav2 will never accept "handoff_point" as a valid,
-# reachable goal at all.
+# Four earlier attempts at this point all shared the same flaw: they kept
+# both arms facing the same +X direction (or only rotated arm 2 by a
+# fixed -90deg) and tried to tune X/Y to find SOME point both could
+# reach. Three X values at y=0.5 (0.7, 0.55, 0.62) all cleared Nav2 fine
+# and always succeeded at the initial descend-and-grasp, but every one
+# failed the RETREAT phase right after (lifting straight up with the
+# object now rigidly attached), same error every time ("Unable to sample
+# any valid states for goal tree") -- an orientation/joint-limit dead
+# zone from reaching SIDEWAYS with the fixed straight-down grasp
+# orientation, not a distance problem (the whole single-arm system was
+# only ever proven at straight-AHEAD reach). Rotating only arm 2 by a
+# fixed -90deg (the next attempt) just moved which axis was lateral for
+# arm 2; it didn't remove the lateral component for either arm.
 #
-# Three X values were tried at y=0.5 before this (0.7, 0.55, 0.62) -- all
-# cleared Nav2 fine, and the initial descend-and-grasp always succeeded at
-# all three, but the RETREAT phase right after (lifting straight up with
-# the object now rigidly attached) failed every single time, at the same
-# height, with the same error ("Unable to sample any valid states for goal
-# tree"). That ruled out X/distance as the actual variable -- the common
-# factor was y=0.5 itself: a 0.5m LATERAL offset from an unrotated arm's
-# own centerline, combined with the fixed straight-down grasp orientation,
-# hitting a real joint-limit dead zone panda_joint4's restricted range
-# creates for sideways reach specifically (not for forward reach, which is
-# what the whole single-arm system was ever proven at). panda2 is now
-# rotated -90deg to face panda instead of the same +X direction (see
-# panda_world.sdf) precisely so this point doesn't need to be a lateral
-# reach for either arm: (0.62, 0.42) puts arm 1 at a ~0.42m lateral offset
-# (down from 0.5) and arm 2, thanks to the rotation, at that same ~0.42m
-# offset along its OWN now-different lateral axis -- both comfortably
-# under 85% of nominal reach (arm1 ~70%, arm2 ~84%), and neither one at
-# the exact value that failed three times running.
-PICKUP_POINT_X = 0.62
-PICKUP_POINT_Y = 0.42
+# Both arms are now rotated 45deg INWARD, mirrored (see panda_world.sdf),
+# so they angle toward each other. This point, (0.70, 0.50), sits exactly
+# on the two arms' shared aim line (their perpendicular bisector) -- a
+# genuinely zero-lateral, straight-ahead reach for BOTH arms
+# simultaneously (confirmed by the frame math: arm1_local=(0.707,~0),
+# arm2_local=(0.707,~0), ~83% of nominal reach for both), not just a
+# smaller lateral offset like every value tried before this one.
+#
+# X also clears build_map.py's merged both-arms obstacle block (its real
+# edge, after both arms' 45deg rotation, is at x~0.318) by ~0.38m --
+# comfortably past the mobile robot's own footprint (robot_radius 0.22,
+# see nav2_params.yaml), so Nav2 accepts "handoff_point" as a valid,
+# reachable goal with real margin, not just barely.
+PICKUP_POINT_X = 0.70
+PICKUP_POINT_Y = 0.50
 CUBE_PICKUP_Z  = 0.04
 
 # How close another cube has to be sitting to the pickup point to count as

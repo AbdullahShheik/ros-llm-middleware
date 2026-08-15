@@ -163,35 +163,50 @@
       </link>
     </model>
 
+    <!-- Both arms are rotated 45deg INWARD, mirrored, so they angle
+         toward each other instead of both facing the same +X direction.
+         0.6m Y-gap was tried first and confirmed live to be too tight
+         (bodies nearly touching at rest); 1.0m clears both arms' bases
+         with real margin.
+
+         Rotating only panda2 (a single -90deg turn to face panda) was
+         tried before this and confirmed live, three times over, to still
+         leave a real lateral offset for whatever shared point the mobile
+         robot hands cubes off at: a pick's descend-and-grasp always
+         succeeded there, but retreat (lifting straight up right after,
+         object now rigidly attached) failed every time with "no valid
+         states for goal tree", an orientation/joint-limit dead zone
+         from reaching sideways with the fixed straight-down grasp
+         orientation, not a distance problem (the single-arm system was
+         always only ever proven at STRAIGHT-AHEAD reach). A single-arm
+         rotation only changes which axis is lateral for that one arm; it
+         doesn't remove the lateral component itself.
+         Rotating BOTH arms symmetrically inward, each aimed so a shared
+         point sits on their perpendicular bisector (y=0.5) IS a straight-
+         ahead reach for both simultaneously, genuinely zero lateral
+         offset at that point, not just a smaller one. 45deg (rather than
+         the exact angle for one specific point) keeps the relative
+         rotation between the two arms a clean 90deg, and keeps a small
+         shared workspace near that point comfortably reachable by both
+         (see spatial_placement.py's WORKSPACE_BOUNDS and
+         attach_detach_node.py's PICKUP_POINT_X/Y for the exact numbers).
+         See actuator_node.py's BASE_YAW/_world_to_base for the matching
+         frame-conversion this requires for BOTH arms now (arm 1 is no
+         longer the simple, unrotated reference), and
+         moveit2.launch.py's world->panda_link0 transform and
+         panda2_mount_joint, which must carry the matching rotations for
+         the combined planning scene (ik_feasibility_service.py's one
+         consumer) to agree with this. -->
     <include>
       <name>panda</name>
       <uri>model://panda</uri>
-      <pose>0.2 0 0 0 0 0</pose>
+      <pose>0.2 0 0 0 0 0.7853981634</pose>
     </include>
 
-    <!-- Second arm, side by side with the first along Y. 0.6m was tried
-         first and confirmed live to be too tight (bodies nearly touching
-         at rest). 1.0m clears both arms' bases with real margin.
-
-         panda2 is rotated -90deg (yaw) so it FACES panda, instead of
-         facing the same +X direction panda does. Confirmed live, three
-         times over, that a shared point at a large lateral (Y) offset
-         from an unrotated arm's own centerline reliably fails partway
-         through a pick (retreat, specifically: "no valid states for
-         goal tree", an orientation/joint-limit dead zone, not a distance
-         problem; descend-and-grasp at the SAME point always succeeded).
-         Rotating panda2 to face panda turns what was a lateral reach for
-         BOTH arms into something much closer to each arm's own proven,
-         reliable straight-ahead reach for at least one axis of the
-         shared point. See actuator_node.py's BASE_YAW/_world_to_base for
-         the matching frame-conversion change this requires, and
-         moveit2.launch.py's panda2_mount_joint, which must carry the
-         identical rotation for the combined planning scene
-         (ik_feasibility_service.py's one consumer) to agree with it. -->
     <include>
       <name>panda2</name>
       <uri>model://panda2</uri>
-      <pose>0.2 1.0 0 0 0 -1.5707963</pose>
+      <pose>0.2 1.0 0 0 0 -0.7853981634</pose>
     </include>
 
     <model name="red_cube">
@@ -595,7 +610,7 @@
 
     <model name="pickup_point">
       <static>true</static>
-      <pose>0.62 0.42 0.006 0 0 0</pose>
+      <pose>0.70 0.50 0.006 0 0 0</pose>
       <link name="link">
         <visual name="visual">
           <geometry><box><size>0.2 0.2 0.01</size></box></geometry>
