@@ -12,8 +12,5 @@ install(PROGRAMS
   DESTINATION lib/${PROJECT_NAME}
 )
 
-install(DIRECTORY perception
-  DESTINATION lib/${PROJECT_NAME}
-)
 
 ament_package()

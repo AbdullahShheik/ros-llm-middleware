@@ -17,9 +17,14 @@ this is what catches that before it corrupts the registry.
 """
 
 import json
-import os
 
-from layer1.layer1_pipeline import GROQ_API_KEY
+from layer1.layer1_pipeline import (
+    ANTHROPIC_API_KEY,
+    CLAUDE_MODEL,
+    GROQ_API_KEY,
+    GROQ_MODEL,
+    LLM_PROVIDER,
+)
 
 
 def build_master_skill_prompt_block(master_skills):
@@ -55,15 +60,14 @@ Rules:
 """
 
 
-def call_groq_matcher(urdf_summary_text, master_skills, model="llama-3.3-70b-versatile"):
+def call_groq_matcher(urdf_summary_text, master_skills, model=GROQ_MODEL):
     """
-    Default LLM-call implementation using Groq. Returns the raw text
-    response (to be parsed by the caller) -- kept separate from parsing so
+    LLM-call implementation using Groq. Returns the raw text response (to be
+    parsed by the caller) -- kept separate from parsing so
     match_skills_for_robot() can be tested with a mock instead of this.
     """
     from groq import Groq
 
-    api_key = os.environ.get("GROQ_API_KEY")
     client = Groq(api_key=GROQ_API_KEY)
 
     skill_block = build_master_skill_prompt_block(master_skills)
@@ -81,10 +85,40 @@ def call_groq_matcher(urdf_summary_text, master_skills, model="llama-3.3-70b-ver
     return response.choices[0].message.content
 
 
-def match_skills_for_robot(urdf_summary_text, master_skills, call_llm_fn=None, model="llama-3.3-70b-versatile"):
+def call_claude_matcher(urdf_summary_text, master_skills, model=CLAUDE_MODEL):
+    """
+    LLM-call implementation using Claude. Returns the raw text response (to
+    be parsed by the caller) -- kept separate from parsing so
+    match_skills_for_robot() can be tested with a mock instead of this.
+    """
+    from anthropic import Anthropic
+
+    client = Anthropic(api_key=ANTHROPIC_API_KEY)
+
+    skill_block = build_master_skill_prompt_block(master_skills)
+    user_prompt = f"{skill_block}\n\n{urdf_summary_text}\n\nReturn the JSON now."
+
+    response = client.messages.create(
+        model=model,
+        max_tokens=4096,
+        system=MATCHING_SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": user_prompt}],
+    )
+    return next(block.text for block in response.content if block.type == "text")
+
+
+def call_default_matcher(urdf_summary_text, master_skills, model=None):
+    """Dispatches to call_claude_matcher or call_groq_matcher per LLM_PROVIDER."""
+    if LLM_PROVIDER == "groq":
+        return call_groq_matcher(urdf_summary_text, master_skills, model or GROQ_MODEL)
+    return call_claude_matcher(urdf_summary_text, master_skills, model or CLAUDE_MODEL)
+
+
+def match_skills_for_robot(urdf_summary_text, master_skills, call_llm_fn=None, model=None):
     """
     call_llm_fn: callable(urdf_summary_text, master_skills, model) -> raw text.
-                 Defaults to call_groq_matcher (real API call). Tests should
+                 Defaults to call_default_matcher, which uses whichever LLM
+                 provider LLM_PROVIDER selects (real API call). Tests should
                  pass a mock here instead of hitting the real API.
 
     Returns: {
@@ -96,7 +130,7 @@ def match_skills_for_robot(urdf_summary_text, master_skills, call_llm_fn=None, m
     }
     """
     if call_llm_fn is None:
-        call_llm_fn = call_groq_matcher
+        call_llm_fn = call_default_matcher
 
     raw_response = call_llm_fn(urdf_summary_text, master_skills, model)
 

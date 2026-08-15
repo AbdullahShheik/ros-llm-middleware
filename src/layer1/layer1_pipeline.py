@@ -3,7 +3,9 @@ Layer 1: NLI -> Subtask Decomposition -> DAG -> Validation
 Following the DART-LLM paper architecture.
 
 Single robotic arm, no environment locked yet.
-Uses Groq API with Llama 3.3 70B.
+Supports two LLM providers, switchable via the LLM_PROVIDER env var:
+  - "claude" (default): Anthropic's Claude Sonnet 5
+  - "groq": Groq's Llama 3.3 70B
 
 Usage:
   # Interactive mode (prompts you for instruction):
@@ -25,7 +27,9 @@ import itertools
 import time
 from datetime import datetime, timezone
 import networkx as nx
-from groq import Groq
+# NOTE: the Groq/Anthropic SDK clients are imported lazily, inside
+# get_client(), so installing only one of the two packages is enough to run
+# with the corresponding LLM_PROVIDER.
 # NOTE: world_model.build_environment is deliberately NOT imported here.
 # It pulls in yaml/numpy/PIL and is only ever needed in --ros mode, so
 # run_ros_node() imports it locally instead -- that keeps standalone CLI
@@ -62,8 +66,17 @@ def _load_env_file(env_path: str) -> None:
 
 _PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 _load_env_file(os.path.join(_PROJECT_ROOT, ".env"))
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "YOUR_API_KEY")
-MODEL        = "llama-3.3-70b-versatile"
+
+# Which LLM backs the pipeline. "claude" (default) or "groq" -- set
+# LLM_PROVIDER in .env to switch; no code changes needed either way.
+LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "claude").strip().lower()
+
+GROQ_API_KEY      = os.environ.get("GROQ_API_KEY", "YOUR_API_KEY")
+GROQ_MODEL        = "llama-3.3-70b-versatile"
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "YOUR_API_KEY")
+CLAUDE_MODEL      = os.environ.get("CLAUDE_MODEL", "claude-sonnet-5")
+
+MODEL        = CLAUDE_MODEL if LLM_PROVIDER == "claude" else GROQ_MODEL
 MAX_RETRIES  = 3
 # How many times a single original instruction may be replanned after a
 # subtask failure before Layer1Node gives up and aborts (see
@@ -86,12 +99,20 @@ SDF_PATH      = os.path.join(_PROJECT_ROOT, "src", "world", "worlds", "panda_wor
 # scrape them out of console logs by hand.
 RUN_LOG_PATH  = os.path.join(os.path.dirname(__file__), "eval_runs.jsonl")
 
-# get_client() returns the LLM client. Currently only Groq is supported.
+# get_client() returns the LLM client for the configured provider.
 
 
 def get_client():
-    """Return a Groq client for LLM calls."""
-    return Groq(api_key=GROQ_API_KEY)
+    """Return an LLM client for LLM_PROVIDER ("claude" or "groq")."""
+    if LLM_PROVIDER == "groq":
+        from groq import Groq
+        return Groq(api_key=GROQ_API_KEY)
+    if LLM_PROVIDER == "claude":
+        from anthropic import Anthropic
+        return Anthropic(api_key=ANTHROPIC_API_KEY)
+    raise ValueError(
+        f"Unknown LLM_PROVIDER '{LLM_PROVIDER}' -- expected 'claude' or 'groq'."
+    )
 
 
 _plan_counter = itertools.count(1)
@@ -414,18 +435,29 @@ Output ONLY the raw JSON. Nothing else.
 """
 
 # STEP 4 — LLM call
-def call_llm(client: Groq, user_prompt: str) -> str:
-    """Send prompt to Groq and return raw response text."""
-    completion = client.chat.completions.create(
-        model=MODEL,
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user",   "content": user_prompt}
-        ],
-        temperature=0,
-        response_format={"type": "json_object"}
+def call_llm(client, user_prompt: str) -> str:
+    """Send prompt to the configured LLM provider (LLM_PROVIDER) and return
+    raw response text. `client` is whatever get_client() returned -- a Groq
+    client or an Anthropic client, matching LLM_PROVIDER."""
+    if LLM_PROVIDER == "groq":
+        completion = client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user",   "content": user_prompt}
+            ],
+            temperature=0,
+            response_format={"type": "json_object"}
+        )
+        return completion.choices[0].message.content
+
+    response = client.messages.create(
+        model=CLAUDE_MODEL,
+        max_tokens=8192,
+        system=SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": user_prompt}],
     )
-    return completion.choices[0].message.content
+    return next(block.text for block in response.content if block.type == "text")
 
 
 # STEP 5 — DAG builder
@@ -590,7 +622,7 @@ def validate_plan(plan: dict, G: nx.DiGraph, robot_config: dict) -> list[str]:
 
 def decompose_instruction(
     instruction: str,
-    client: Groq,
+    client,
     environment: str = None,
     stats: dict = None,
 ) -> tuple[dict, nx.DiGraph]:
