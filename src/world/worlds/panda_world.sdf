@@ -211,7 +211,14 @@
     </include>
 
     <model name="red_cube">
-      <pose>3 3 0.03 0 0 0</pose>
+      <!-- TEMPORARY for quick arm-only testing: spawned near pickup_point
+           (0.62, 0.50) instead of its normal far zone, so it registers as
+           reachable_by_arm: true (build_environment.py, within
+           PANDA_REACH_RADIUS_M of arm1's base) and the LLM skips the whole
+           mobile-robot navigate/attach/detach chain, going straight to
+           pick. Move back to its original far pose (3, 3, 0.03) once
+           mobile-robot delivery needs testing again too. -->
+      <pose>0.60 0.48 0.03 0 0 0</pose>
       <link name="link">
         <inertial>
           <mass>0.1</mass>
@@ -278,7 +285,9 @@
     </model>
 
     <model name="blue_cube">
-      <pose>-3 3 0.03 0 0 0</pose>
+      <!-- TEMPORARY for quick arm-only testing, see red_cube's comment
+           above. Original far pose: (-3, 3, 0.03). -->
+      <pose>0.55 0.58 0.03 0 0 0</pose>
       <link name="link">
         <inertial>
           <mass>0.1</mass>
@@ -333,7 +342,9 @@
     </model>
 
     <model name="green_cube">
-      <pose>3 -3 0.03 0 0 0</pose>
+      <!-- TEMPORARY for quick arm-only testing, see red_cube's comment
+           above. Original far pose: (3, -3, 0.03). -->
+      <pose>0.50 0.40 0.03 0 0 0</pose>
       <link name="link">
         <inertial>
           <mass>0.1</mass>
