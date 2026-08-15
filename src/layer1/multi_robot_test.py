@@ -30,8 +30,8 @@ first). Since few-shot retrieval is based on textual similarity, plan_014
 is likely to be retrieved for this test instruction and could bias the
 model toward copying that same unnecessary sequencing.
 
-This test hits the real Groq LLM (uses GROQ_API_KEY from .env) -- it is not
-a mocked/offline check.
+This test hits the real LLM configured via LLM_PROVIDER (GROQ_API_KEY or
+ANTHROPIC_API_KEY from .env) -- it is not a mocked/offline check.
 
 Usage:
     python multi_robot_test.py
@@ -43,7 +43,9 @@ import os
 import networkx as nx
 
 from layer1_pipeline import (
+    ANTHROPIC_API_KEY,
     GROQ_API_KEY,
+    LLM_PROVIDER,
     SKILLS_FILE,
     decompose_instruction,
     get_client,
@@ -123,8 +125,10 @@ def check_independence(plan: dict, G: nx.DiGraph):
 def main():
     print_fleet_context()
 
-    if GROQ_API_KEY in (None, "YOUR_API_KEY"):
-        print("[ERROR] GROQ_API_KEY is not configured -- this test calls the real LLM.")
+    active_key = ANTHROPIC_API_KEY if LLM_PROVIDER == "claude" else GROQ_API_KEY
+    key_name = "ANTHROPIC_API_KEY" if LLM_PROVIDER == "claude" else "GROQ_API_KEY"
+    if active_key in (None, "YOUR_API_KEY"):
+        print(f"[ERROR] {key_name} is not configured -- this test calls the real LLM.")
         return
 
     robot_config = load_skills(SKILLS_FILE)
