@@ -319,6 +319,53 @@
       </plugin>
     </model>
 
+    <model name="yellow_cube">
+      <pose>-3 -3 0.03 0 0 0</pose>
+      <link name="link">
+        <inertial>
+          <mass>0.1</mass>
+          <!-- Solid cuboid: I = m(a^2+b^2)/12 = m*s^2/6
+               = 0.1 * 0.06^2 / 6 = 6e-5 on each axis.
+               This was 1e-5 (6x too low). Under-declared inertia on a body
+               that gets rigidly constrained (the DetachableJoint grasp) and
+               then swung through a retreat is a classic dartsim instability
+               trigger: it makes the body far too easy to spin up under
+               contact torque, and the solver can diverge. Observed as a
+               single 13cm retreat hop taking 185s of wall clock and leaving
+               panda_joint1/2/7 tens of radians outside their limits, after
+               which MoveIt rejected every subsequent request with
+               "CheckStartStateBounds: Start state out of bounds". -->
+          <inertia>
+            <ixx>0.00006</ixx>
+            <iyy>0.00006</iyy>
+            <izz>0.00006</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry>
+            <box><size>0.06 0.06 0.06</size></box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box><size>0.06 0.06 0.06</size></box>
+          </geometry>
+          <material>
+            <ambient>1 1 0 1</ambient>
+            <diffuse>1 1 0 1</diffuse>
+          </material>
+        </visual>
+      </link>
+      <plugin filename="gz-sim-detachable-joint-system" name="gz::sim::systems::DetachableJoint">
+        <parent_link>link</parent_link>
+        <child_model>panda</child_model>
+        <child_link>robotiq_85_base_link</child_link>
+        <attach_topic>/model/yellow_cube/detachable_joint/attach</attach_topic>
+        <detach_topic>/model/yellow_cube/detachable_joint/detach</detach_topic>
+        <output_topic>/model/yellow_cube/detachable_joint/state</output_topic>
+      </plugin>
+    </model>
+
     <model name="wall_north">
       <static>true</static>
       <pose>0 4 1.25 0 0 0</pose>
@@ -456,6 +503,16 @@
         <detach_topic>/green_cube/detach</detach_topic>
         <attach_topic>/green_cube/attach</attach_topic>
         <output_topic>/green_cube/state</output_topic>
+      </plugin>
+
+      <plugin filename="gz-sim-detachable-joint-system"
+              name="gz::sim::systems::DetachableJoint">
+        <parent_link>base_link</parent_link>
+        <child_model>yellow_cube</child_model>
+        <child_link>link</child_link>
+        <detach_topic>/yellow_cube/detach</detach_topic>
+        <attach_topic>/yellow_cube/attach</attach_topic>
+        <output_topic>/yellow_cube/state</output_topic>
       </plugin>
     </include>
 

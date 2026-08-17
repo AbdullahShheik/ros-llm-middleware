@@ -137,7 +137,7 @@ COLLISION_PROXY_SIZE = 0.04
 # to physically pin a grasped cube to the gripper (see module docstring /
 # _attach_grasped_object). Topic names here must match the ones declared
 # on those plugins.
-DETACHABLE_CUBES = ("red_cube", "blue_cube", "green_cube")
+DETACHABLE_CUBES = ("red_cube", "blue_cube", "green_cube", "yellow_cube")
 
 
 def _detachable_joint_topics(cube_name: str) -> dict:

@@ -18,7 +18,8 @@ from action_dispatcher import spatial_placement
 OBJECT_NAME_MAP = {
     "red_block": "red_cube",
     "blue_block": "blue_cube",
-    "green_block": "green_cube"
+    "green_block": "green_cube",
+    "yellow_block": "yellow_cube"
 }
 
 # Fallback surface height for "place" targets that only specify x/y (e.g.
