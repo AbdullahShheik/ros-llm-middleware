@@ -15,12 +15,7 @@ from std_srvs.srv import Trigger
 from action_dispatcher import spatial_placement
 
 # Object name mapping from LLM team naming to /object_map naming
-OBJECT_NAME_MAP = {
-    "red_block": "red_cube",
-    "blue_block": "blue_cube",
-    "green_block": "green_cube",
-    "yellow_block": "yellow_cube"
-}
+from action_dispatcher.object_name_map import OBJECT_NAME_MAP
 
 # Fallback surface height for "place" targets that only specify x/y (e.g.
 # "place it at 0.3, 0.4") -- every tracked object rests at this height once
