@@ -16,7 +16,7 @@ from gz.msgs10.pose_pb2 import Pose
 from gz.msgs10.boolean_pb2 import Boolean
 import json
 
-CUBE_NAMES = {"red_cube", "blue_cube", "green_cube"}
+CUBE_NAMES = {"red_cube", "blue_cube", "green_cube", "yellow_cube"}
 
 CUBE_ATTACH_Z = 0.15
 PICKUP_POINT_X = 0.7

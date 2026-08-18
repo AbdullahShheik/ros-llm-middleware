@@ -21,3 +21,5 @@ plan_*.json
 dart_style_*.csv
 layer1_evaluation*.csv
 eval_runs.jsonl
+SESSION_NOTES.md
+*.bak

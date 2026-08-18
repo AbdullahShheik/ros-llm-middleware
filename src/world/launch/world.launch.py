@@ -63,10 +63,10 @@ def _prepare_and_launch(context, *args, **kwargs):
             'for i in 1 2 3 4 5;', 'do',
         ] + [
             f"gz topic -t /model/{cube}/detachable_joint/detach -m gz.msgs.Empty -p '' ;"
-            for cube in ('red_cube', 'blue_cube', 'green_cube')
+            for cube in ('red_cube', 'blue_cube', 'green_cube', 'yellow_cube')
         ] + [
             f"gz topic -t /{cube}/detach -m gz.msgs.Empty -p '' ;"
-            for cube in ('red_cube', 'blue_cube', 'green_cube')
+            for cube in ('red_cube', 'blue_cube', 'green_cube', 'yellow_cube')
         ] + [
             'sleep 0.2;', 'done'
         ]

@@ -55,11 +55,20 @@ class PerceptionNode(Node):
         self._logged_first_pose_names = False
 
         self.gz_node = GzNode()
-        self.gz_node.subscribe(
-            Pose_V,
+        # Combine the static and dynamic pose feeds, mirroring
+        # actuator_node.py's own _on_gz_pose (see its WORLD_NAME subscribe
+        # loop): gz-sim streams a moving/settling body's updates on
+        # dynamic_pose/info, not pose/info, so pose/info alone lags exactly
+        # the window (post-pick, in transit, post-release-before-settle)
+        # where /object_map's accuracy matters most. Both topics feed the
+        # same pose_callback/self.latest_state dict below, so whichever one
+        # delivers the newer sample for a given name simply wins -- no
+        # separate merge step needed, same as actuator_node.py.
+        for topic in (
             '/world/panda_world/pose/info',
-            self.pose_callback
-        )
+            '/world/panda_world/dynamic_pose/info',
+        ):
+            self.gz_node.subscribe(Pose_V, topic, self.pose_callback)
         self.create_timer(PUBLISH_PERIOD_SEC, self.publish_object_map)
         self.get_logger().info('Perception node started, listening to Gazebo...')
 

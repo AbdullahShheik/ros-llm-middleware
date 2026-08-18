@@ -45,6 +45,7 @@ from RAG.few_shot_bank import bank_summary, load_examples
 from RAG.few_shot_retriever import CosineFewShotRetriever, format_examples_for_prompt
 from RAG.robot_bank import bank_summary as robot_bank_summary, load_robot_bank, FLEET_FILE
 from RAG.robot_retriever import CosineRobotTypeRetriever, union_skills
+import placement_eval
 
 def _load_env_file(env_path: str) -> None:
     if not os.path.exists(env_path):
@@ -872,6 +873,10 @@ def run_ros_node():
                 "replans_used": 0,
                 "subtasks_completed_before_replan": 0,
                 "plans": [],
+                # EVAL INSTRUMENTATION (additive): see _record_placement_error
+                # and the stage-failure block in _handle_feedback.
+                "placement_errors": [],
+                "stage_failures": [],
             }
             if not self._decompose_and_dispatch(instruction):
                 # Initial decomposition itself failed (clarification_needed,
@@ -1055,6 +1060,31 @@ def run_ros_node():
                     )
                     return
 
+            # EVAL INSTRUMENTATION (additive): stage-failure attribution and
+            # placement-accuracy logging. Purely read-only w.r.t. everything
+            # below -- does not touch status/stage, replanning, or wave
+            # advancement. Placed before the status/stage branches so it
+            # sees every feedback message those branches would otherwise
+            # return early on (e.g. actuator_node.py's "place_verify"
+            # success message, stage != "complete").
+            if self.current_run is not None:
+                try:
+                    fb_detail = json.loads(feedback)
+                except (json.JSONDecodeError, TypeError):
+                    fb_detail = {}
+
+                if status in {"failed", "failure", "error", "rejected", "infeasible"}:
+                    self.current_run["stage_failures"].append({
+                        "plan_id": plan_id or self.active_plan["plan_id"],
+                        "task_id": task_id,
+                        "stage": stage,
+                        "reason": fb_detail.get("detail"),
+                    })
+
+                placement = fb_detail.get("placement")
+                if isinstance(placement, dict):
+                    self._record_placement_error(task_id, placement)
+
             if status in {"failed", "failure", "error", "rejected", "infeasible"}:
                 if self.replan_attempts < MAX_REPLAN_ATTEMPTS:
                     self.replan_attempts += 1
@@ -1112,6 +1142,38 @@ def run_ros_node():
             if not self.pending_feedback:
                 self.current_wave_index += 1
                 self.publish_current_wave()
+
+        def _record_placement_error(self, task_id: str, placement: dict):
+            """EVAL INSTRUMENTATION (additive): fold one actuator
+            place_verify measurement into self.current_run["placement_errors"]
+            (see _finalize_run). Called from _handle_feedback for every
+            feedback message carrying a "placement" payload (actuator_node.py's
+            _release_grasped_object, both its success and failure paths),
+            regardless of whether that message ends up triggering a replan.
+
+            geometric_truth_xyz is recomputed here, independently of Layer 2,
+            from this subtask's own args (self.task_map) and Layer 1's own
+            current /object_map view (self.latest_object_map) -- see
+            placement_eval.compute_geometric_truth. planned_xyz/actual_xyz/
+            execution_error_m are NOT recomputed; they are passed through
+            exactly as actuator_node.py measured them, so planning_error_m
+            (geometric_truth vs. planned) isolates a Layer 2 resolution bug
+            from execution_error_m (planned vs. actual), which isolates a
+            Layer 3 physics/execution bug."""
+            args = self.task_map.get(task_id, {}).get("args", {})
+            truth = placement_eval.compute_geometric_truth(args, self.latest_object_map)
+            planned = placement.get("planned_xyz")
+            actual = placement.get("actual_xyz")
+
+            self.current_run["placement_errors"].append({
+                "object": placement.get("object"),
+                "geometric_truth_xyz": placement_eval.xyz_list(truth),
+                "planned_xyz": placement_eval.xyz_list(planned),
+                "actual_xyz": placement_eval.xyz_list(actual),
+                "planning_error_m": placement_eval.euclidean(truth, planned),
+                "execution_error_m": placement.get("execution_error_m"),
+                "total_error_m": placement_eval.euclidean(truth, actual),
+            })
 
         def _trigger_replan(self, raw_feedback: str, failed_task_id: str):
             """Build a continuation instruction (original goal + what's
@@ -1214,6 +1276,13 @@ def run_ros_node():
                 "plan_ids": [c["plan_id"] for c in run["decompose_calls"]],
                 "decompose_calls": run["decompose_calls"],
                 "plans": run["plans"],
+                # EVAL INSTRUMENTATION (additive): see _record_placement_error
+                # and the stage-failure block in _handle_feedback. Persisted
+                # even for a run that ultimately succeeded via replan -- these
+                # are failure-attribution/accuracy records, not pass/fail
+                # gates, so a later recovery must not erase them.
+                "placement_errors": run["placement_errors"],
+                "stage_failures": run["stage_failures"],
             }
             if "decompose_errors" in run:
                 record["decompose_errors"] = run["decompose_errors"]

@@ -137,7 +137,7 @@ COLLISION_PROXY_SIZE = 0.04
 # to physically pin a grasped cube to the gripper (see module docstring /
 # _attach_grasped_object). Topic names here must match the ones declared
 # on those plugins.
-DETACHABLE_CUBES = ("red_cube", "blue_cube", "green_cube")
+DETACHABLE_CUBES = ("red_cube", "blue_cube", "green_cube", "yellow_cube")
 
 
 def _detachable_joint_topics(cube_name: str) -> dict:
@@ -1337,6 +1337,25 @@ class ActuatorNode(Node):
             {"x": rest[0], "y": rest[1], "z": rest[2]} if rest is not None else pose
         )
 
+        # EVAL INSTRUMENTATION (additive, does not affect the return value
+        # or control flow below): planned_xyz is exactly the target this
+        # method was called with -- Layer 2's real, unmodified output --
+        # and actual_xyz is the same Gazebo ground-truth read (`rest`) the
+        # tolerance check below already uses, taken after detach is
+        # confirmed. execution_error_m mirrors rest_err. Layer 1 pairs this
+        # with an independently-recomputed geometric_truth_xyz (see
+        # layer1_pipeline.py's _record_placement_error /
+        # src/layer1/placement_eval.py) to split planning error from
+        # execution error.
+        placement_extra = {
+            "placement": {
+                "object": name,
+                "planned_xyz": [pose["x"], pose["y"], pose["z"]],
+                "actual_xyz": list(rest) if rest is not None else None,
+                "execution_error_m": rest_err,
+            }
+        }
+
         if not placed or rest_err is None or rest_err > PLACE_VERIFY_TOLERANCE:
             if not placed:
                 why = (f"{SET_POSE_SERVICE} never got it within "
@@ -1352,10 +1371,18 @@ class ActuatorNode(Node):
                 f"'{name}' was released, but is not resting at the commanded target: "
                 f"{why}. The gripper is empty and the object is no longer attached, "
                 "but it is not where the task asked for it.",
-                plan_id
+                plan_id,
+                extra=placement_extra,
             )
             return False
 
+        self._publish_feedback(
+            task_id, "success", "place_verify",
+            f"'{name}' settled {rest_err * 1000:.2f}mm off the commanded target "
+            f"(tolerance {PLACE_VERIFY_TOLERANCE * 1000:.0f}mm)",
+            plan_id,
+            extra=placement_extra,
+        )
         return True
 
     def _attach_object(self, name: str, pose: dict):
@@ -1990,8 +2017,10 @@ class ActuatorNode(Node):
     # Feedback
     # ------------------------------------------------------------------
 
-    def _publish_feedback(self, task_id, status, stage, detail, plan_id=""):
+    def _publish_feedback(self, task_id, status, stage, detail, plan_id="", extra=None):
         fb = {"plan_id": plan_id, "task_id": task_id, "status": status, "stage": stage, "detail": detail}
+        if extra:
+            fb.update(extra)
         out = String()
         out.data = json.dumps(fb)
         self.feedback_pub.publish(out)
