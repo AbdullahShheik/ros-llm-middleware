@@ -1075,6 +1075,7 @@ def run_ros_node():
 
                 if status in {"failed", "failure", "error", "rejected", "infeasible"}:
                     self.current_run["stage_failures"].append({
+                        "plan_id": plan_id or self.active_plan["plan_id"],
                         "task_id": task_id,
                         "stage": stage,
                         "reason": fb_detail.get("detail"),
