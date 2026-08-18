@@ -163,14 +163,62 @@
       </link>
     </model>
 
+    <!-- Both arms are rotated INWARD, mirrored, so they angle toward each
+         other instead of both facing the same +X direction. 0.6m Y-gap
+         was tried first and confirmed live to be too tight (bodies nearly
+         touching at rest); 1.0m clears both arms' bases with real margin.
+
+         Rotating only panda2 (a single -90deg turn to face panda) was
+         tried first and confirmed live, three times over, to still leave
+         a real lateral offset for whatever shared point the mobile robot
+         hands cubes off at. Rotating BOTH arms 45deg (mirrored) was tried
+         next, aimed so a shared point sits exactly on their perpendicular
+         bisector (y=0.5), a genuinely zero-lateral, straight-ahead reach
+         for both simultaneously. That fixed the earlier symptom (every
+         attempt before it failed the SAME way regardless of the shared
+         point's exact position), but retreat (lifting straight up right
+         after grasping, object now rigidly attached) STILL failed at 45deg,
+         at the identical height every time ("Unable to sample any valid
+         states for goal tree"), with the identical descend-and-grasp at
+         that same XY always succeeding. That position-independence is
+         what actually rules out lateral offset as the cause: it's the
+         VERTICAL lift combined with the forward reach the 45deg crossing
+         point needs (0.707m, ~83% of nominal), asking for more total reach
+         than available. 50deg pulls the crossing point in to ~0.65m
+         forward reach (~76%, matching the original single-arm system's
+         own proven margin) while still keeping real Nav2 clearance. See
+         actuator_node.py's _retreat for the matching (smaller) lift-height
+         change, since both were needed together, not either alone.
+         See spatial_placement.py's WORKSPACE_BOUNDS and
+         attach_detach_node.py's PICKUP_POINT_X/Y for the exact numbers.
+         See actuator_node.py's BASE_YAW/_world_to_base for the matching
+         frame-conversion this requires for BOTH arms now (arm 1 is no
+         longer the simple, unrotated reference), and
+         moveit2.launch.py's world->panda_link0 transform and
+         panda2_mount_joint, which must carry the matching rotations for
+         the combined planning scene (ik_feasibility_service.py's one
+         consumer) to agree with this. -->
     <include>
       <name>panda</name>
       <uri>model://panda</uri>
-      <pose>0.2 0 0 0 0 0</pose>
+      <pose>0.2 0 0 0 0 0.8726646</pose>
+    </include>
+
+    <include>
+      <name>panda2</name>
+      <uri>model://panda2</uri>
+      <pose>0.2 1.0 0 0 0 -0.8726646</pose>
     </include>
 
     <model name="red_cube">
-      <pose>3 3 0.03 0 0 0</pose>
+      <!-- TEMPORARY for quick arm-only testing: spawned near pickup_point
+           (0.62, 0.50) instead of its normal far zone, so it registers as
+           reachable_by_arm: true (build_environment.py, within
+           PANDA_REACH_RADIUS_M of arm1's base) and the LLM skips the whole
+           mobile-robot navigate/attach/detach chain, going straight to
+           pick. Move back to its original far pose (3, 3, 0.03) once
+           mobile-robot delivery needs testing again too. -->
+      <pose>0.60 0.48 0.03 0 0 0</pose>
       <link name="link">
         <inertial>
           <mass>0.1</mass>
@@ -223,10 +271,23 @@
         <detach_topic>/model/red_cube/detachable_joint/detach</detach_topic>
         <output_topic>/model/red_cube/detachable_joint/state</output_topic>
       </plugin>
+      <!-- Second arm's grasp joint for this cube: either arm can pick it
+           up, distinct topics from the first arm's plugin above so the two
+           don't share attach/detach state. -->
+      <plugin filename="gz-sim-detachable-joint-system" name="gz::sim::systems::DetachableJoint">
+        <parent_link>link</parent_link>
+        <child_model>panda2</child_model>
+        <child_link>robotiq2_85_base_link</child_link>
+        <attach_topic>/model/red_cube/detachable_joint2/attach</attach_topic>
+        <detach_topic>/model/red_cube/detachable_joint2/detach</detach_topic>
+        <output_topic>/model/red_cube/detachable_joint2/state</output_topic>
+      </plugin>
     </model>
 
     <model name="blue_cube">
-      <pose>-3 3 0.03 0 0 0</pose>
+      <!-- TEMPORARY for quick arm-only testing, see red_cube's comment
+           above. Original far pose: (-3, 3, 0.03). -->
+      <pose>0.55 0.58 0.03 0 0 0</pose>
       <link name="link">
         <inertial>
           <mass>0.1</mass>
@@ -270,10 +331,20 @@
         <detach_topic>/model/blue_cube/detachable_joint/detach</detach_topic>
         <output_topic>/model/blue_cube/detachable_joint/state</output_topic>
       </plugin>
+      <plugin filename="gz-sim-detachable-joint-system" name="gz::sim::systems::DetachableJoint">
+        <parent_link>link</parent_link>
+        <child_model>panda2</child_model>
+        <child_link>robotiq2_85_base_link</child_link>
+        <attach_topic>/model/blue_cube/detachable_joint2/attach</attach_topic>
+        <detach_topic>/model/blue_cube/detachable_joint2/detach</detach_topic>
+        <output_topic>/model/blue_cube/detachable_joint2/state</output_topic>
+      </plugin>
     </model>
 
     <model name="green_cube">
-      <pose>3 -3 0.03 0 0 0</pose>
+      <!-- TEMPORARY for quick arm-only testing, see red_cube's comment
+           above. Original far pose: (3, -3, 0.03). -->
+      <pose>0.50 0.40 0.03 0 0 0</pose>
       <link name="link">
         <inertial>
           <mass>0.1</mass>
@@ -316,6 +387,14 @@
         <attach_topic>/model/green_cube/detachable_joint/attach</attach_topic>
         <detach_topic>/model/green_cube/detachable_joint/detach</detach_topic>
         <output_topic>/model/green_cube/detachable_joint/state</output_topic>
+      </plugin>
+      <plugin filename="gz-sim-detachable-joint-system" name="gz::sim::systems::DetachableJoint">
+        <parent_link>link</parent_link>
+        <child_model>panda2</child_model>
+        <child_link>robotiq2_85_base_link</child_link>
+        <attach_topic>/model/green_cube/detachable_joint2/attach</attach_topic>
+        <detach_topic>/model/green_cube/detachable_joint2/detach</detach_topic>
+        <output_topic>/model/green_cube/detachable_joint2/state</output_topic>
       </plugin>
     </model>
 
@@ -600,7 +679,7 @@
 
     <model name="pickup_point">
       <static>true</static>
-      <pose>0.7 0 0.006 0 0 0</pose>
+      <pose>0.620 0.50 0.006 0 0 0</pose>
       <link name="link">
         <visual name="visual">
           <geometry><box><size>0.2 0.2 0.01</size></box></geometry>

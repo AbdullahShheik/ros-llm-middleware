@@ -6,6 +6,7 @@ find_package(rclpy REQUIRED)
 
 install(PROGRAMS
   actuator/actuator_node.py
+  actuator/arm_workspace_lock_node.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

@@ -38,6 +38,7 @@ from sensor_msgs.msg import JointState
 from geometry_msgs.msg import PoseStamped, Pose
 from control_msgs.action import GripperCommand
 from controller_manager_msgs.srv import ListControllers
+from std_srvs.srv import Trigger
 from sensor_msgs.msg import JointState
 from moveit.planning import MoveItPy
 from moveit_msgs.msg import CollisionObject, AttachedCollisionObject
@@ -56,6 +57,78 @@ import numpy as np
 
 # World -> panda_link0 frame offset — must match ik_feasibility_service.py
 FRAME_OFFSET = {"x": -0.2, "y": 0.0, "z": 0.0}
+
+# This arm's mounting yaw (radians, about world Z) relative to world axes.
+# Both arms are rotated inward, mirrored (see panda_world.sdf for the full
+# history: a single-arm rotation was tried first and still left a real
+# lateral-reach problem, then 45deg each still left retreat -- the phase
+# right after grasping, object now attached -- failing on total reach at
+# the lift height needed; 50deg plus a smaller retreat lift is the
+# combination that actually addresses it). +50deg for arm 1 here;
+# configure_for_arm() reassigns this to -50deg for arm 2. Every
+# world<->BASE_FRAME conversion below goes through
+# _world_to_base()/_base_to_world() instead of a bare FRAME_OFFSET add so
+# it stays correct for a rotated base, not just a translated one -- this
+# is no longer an arm-2-only concern, arm 1 is not the simple axis-aligned
+# reference it used to be either.
+BASE_YAW = math.radians(50)
+
+
+def _world_to_base(x: float, y: float, z: float):
+    """World-frame (Gazebo) point -> this arm's BASE_FRAME-local point.
+    Reduces to the plain FRAME_OFFSET translation the single-arm system
+    always used when BASE_YAW is 0 (arm 1); applies the arm's mounting
+    rotation too when it isn't (arm 2)."""
+    dx = x + FRAME_OFFSET["x"]
+    dy = y + FRAME_OFFSET["y"]
+    c, s = math.cos(BASE_YAW), math.sin(BASE_YAW)
+    return (dx * c + dy * s, -dx * s + dy * c, z + FRAME_OFFSET["z"])
+
+
+def _base_to_world(x: float, y: float, z: float):
+    """Inverse of _world_to_base."""
+    c, s = math.cos(BASE_YAW), math.sin(BASE_YAW)
+    wx, wy = x * c - y * s, x * s + y * c
+    return (wx - FRAME_OFFSET["x"], wy - FRAME_OFFSET["y"], z - FRAME_OFFSET["z"])
+
+
+def _base_yaw_rotation_matrix():
+    """3x3 rotation-about-Z matrix for BASE_YAW, used to compose a
+    BASE_FRAME-local orientation (e.g. from MoveIt's own FK, which has no
+    notion of this arm's Gazebo spawn rotation) into the true world-frame
+    orientation needed for a Gazebo SetPose call. Identity when BASE_YAW
+    is 0 (arm 1), so this is a no-op there -- only arm 2 needs it."""
+    c, s = math.cos(BASE_YAW), math.sin(BASE_YAW)
+    return np.array([[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]])
+
+# This whole module is written against a single arm's constants (ARM_GROUP,
+# BASE_FRAME, etc. below) as plain module-level globals, referenced
+# throughout ~2000 lines of already-heavily-tuned planning/grasp logic.
+# Rather than threading an arm identity through every one of those
+# references (real risk of missing one in code this delicate), a single
+# arm's worth of constants is defined below as before, and
+# configure_for_arm() (bottom of file) reassigns all of them via `global`
+# for the second arm -- called once, at the very top of main(), before
+# ActuatorNode() is ever constructed, so every reference below sees the
+# right values for whichever arm this process instance is. Default values
+# (arm 1) are exactly what this file already used before it supported two
+# arms, so an unparametrized launch is unchanged.
+NODE_NAME = "actuator_node"
+MOVEIT_NODE_NAME = "actuator_moveit_py"
+# robot_type values in /execution_command this instance claims. Arm 1 keeps
+# accepting the pre-dual-arm values ("arm", "robotic_arm") for backward
+# compatibility, plus its own explicit "robotic_arm_1".
+ACCEPTED_ROBOT_TYPES = ('arm', 'robotic_arm', 'robotic_arm_1')
+
+# gz_ros2_control's controller_manager for arm 2 is namespaced (SDF's
+# <ros><namespace>panda2</namespace>), which namespaces every topic its own
+# controllers publish too -- confirmed live: arm 2's controller_manager sat
+# forever on "Waiting for data on 'robot_description' topic" for the same
+# reason (see moveit2.launch.py's second robot_state_publisher, which fixes
+# that separate instance of this same issue). Arm 1's default /joint_states
+# is arm 1's own joint_state_broadcaster's topic, not a global bus both arms
+# publish to -- arm 2's is /panda2/joint_states.
+JOINT_STATES_TOPIC = "/joint_states"
 
 ARM_GROUP  = "panda_arm"
 BASE_FRAME = "panda_link0"
@@ -86,6 +159,11 @@ GRIPPER_TOUCH_LINKS = [
 
 GRIPPER_ACTION = "/robotiq_gripper_controller/gripper_cmd"
 GRIPPER_JOINT_NAME = "robotiq_85_left_knuckle_joint"
+
+# Panda's own reach (0.855m) with the second arm 1.0m away from the first
+# (see panda_world.sdf's panda2 <include><pose>) means either arm can
+# physically reach cubes near the shared workspace between them --
+# nothing here restricts which cubes an arm may be asked to handle.
 
 # Robotiq 2F-85: 0.0 = open, 0.8 = closed. The grasping close is NOT 0.8 --
 # see GRIPPER_POSITION below the grasp-geometry block, which derives it from
@@ -140,8 +218,12 @@ COLLISION_PROXY_SIZE = 0.04
 DETACHABLE_CUBES = ("red_cube", "blue_cube", "green_cube", "yellow_cube")
 
 
-def _detachable_joint_topics(cube_name: str) -> dict:
-    base = f"/model/{cube_name}/detachable_joint"
+def _detachable_joint_topics(cube_name: str, suffix: str = "") -> dict:
+    # suffix distinguishes each arm's own DetachableJoint plugin per cube
+    # (panda_world.sdf gives every cube one such plugin per arm) -- "" for
+    # arm 1 (unchanged topic names), "2" for arm 2
+    # (/model/<cube>/detachable_joint2/*).
+    base = f"/model/{cube_name}/detachable_joint{suffix}"
     return {"attach": f"{base}/attach", "detach": f"{base}/detach", "state": f"{base}/state"}
 
 
@@ -440,10 +522,39 @@ PLACE_VERIFY_SETTLE_SEC = 0.3
 # a millimetre of settle.
 PLACE_VERIFY_TOLERANCE = 0.005
 
+# Region both arms can genuinely reach, needing mutual exclusion. A
+# bounding box around the two actual shared regions both arms use --
+# spatial_placement.py's WORKSPACE_BOUNDS (x:[0.38,0.46] y:[0.42,0.58],
+# the shared build/landmark area) and the shared pickup_point (0.62, 0.50,
+# see attach_detach_node.py's PICKUP_POINT_X/Y), padded ~0.05m around the
+# point. Both arms are now rotated inward, mirrored (see panda_world.sdf
+# and BASE_YAW below), so this shared region is centered on the point
+# both arms' straight-ahead reach converges on, not derived from a simple
+# per-arm-workspace-overlap formula. Everywhere else in either arm's
+# workspace, the two arms can move fully concurrently with no lock, since
+# their reachable spaces don't overlap there. Same for both arm process
+# instances (world-frame absolute coordinates), so this is not part of
+# configure_for_arm()'s per-arm reassignment.
+SHARED_ZONE_BOUNDS = {"x_min": 0.38, "x_max": 0.67, "y_min": 0.42, "y_max": 0.58}
+
+# Arm workspace lock service names -- see arm_workspace_lock_node.py. Client
+# timeout is longer than the server's own ACQUIRE_TIMEOUT_S (60s) so a
+# legitimate "still held" response has time to come back rather than the
+# client giving up first and misreporting it as a communication failure.
+SHARED_WORKSPACE_ACQUIRE_SERVICE = "/shared_workspace/acquire"
+SHARED_WORKSPACE_RELEASE_SERVICE = "/shared_workspace/release"
+SHARED_WORKSPACE_ACQUIRE_TIMEOUT = 65.0
+SHARED_WORKSPACE_RELEASE_TIMEOUT = 5.0
+
+
+def _pose_in_shared_zone(pose: dict) -> bool:
+    b = SHARED_ZONE_BOUNDS
+    return b["x_min"] <= pose["x"] <= b["x_max"] and b["y_min"] <= pose["y"] <= b["y_max"]
+
 
 class ActuatorNode(Node):
     def __init__(self):
-        super().__init__("actuator_node")
+        super().__init__(NODE_NAME)
         self.callback_group = ReentrantCallbackGroup()
 
         self._have_joint_state = False
@@ -482,7 +593,7 @@ class ActuatorNode(Node):
         # Joint state readiness gate
         self.create_subscription(
             JointState,
-            "/joint_states",
+            JOINT_STATES_TOPIC,
             self._joint_state_callback,
             10,
             callback_group=self.callback_group,
@@ -522,6 +633,22 @@ class ActuatorNode(Node):
         self._list_controllers_client = self.create_client(
             ListControllers,
             LIST_CONTROLLERS_SERVICE,
+            callback_group=self.callback_group,
+        )
+
+        # Mutual-exclusion lock over the region both arms' workspaces
+        # overlap (SHARED_ZONE_BOUNDS) -- see arm_workspace_lock_node.py.
+        # Reentrant callback group so awaiting these from inside the
+        # /execution_command callback doesn't deadlock the executor, same
+        # as _list_controllers_client above.
+        self._shared_workspace_acquire_client = self.create_client(
+            Trigger,
+            SHARED_WORKSPACE_ACQUIRE_SERVICE,
+            callback_group=self.callback_group,
+        )
+        self._shared_workspace_release_client = self.create_client(
+            Trigger,
+            SHARED_WORKSPACE_RELEASE_SERVICE,
             callback_group=self.callback_group,
         )
 
@@ -582,7 +709,7 @@ class ActuatorNode(Node):
             time.sleep(0.1)
 
         self.get_logger().info("Initializing MoveItPy (this can take a few seconds)...")
-        self.moveit = MoveItPy(node_name="actuator_moveit_py")
+        self.moveit = MoveItPy(node_name=MOVEIT_NODE_NAME)
         self.arm = self.moveit.get_planning_component(ARM_GROUP)
         self._scene_monitor = self.moveit.get_planning_scene_monitor()
 
@@ -870,9 +997,9 @@ class ActuatorNode(Node):
 
     def _object_pose_stamped(self, pose: dict) -> Pose:
         p = Pose()
-        p.position.x = pose["x"] + FRAME_OFFSET["x"]
-        p.position.y = pose["y"] + FRAME_OFFSET["y"]
-        p.position.z = pose["z"] + FRAME_OFFSET["z"]
+        p.position.x, p.position.y, p.position.z = _world_to_base(
+            pose["x"], pose["y"], pose["z"]
+        )
         p.orientation.w = 1.0
         return p
 
@@ -940,9 +1067,7 @@ class ActuatorNode(Node):
             return
         cube = self._gz_pose_of(name)
         g = self._gripper_transform(wait=False)[:3, 3]
-        gw = (float(g[0]) - FRAME_OFFSET["x"],
-              float(g[1]) - FRAME_OFFSET["y"],
-              float(g[2]) - FRAME_OFFSET["z"])
+        gw = _base_to_world(float(g[0]), float(g[1]), float(g[2]))
         with self._object_map_lock:
             om = self._object_map.get(name)
         bits = [f"[GRASP_DEBUG] {name:11s} {tag:<16s} t=+{(time.monotonic()-t0)*1000.0:8.1f}ms"]
@@ -1028,15 +1153,18 @@ class ActuatorNode(Node):
         grasp = origin + rot @ np.asarray(GRASP_OFFSET_IN_GRIPPER)
 
         # BASE_FRAME -> world is the inverse of the world -> BASE_FRAME shift
-        # every other pose in this node goes through (_object_pose_stamped);
-        # the panda is placed axis-aligned in panda_world.sdf, so it is a pure
-        # translation with no rotation to undo.
-        world = {
-            "x": float(grasp[0]) - FRAME_OFFSET["x"],
-            "y": float(grasp[1]) - FRAME_OFFSET["y"],
-            "z": float(grasp[2]) - FRAME_OFFSET["z"],
-        }
-        quat = self._quat_from_matrix(rot)
+        # every other pose in this node goes through (_object_pose_stamped),
+        # via _base_to_world -- a pure translation for arm 1 (axis-aligned
+        # spawn), a real rotation to undo for arm 2 (spawned facing arm 1
+        # instead of world +X, see BASE_YAW). `rot` itself is MoveIt's own
+        # FK, entirely local to this arm's kinematic tree -- it has no idea
+        # about the Gazebo spawn rotation at all -- so it must be composed
+        # with that same rotation too, or a rotated arm's grasp would
+        # teleport the object with the wrong WORLD orientation even though
+        # the position were correct.
+        gx, gy, gz = _base_to_world(float(grasp[0]), float(grasp[1]), float(grasp[2]))
+        world = {"x": gx, "y": gy, "z": gz}
+        quat = self._quat_from_matrix(_base_yaw_rotation_matrix() @ rot)
 
         self._grasp_dbg_t0 = time.monotonic()
         self._grasp_dbg_target = world
@@ -1447,7 +1575,7 @@ class ActuatorNode(Node):
         robot_type = cmd.get("robot_type")
         pose       = cmd.get("pose")
 
-        if robot_type not in ('arm', 'robotic_arm'):
+        if robot_type not in ACCEPTED_ROBOT_TYPES:
             return
 
         if not pose:
@@ -1544,6 +1672,30 @@ class ActuatorNode(Node):
             )
             return
 
+        # Dual-arm mutual exclusion: only the region both arms' workspaces
+        # overlap needs serializing (SHARED_ZONE_BOUNDS) -- checked against
+        # the target pose as given at entry, not re-checked as it gets
+        # refined below, since the acquired lock covers this whole
+        # operation regardless of exactly where the live-refresh moves it
+        # within that same target area. Outside this zone the two arms can
+        # move fully concurrently, no lock involved at all.
+        holding_shared_workspace = _pose_in_shared_zone(pose)
+        if holding_shared_workspace:
+            if not self._acquire_shared_workspace(task_id, plan_id):
+                # Plain return, NOT _recover_after_failure: nothing has
+                # moved yet, so there is no awkward pose to recover from,
+                # and if this is a "place" recovery would force-drop
+                # whatever is currently held just because the lock wasn't
+                # available -- worse than leaving it held for a retry.
+                return
+
+        try:
+            self._run_pick_or_place_locked(task_id, plan_id, action, pose)
+        finally:
+            if holding_shared_workspace:
+                self._release_shared_workspace()
+
+    def _run_pick_or_place_locked(self, task_id: str, plan_id: str, action: str, pose: dict):
         # Which tracked object (if any) this task concerns, and register
         # it as a real collision object in the planning scene *before*
         # planning anything. Previously MoveIt had zero knowledge of any
@@ -1763,7 +1915,20 @@ class ActuatorNode(Node):
 
     def _retreat(self, task_id: str, pose: dict, plan_id: str, return_to_ready: bool) -> bool:
         cleared = False
-        for z_offset in (0.4, 0.5):
+        # Was (0.4, 0.5) -- confirmed live, across many different XY pickup
+        # points and TWO different arm rotation schemes (a single-arm
+        # -90deg turn, then both arms at +-45deg), that retreat consistently
+        # fails at the SAME height ("Unable to sample any valid states for
+        # goal tree") while the descend+grasp at the identical XY always
+        # succeeds. That position-independence is what actually rules out
+        # XY/lateral-offset as the cause -- it's the vertical lift itself,
+        # combined with the fixed straight-down grasp orientation and
+        # whatever forward reach the shared point requires, asking for more
+        # total reach than this arm has at the reach distances a two-arm
+        # shared point needs (greater than the closer points the original
+        # single-arm system mostly used). A smaller lift is still enough to
+        # clear a 0.06m cube by a wide margin.
+        for z_offset in (0.15, 0.25):
             lift_pose = {"x": pose["x"], "y": pose["y"], "z": pose["z"] + z_offset}
             # Straight (in small hops) lift for the same reason as the
             # descent in _run_pick_or_place: an OMPL swing here can drag a
@@ -1820,24 +1985,31 @@ class ActuatorNode(Node):
     def _target_pose_stamped(self, pose: dict) -> PoseStamped:
         target = PoseStamped()
         target.header.frame_id = BASE_FRAME
-        # No X/Y correction needed: the fingertip pads are symmetric about
-        # EEF_LINK's own x=0/y=0 (see GRASP_OFFSET_IN_GRIPPER's derivation --
-        # the pads meet exactly on the centreline), so EEF_LINK's X/Y is
-        # already the grasp centre at this orientation.
-        target.pose.position.x = pose["x"] + FRAME_OFFSET["x"]
-        target.pose.position.y = pose["y"] + FRAME_OFFSET["y"]
+        # No X/Y correction needed beyond the frame conversion itself: the
+        # fingertip pads are symmetric about EEF_LINK's own x=0/y=0 (see
+        # GRASP_OFFSET_IN_GRIPPER's derivation -- the pads meet exactly on
+        # the centreline), so EEF_LINK's X/Y is already the grasp centre
+        # at this orientation.
+        #
         # EEF_LINK (robotiq_85_base_link, what MoveIt actually plans to) sits
         # EEF_TO_GRASP_Z above the fingertip pads' contact patch at this fixed
         # grasp orientation, so commanding it to "pose[z]" alone would leave
         # the pads that far above the target. See EEF_TO_GRASP_Z for the full
         # derivation from model.sdf plus the fingertip collision mesh.
-        target.pose.position.z = pose["z"] + FRAME_OFFSET["z"] + EEF_TO_GRASP_Z
-        # Point gripper straight down: pure 180deg about X, no yaw twist.
-        # The cube collision boxes in panda_world.sdf are axis-aligned with
-        # no rotation, so closing the gripper along a world-axis-aligned
-        # line (rather than the previous ~45deg-yawed line) lets the
-        # fingers close flush against opposite faces instead of catching
-        # them at an angle and sliding/pushing the object.
+        bx, by, bz = _world_to_base(pose["x"], pose["y"], pose["z"] + EEF_TO_GRASP_Z)
+        target.pose.position.x = bx
+        target.pose.position.y = by
+        target.pose.position.z = bz
+        # Point gripper straight down: pure 180deg about X, no yaw twist,
+        # expressed in BASE_FRAME's OWN local axes -- MoveIt's planning is
+        # entirely local to this arm's kinematic tree (it has no notion of
+        # this arm's Gazebo spawn rotation at all, see BASE_YAW), so this
+        # needs no rotation correction for arm 2, unlike position above.
+        # The cube collision boxes in panda_world.sdf are axis-aligned in
+        # WORLD frame; for arm 2 this orientation closes the pads along
+        # world Y instead of world X (a consequence of its -90deg spawn
+        # rotation), but that is still one of the cube's two axis-aligned
+        # face pairs -- harmless for a symmetric cube, not a diagonal grip.
         target.pose.orientation.x = 1.0
         target.pose.orientation.y = 0.0
         target.pose.orientation.z = 0.0
@@ -1933,6 +2105,65 @@ class ActuatorNode(Node):
             return None
         return future.result()
 
+    # ------------------------------------------------------------------
+    # Shared-workspace mutual exclusion (dual-arm coordination)
+    # ------------------------------------------------------------------
+
+    def _acquire_shared_workspace(self, task_id: str, plan_id: str) -> bool:
+        """Blocks until the region both arms' workspaces overlap is free.
+        Fails closed: any service-availability or timeout problem is
+        treated as "did not acquire" rather than proceeding unlocked, since
+        the whole point of this lock is to guarantee the other arm can't be
+        in this space at the same time."""
+        if not self._shared_workspace_acquire_client.wait_for_service(
+            timeout_sec=CONTROLLER_QUERY_TIMEOUT
+        ):
+            self._publish_feedback(
+                task_id, "failed", "precondition",
+                f"Shared workspace lock service ({SHARED_WORKSPACE_ACQUIRE_SERVICE}) "
+                "unavailable.",
+                plan_id
+            )
+            return False
+        resp = self._wait_for_future(
+            self._shared_workspace_acquire_client.call_async(Trigger.Request()),
+            timeout_sec=SHARED_WORKSPACE_ACQUIRE_TIMEOUT,
+        )
+        if resp is None or not resp.success:
+            self._publish_feedback(
+                task_id, "failed", "precondition",
+                "Could not acquire the shared workspace lock: "
+                f"{resp.message if resp is not None else 'no response'}",
+                plan_id
+            )
+            return False
+        return True
+
+    def _release_shared_workspace(self) -> None:
+        """Best-effort: release is idempotent server-side (see
+        arm_workspace_lock_node.py), so there's nothing useful to do here
+        with a failure beyond logging it -- retrying would just delay
+        clearing this arm's own subsequent tasks, and the server-side
+        idempotency means a lost release message is the only real risk,
+        not a stuck true-positive lock."""
+        if not self._shared_workspace_release_client.wait_for_service(
+            timeout_sec=CONTROLLER_QUERY_TIMEOUT
+        ):
+            self.get_logger().error(
+                f"Shared workspace lock release service "
+                f"({SHARED_WORKSPACE_RELEASE_SERVICE}) unavailable."
+            )
+            return
+        resp = self._wait_for_future(
+            self._shared_workspace_release_client.call_async(Trigger.Request()),
+            timeout_sec=SHARED_WORKSPACE_RELEASE_TIMEOUT,
+        )
+        if resp is None or not resp.success:
+            self.get_logger().error(
+                "Failed to release the shared workspace lock: "
+                f"{resp.message if resp is not None else 'no response'}"
+            )
+
     def _send_gripper_command(
         self, task_id: str, position: float, plan_id: str = "", wait_for_result: bool = True
     ) -> bool:
@@ -2027,7 +2258,65 @@ class ActuatorNode(Node):
         self.get_logger().info(f"[{task_id}] {status} @ {stage}: {detail}")
 
 
+def configure_for_arm(arm_id: str) -> None:
+    """Reassigns every constant this module hardcodes for a single arm to
+    the second arm's equivalents -- see the comment above NODE_NAME for
+    why this is a wholesale `global` reassignment rather than threading an
+    arm identity through ~2000 lines of already-tuned logic. Call once, at
+    the very top of main(), before ActuatorNode() is constructed. arm_id
+    "1" (or anything else) leaves every default as-is; only "2" changes
+    anything, so an unparametrized launch is unaffected."""
+    if arm_id != "2":
+        return
+
+    global NODE_NAME, MOVEIT_NODE_NAME, ACCEPTED_ROBOT_TYPES, JOINT_STATES_TOPIC
+    global FRAME_OFFSET, BASE_YAW, ARM_GROUP, BASE_FRAME, EEF_LINK, GRIPPER_BASE_LINK
+    global GRIPPER_TOUCH_LINKS, GRIPPER_ACTION, GRIPPER_JOINT_NAME
+    global DETACHABLE_JOINT_TOPICS, ARM_CONTROLLER_NAME, LIST_CONTROLLERS_SERVICE
+
+    NODE_NAME = "actuator_node2"
+    MOVEIT_NODE_NAME = "actuator_moveit_py2"
+    ACCEPTED_ROBOT_TYPES = ('robotic_arm_2',)
+    JOINT_STATES_TOPIC = "/panda2/joint_states"
+
+    # panda2 spawns at (0.2, 1.0, 0), rotated -50deg (yaw) -- the mirror
+    # image of arm 1's own +50deg -- so both arms angle inward toward each
+    # other instead of both facing the same +X direction. See
+    # panda_world.sdf's panda2 <include><pose> for the full reasoning.
+    # FRAME_OFFSET is still just the negative of where this arm's
+    # MoveIt-frame origin (panda2_link0) sits in Gazebo's world (same as
+    # arm 1's, translation only); BASE_YAW carries the rotation that
+    # FRAME_OFFSET alone can't represent -- see _world_to_base/_base_to_world.
+    FRAME_OFFSET = {"x": -0.2, "y": -1.0, "z": 0.0}
+    BASE_YAW = -math.radians(50)
+    ARM_GROUP = "panda2_arm"
+    BASE_FRAME = "panda2_link0"
+    EEF_LINK = "robotiq2_85_base_link"
+    GRIPPER_BASE_LINK = "robotiq2_85_base_link"
+    GRIPPER_TOUCH_LINKS = [
+        name.replace("panda_", "panda2_").replace("robotiq_85_", "robotiq2_85_")
+        for name in GRIPPER_TOUCH_LINKS
+    ]
+    # Namespaced under /panda2 (see panda2/model.sdf's <ros><namespace>
+    # block and panda2_ros2_controllers.yaml's controller names).
+    GRIPPER_ACTION = "/panda2/robotiq2_gripper_controller/gripper_cmd"
+    GRIPPER_JOINT_NAME = "robotiq2_85_left_knuckle_joint"
+    DETACHABLE_JOINT_TOPICS = {
+        name: _detachable_joint_topics(name, suffix="2") for name in DETACHABLE_CUBES
+    }
+    ARM_CONTROLLER_NAME = "panda2_arm_controller"
+    LIST_CONTROLLERS_SERVICE = "/panda2/controller_manager/list_controllers"
+
+
 def main(args=None):
+    # Which arm this process instance controls -- set via the
+    # ACTUATOR_ARM_ID environment variable (world.launch.py's two actuator
+    # Node entries set it differently per instance via additional_env).
+    # Read before rclpy.init()/ActuatorNode() since it determines this
+    # node's own name, not just a parameter read after construction.
+    import os
+    configure_for_arm(os.environ.get("ACTUATOR_ARM_ID", "1"))
+
     rclpy.init(args=args)
     node = ActuatorNode()
     executor = MultiThreadedExecutor()

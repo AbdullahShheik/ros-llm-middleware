@@ -12,7 +12,26 @@ import json
 import threading
 from std_srvs.srv import Trigger
 
-from action_dispatcher import spatial_placement
+# Under --symlink-install, this script is a symlink back into src/, and
+# Python resolves that symlink when computing sys.path[0] -- landing on
+# this file's OWN directory (src/action_dispatcher/action_dispatcher/,
+# where spatial_placement.py is a direct sibling) rather than the
+# installed lib/action_dispatcher/ directory (where it's nested one level
+# deeper, under a copied action_dispatcher/ package dir from CMakeLists.txt's
+# `install(DIRECTORY action_dispatcher ...)` rule). Which of those two
+# layouts sys.path[0] actually lands on depends on the install mode, so
+# both import forms are tried rather than assuming one -- confirmed live:
+# the plain `from action_dispatcher import spatial_placement` alone raised
+# ModuleNotFoundError under --symlink-install, silently killing this node
+# on every launch (exit code 1, ~18s after start).
+import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+try:
+    from action_dispatcher import spatial_placement
+except ImportError:
+    import spatial_placement
 
 # Object name mapping from LLM team naming to /object_map naming
 from action_dispatcher.object_name_map import OBJECT_NAME_MAP
@@ -28,7 +47,7 @@ _NUMBER_RE = re.compile(r'-?\d+(?:\.\d+)?')
 # an area) -- object_name resolution is skipped for these.
 NO_OBJECT_SKILLS = {"navigate", "survey"}
 
-VALID_ROBOTS = {"arm", "wheeled", "mobile_robot", "robotic_arm"}
+VALID_ROBOTS = {"arm", "wheeled", "mobile_robot", "robotic_arm", "robotic_arm_2"}
 
 class ActionDispatcher(Node):
     def __init__(self):
@@ -295,13 +314,13 @@ class ActionDispatcher(Node):
             # fall through to the arm planner itself, which already reports
             # a clear 'planning failed' feedback if unreachable.
             resolved_name = OBJECT_NAME_MAP.get(target_location, target_location)
-            if resolved_name in self.object_map and not self.check_ik(resolved_name):
+            if resolved_name in self.object_map and not self.check_ik(resolved_name, robot_type):
                 self.get_logger().warn(f'IK check failed for {resolved_name}, task {task_id} rejected')
                 self._reject(task_id, plan_id, 'ik_check', f'IK check failed for {resolved_name}')
                 return
         else:
             #for arm tasks, check IK feasibility
-            feasible = self.check_ik(object_name)
+            feasible = self.check_ik(object_name, robot_type)
             if not feasible:
                 self.get_logger().warn(f'IK check failed for {object_name}, task {task_id} rejected')
                 self._reject(task_id, plan_id, 'ik_check', f'IK check failed for {object_name}')
@@ -352,13 +371,14 @@ class ActionDispatcher(Node):
         out.data = json.dumps(fb)
         self.feedback_pub.publish(out)
 
-    def check_ik(self, object_name):
+    def check_ik(self, object_name, robot_type):
         if not self.ik_client.wait_for_service(timeout_sec=3.0):
             self.get_logger().warn('IK feasibility service not available')
             return False
 
         request = CheckIKFeasibility.Request()
         request.object_name = object_name
+        request.robot_type = robot_type
 
         future = self.ik_client.call_async(request)
 

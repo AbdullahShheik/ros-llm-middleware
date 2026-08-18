@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import math
+
 import rclpy
 from rclpy.node import Node
 from rclpy.callback_groups import ReentrantCallbackGroup
@@ -9,6 +11,25 @@ from moveit_msgs.srv import GetPositionIK
 from geometry_msgs.msg import PoseStamped
 from ros_llm_interfaces.srv import CheckIKFeasibility
 import json
+
+# World -> panda_link0 frame conversion. Both arms are rotated inward
+# (mirrored, see panda_world.sdf for why 50deg), so panda_link0 itself is
+# no longer axis-aligned with world -- must match actuator_node.py's
+# FRAME_OFFSET/BASE_YAW for arm 1 exactly (both groups this service can
+# check are resolved through the SAME panda_link0 root frame, since
+# panda2_link0 is mounted as a child of it in the combined scene -- see
+# moveit2.launch.py's panda2_mount_joint -- so only arm 1's own rotation
+# matters here, not arm 2's separately).
+FRAME_OFFSET = {"x": -0.2, "y": 0.0}
+BASE_YAW = math.radians(50)
+
+
+def _world_to_base_xy(x: float, y: float):
+    dx = x + FRAME_OFFSET["x"]
+    dy = y + FRAME_OFFSET["y"]
+    c, s = math.cos(BASE_YAW), math.sin(BASE_YAW)
+    return (dx * c + dy * s, -dx * s + dy * c)
+
 
 class IKFeasibilityService(Node):
     def __init__(self):
@@ -44,7 +65,19 @@ class IKFeasibilityService(Node):
 
     def handle_request(self, request, response):
         object_name = request.object_name
-        self.get_logger().info(f'Checking IK feasibility for: {object_name}')
+        # Which planning group to solve against -- move_group's combined
+        # scene (world/launch/moveit2.launch.py) has both panda_arm and
+        # panda2_arm in one tree, panda2_link0 mounted as a child of
+        # panda_link0 via a fixed joint at their true relative offset. That
+        # means the SAME world->panda_link0 frame conversion below (x-0.2,
+        # y unchanged) is correct for a panda2_arm request too -- MoveIt
+        # resolves panda2_link0's position within the tree itself. Only the
+        # group_name needs to differ. Confirmed live as a real bug, not
+        # just a gap: this used to be hardcoded to 'panda_arm' unconditionally,
+        # so any pick/place assigned to robotic_arm_2 was silently checked
+        # against arm 1's reach instead of its own.
+        group_name = 'panda2_arm' if request.robot_type == 'robotic_arm_2' else 'panda_arm'
+        self.get_logger().info(f'Checking IK feasibility for: {object_name} (group={group_name})')
 
         if object_name not in self.object_map:
             response.feasible = False
@@ -59,13 +92,27 @@ class IKFeasibilityService(Node):
             return response
 
         ik_request = GetPositionIK.Request()
-        ik_request.ik_request.group_name = 'panda_arm'
+        ik_request.ik_request.group_name = group_name
         ik_request.ik_request.pose_stamped = PoseStamped()
         ik_request.ik_request.pose_stamped.header.frame_id = 'panda_link0'
-        ik_request.ik_request.pose_stamped.pose.position.x = pose['x'] - 0.2
-        ik_request.ik_request.pose_stamped.pose.position.y = pose['y']
+        bx, by = _world_to_base_xy(pose['x'], pose['y'])
+        ik_request.ik_request.pose_stamped.pose.position.x = bx
+        ik_request.ik_request.pose_stamped.pose.position.y = by
         ik_request.ik_request.pose_stamped.pose.position.z = pose['z']
-        ik_request.ik_request.pose_stamped.pose.orientation.w = 1.0
+        # Must match actuator_node.py's _target_pose_stamped: gripper points
+        # straight down (180deg about X), not the arm's neutral/identity
+        # orientation. Confirmed live as a real bug, not just an
+        # approximation: checking identity here was validating an entirely
+        # different, unrelated orientation from the one the arm actually
+        # grasps with -- a position this rejects as infeasible may be
+        # perfectly reachable at the real downward grasp orientation, and
+        # vice versa. Panda's joint4 has a notably restrictive range
+        # (see panda/model.sdf), so which orientation is asked for measurably
+        # changes what's reachable, it isn't a detail that washes out.
+        ik_request.ik_request.pose_stamped.pose.orientation.x = 1.0
+        ik_request.ik_request.pose_stamped.pose.orientation.y = 0.0
+        ik_request.ik_request.pose_stamped.pose.orientation.z = 0.0
+        ik_request.ik_request.pose_stamped.pose.orientation.w = 0.0
         ik_request.ik_request.timeout.sec = 3
         ik_request.ik_request.robot_state.is_diff = True
 

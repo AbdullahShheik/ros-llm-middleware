@@ -19,8 +19,38 @@ import json
 CUBE_NAMES = {"red_cube", "blue_cube", "green_cube", "yellow_cube"}
 
 CUBE_ATTACH_Z = 0.15
-PICKUP_POINT_X = 0.7
-PICKUP_POINT_Y = 0.0
+# Several earlier attempts at this point shared the same flaw: they kept
+# both arms facing the same +X direction (or only rotated arm 2 by a
+# fixed -90deg) and tried to tune X/Y to find SOME point both could
+# reach. Three X values at y=0.5 (0.7, 0.55, 0.62), all with both arms
+# unrotated, cleared Nav2 fine and always succeeded at the initial
+# descend-and-grasp, but every one failed the RETREAT phase right after
+# (lifting straight up with the object now rigidly attached), same error
+# every time ("Unable to sample any valid states for goal tree"). Rotating
+# only arm 2 by a fixed -90deg just moved which axis was lateral for arm
+# 2; it didn't remove the lateral component for either arm.
+#
+# Rotating BOTH arms 45deg inward, mirrored, aimed at a shared point on
+# their perpendicular bisector, gave a genuinely zero-lateral reach for
+# both simultaneously -- and that DID change the symptom (this stopped
+# being about horizontal position at all), but retreat still failed at
+# the identical height every time, with the identical descend-and-grasp
+# at that same XY always succeeding. That position-independence is what
+# finally pointed at the real cause: the vertical retreat lift itself
+# combined with the ~0.707m forward reach 45deg required was asking for
+# more total reach than available, not a lateral-offset problem. 50deg
+# pulls that forward reach in to ~0.65m (matching the original single-arm
+# system's own proven ~76% margin) -- see actuator_node.py's _retreat for
+# the accompanying (smaller) lift-height reduction, since both were
+# needed together.
+#
+# X also clears build_map.py's merged both-arms obstacle block (its real
+# edge, after both arms' 50deg rotation, is at x~0.319) by ~0.30m --
+# comfortably past the mobile robot's own footprint (robot_radius 0.22,
+# see nav2_params.yaml), so Nav2 accepts "handoff_point" as a valid,
+# reachable goal with real margin.
+PICKUP_POINT_X = 0.620
+PICKUP_POINT_Y = 0.50
 CUBE_PICKUP_Z  = 0.04
 
 # How close another cube has to be sitting to the pickup point to count as

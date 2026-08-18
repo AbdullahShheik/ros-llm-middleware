@@ -20,16 +20,22 @@ def _prepare_and_launch(context, *args, **kwargs):
         'navigate_to_pose_w_replanning_and_recovery.xml'
     )
 
+    controllers_yaml2 = os.path.join(pkg_share, 'config', 'panda2_ros2_controllers.yaml')
+
     tmp_models_root = '/tmp/ros_llm_middleware_gz_models'
     if os.path.exists(tmp_models_root):
         shutil.rmtree(tmp_models_root)
     shutil.copytree(os.path.join(pkg_share, 'models'), tmp_models_root)
-    patched_model_sdf = os.path.join(tmp_models_root, 'panda', 'model.sdf')
-    with open(patched_model_sdf, 'r') as f:
-        content = f.read()
-    content = content.replace('__PANDA_ROS2_CONTROLLERS_YAML__', controllers_yaml)
-    with open(patched_model_sdf, 'w') as f:
-        f.write(content)
+    for model_dir, placeholder, yaml_path in (
+        ('panda', '__PANDA_ROS2_CONTROLLERS_YAML__', controllers_yaml),
+        ('panda2', '__PANDA2_ROS2_CONTROLLERS_YAML__', controllers_yaml2),
+    ):
+        patched_model_sdf = os.path.join(tmp_models_root, model_dir, 'model.sdf')
+        with open(patched_model_sdf, 'r') as f:
+            content = f.read()
+        content = content.replace(placeholder, yaml_path)
+        with open(patched_model_sdf, 'w') as f:
+            f.write(content)
 
     gz_sim_vendor_prefix = get_package_prefix('gz_sim_vendor')
 
@@ -58,12 +64,18 @@ def _prepare_and_launch(context, *args, **kwargs):
     # the arm's own grasp joint. Released here too so both joints start
     # detached regardless of whether attach_detach_node.py is running;
     # that node still attaches/detaches this joint on demand afterwards.
+    #
+    # Each cube also now has a THIRD DetachableJoint, to the second arm
+    # (panda2) -- same "starts attached" issue, same fix.
     release_cubes_cmd = ' '.join(
         [
             'for i in 1 2 3 4 5;', 'do',
         ] + [
             f"gz topic -t /model/{cube}/detachable_joint/detach -m gz.msgs.Empty -p '' ;"
             for cube in ('red_cube', 'blue_cube', 'green_cube', 'yellow_cube')
+        ] + [
+            f"gz topic -t /model/{cube}/detachable_joint2/detach -m gz.msgs.Empty -p '' ;"
+            for cube in ('red_cube', 'blue_cube', 'green_cube')
         ] + [
             f"gz topic -t /{cube}/detach -m gz.msgs.Empty -p '' ;"
             for cube in ('red_cube', 'blue_cube', 'green_cube', 'yellow_cube')
@@ -276,6 +288,45 @@ def _prepare_and_launch(context, *args, **kwargs):
                     name='gripper_mimic_bridge',
                     output='screen',
                 ),
+
+                # Second arm's controllers, targeting its own namespaced
+                # controller_manager (see panda2/model.sdf's <ros><namespace>
+                # block) rather than the first arm's default/global one.
+                Node(
+                    package='controller_manager',
+                    executable='spawner',
+                    arguments=['joint_state_broadcaster', '--controller-manager', '/panda2/controller_manager'],
+                    output='screen',
+                ),
+                Node(
+                    package='controller_manager',
+                    executable='spawner',
+                    arguments=['panda2_arm_controller', '--controller-manager', '/panda2/controller_manager'],
+                    output='screen',
+                ),
+                Node(
+                    package='controller_manager',
+                    executable='spawner',
+                    arguments=['robotiq2_gripper_controller', '--controller-manager', '/panda2/controller_manager'],
+                    output='screen',
+                ),
+                Node(
+                    package='controller_manager',
+                    executable='spawner',
+                    arguments=['right_knuckle_controller2', '--controller-manager', '/panda2/controller_manager'],
+                    output='screen',
+                ),
+                Node(
+                    package='action_dispatcher',
+                    executable='gripper_mimic_bridge.py',
+                    name='gripper_mimic_bridge2',
+                    parameters=[{
+                        'left_joint': 'robotiq2_85_left_knuckle_joint',
+                        'joint_states_topic': '/panda2/joint_states',
+                        'command_topic': '/panda2/right_knuckle_controller2/commands',
+                    }],
+                    output='screen',
+                ),
                 Node(
                     package='perception',
                     executable='perception_node.py',
@@ -310,14 +361,32 @@ def _prepare_and_launch(context, *args, **kwargs):
             ]
         ),
 
-        # Actuator at 20s: needs controllers active first
+        # Actuator at 20s: needs controllers active first. Two instances,
+        # arm_id 1 and 2 -- see actuator.launch.py's docstring for why each
+        # gets its own single-arm MoveItPy config rather than sharing one.
+        # arm_workspace_lock_node.py is launched once here too (shared by
+        # both instances, not per-arm) -- see that file's docstring for the
+        # coordination mechanism it provides.
         TimerAction(
             period=20.0,
             actions=[
                 IncludeLaunchDescription(
                     PythonLaunchDescriptionSource(
                         os.path.join(get_package_share_directory('actuator'), 'launch', 'actuator.launch.py')
-                    )
+                    ),
+                    launch_arguments={'arm_id': '1'}.items(),
+                ),
+                IncludeLaunchDescription(
+                    PythonLaunchDescriptionSource(
+                        os.path.join(get_package_share_directory('actuator'), 'launch', 'actuator.launch.py')
+                    ),
+                    launch_arguments={'arm_id': '2'}.items(),
+                ),
+                Node(
+                    package='actuator',
+                    executable='arm_workspace_lock_node.py',
+                    name='arm_workspace_lock_node',
+                    output='screen',
                 ),
                 IncludeLaunchDescription(
                     PythonLaunchDescriptionSource(

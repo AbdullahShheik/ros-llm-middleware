@@ -16,10 +16,26 @@ import math
 # gripper. The unit "1" in `distance` always means this many meters.
 DEFAULT_SPACING_M = 0.12
 
-# Comfortably inside the Panda's ~0.855m reach from its base (0.2, 0, 0)
-# and clear of pickup_point (0.7, 0). The only hardcoded geometry here --
-# every named landmark below is derived from this one rectangle.
-WORKSPACE_BOUNDS = {"x_min": 0.35, "x_max": 0.75, "y_min": -0.35, "y_max": 0.35}
+# Centered in the SHARED region both arm bases can reach, not just arm1's
+# own reach as this box used to be. Confirmed live as a real bug, not just
+# a leftover: "landmark: center" (the default anchor most multi-object
+# arrangements start from) resolved to a point in front of arm1 alone, so
+# a two-arm build never actually happened in the space between the arms
+# the way the feature was meant to work.
+#
+# Both arms are now rotated inward, mirrored, so they angle toward each
+# other instead of both facing the same +X direction (see panda_world.sdf
+# and actuator_node.py's BASE_YAW) -- see attach_detach_node.py's
+# PICKUP_POINT_X/Y for the full story of why 50deg, not the 45deg (or the
+# unrotated/single-arm-rotated schemes) tried before it. This box sits
+# near pickup_point (0.62, 0.50, the point both arms' straight-ahead
+# reach converges on) but offset enough that a cube waiting to be picked
+# up doesn't overlap one already placed (~0.18-0.25m clearance). Every
+# corner keeps each arm's own lateral offset under ~0.24m and total reach
+# under 75% of the Panda's ~0.855m nominal max. The only hardcoded
+# geometry here -- every named landmark below is derived from this one
+# rectangle.
+WORKSPACE_BOUNDS = {"x_min": 0.38, "x_max": 0.46, "y_min": 0.42, "y_max": 0.58}
 _WORKSPACE_Z = 0.04
 
 # Horizontal directions offset x/y in the workspace plane; `above`/`below`

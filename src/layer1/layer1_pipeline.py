@@ -346,7 +346,44 @@ Rules you must follow:
    too, even though the instruction never explicitly asked you to move
    it -- give its own place subtask a landmark (or a named location if
    the instruction gives one) as its target. This applies on top of
-   rule 16's dependency requirement, not instead of it."""
+   rule 16's dependency requirement, not instead of it.
+19. There are two independent robotic arms (robotic_arm, robotic_arm_2),
+   each with identical pick/place capability and its own gripper -- not
+   one arm with two slots. A single object's own pick and place subtasks
+   must use the SAME arm (the object is physically held between those two
+   steps). Across DIFFERENT objects' independent chains (rule 13), prefer
+   spreading them across both arms rather than assigning every chain to
+   the same one, so the two arms actually work concurrently instead of
+   one sitting idle. This does not override rule 16: a chain that depends
+   on another object's place subtask completing first still waits for
+   it regardless of which arm either one uses.
+20. A serial relative_to chain (rule 16) -- e.g. stacking three objects --
+   is still worth pipelining across both arms, even though the PLACE steps
+   themselves stay strictly ordered. The next object's PICK only needs
+   that object's own delivery done (its transport chain's detach, if it
+   has one) -- it does NOT need to wait for the current object's place to
+   finish, so do not add a dependency on the earlier object's place
+   subtask to it. Assign that pick to whichever arm is not currently busy
+   placing the earlier object: while arm A is placing object 1, arm B can
+   already be picking up object 2 (which the mobile robot can be
+   delivering in parallel, per rule 13) so it is standing ready the
+   moment arm A is free, instead of arm A doing every step of the chain
+   itself with arm B idle throughout. Only object 2's own PLACE subtask
+   (the one whose relative_to names object 1) needs the dependency on
+   object 1's place -- object 2's PICK does not.
+21. When a "This step failed" pick subtask's failure reason is about the
+   ARM (e.g. "MoveIt2 failed to find a plan...", a retreat/gripper/
+   arm_motion stage, anything after the pick began moving) rather than a
+   precondition rejection ("Cannot pick: already holding..."), the object
+   is NOT still held: the arm automatically opens its gripper and
+   releases whatever it was holding as part of recovering from that
+   failure, regardless of how close the pick had gotten (even a
+   successful grasp gets released if a later stage like retreat then
+   fails). Never write a "place" for that object with no pick before it
+   in the new plan on the assumption it's still in the gripper -- add a
+   fresh pick subtask for it (and a fresh transport chain first, per rule
+   14, if it isn't currently reachable_by_arm), the same as if it had
+   never been picked up at all."""
 
 
 def build_prompt(instruction: str,

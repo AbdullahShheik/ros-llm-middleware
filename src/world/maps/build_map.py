@@ -39,7 +39,30 @@ fill_rect(0, 4, 8, 0.2, OCCUPIED)    # wall_north
 fill_rect(0, -4, 8, 0.2, OCCUPIED)   # wall_south
 fill_rect(4, 0, 0.2, 8, OCCUPIED)    # wall_east
 fill_rect(-4, 0, 0.2, 8, OCCUPIED)   # wall_west
-fill_rect(0.2, 0, 0.9, 0.9, OCCUPIED) 
+# Both arms as ONE merged block rather than two separate squares -- panda
+# is at (0.2,0), panda2 at (0.2,1.0) (panda_world.sdf), 1.0m apart, and two
+# separate squares left only a ~0.10m sliver of "free" space between them
+# in an earlier version of this file (with robot_radius 0.22 +
+# inflation_radius 0.2, nowhere near enough for the mobile robot to
+# actually pass through, but the costmap didn't know that and would still
+# let a path get planned into the sliver, into a dead end). One block
+# spanning both arms' full extent means the planner never considers
+# routing through there at all.
+#
+# Both arms are now rotated inward (mirrored, see panda_world.sdf) instead
+# of both facing +X, so their footprints are no longer simple axis-aligned
+# squares -- this block is the actual axis-aligned bounding box of each
+# arm's real collision mesh (link0.stl, panda/model.sdf, measured
+# directly: x:[-0.154,0.072] y:[-0.095,0.095] in link-local coordinates)
+# after rotating it +/-50deg (see panda_world.sdf for why 50deg, not the
+# 45deg tried first) and placing it at each arm's real spawn pose, union'd
+# together. Deliberately computed from the real mesh rather than a padded
+# guess -- multiple earlier guesses (0.9m, then 0.5m, then 0.35m per arm,
+# all symmetric squares centered on the base) were each too large in some
+# direction and too small in another, which is what kept forcing an
+# uncomfortable trade-off between Nav2 clearance and arm reach margin at
+# the shared pickup point.
+fill_rect(0.1736, 0.5, 0.2908, 1.3581, OCCUPIED)
 
 img = Image.fromarray(grid, mode='L')
 out_path = '/home/abdullah/HU/STRP/ros-llm-middleware/src/world/maps/panda_world_map.pgm'

@@ -13,6 +13,7 @@ moveit_controller_manager: moveit_simple_controller_manager/MoveItSimpleControll
 moveit_simple_controller_manager:
   controller_names:
     - panda_arm_controller
+    - /panda2/panda2_arm_controller
 
   panda_arm_controller:
     action_ns: follow_joint_trajectory
@@ -26,3 +27,26 @@ moveit_simple_controller_manager:
       - panda_joint5
       - panda_joint6
       - panda_joint7
+
+  # move_group itself is unnamespaced (global), but the second arm's actual
+  # ros2_control controller lives under /panda2/controller_manager (see
+  # panda2/model.sdf's <ros><namespace> block) -- its FollowJointTrajectory
+  # action server is therefore at /panda2/panda2_arm_controller/
+  # follow_joint_trajectory, not the unnamespaced path a bare controller
+  # name would resolve to. Writing the fully-qualified name here as the
+  # controller's own key is MoveItSimpleControllerManager's way of pointing
+  # at a namespaced action server. Flagged for live verification: this is
+  # the one part of the dual-arm MoveIt setup not confirmed against a
+  # running move_group yet.
+  /panda2/panda2_arm_controller:
+    action_ns: follow_joint_trajectory
+    type: FollowJointTrajectory
+    default: true
+    joints:
+      - panda2_joint1
+      - panda2_joint2
+      - panda2_joint3
+      - panda2_joint4
+      - panda2_joint5
+      - panda2_joint6
+      - panda2_joint7

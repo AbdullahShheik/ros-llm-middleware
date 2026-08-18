@@ -1,6 +1,7 @@
 {
   "fleet": {
     "robotic_arm": 1,
+    "robotic_arm_2": 1,
     "mobile_robot": 1
   }
 }
