@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/home/abdullah-shaikh/HU/STRP/ros-llm-middleware/src/layer1/layer1_pipeline.py", line 44, in <module>
+    from RAG.few_shot_bank import bank_summary, load_examples
+  File "/home/abdullah-shaikh/HU/STRP/ros-llm-middleware/src/layer1/RAG/__init__.py", line 12, in <module>
+    from RAG.few_shot_retriever import CosineFewShotRetriever, format_examples_for_prompt
+  File "/home/abdullah-shaikh/HU/STRP/ros-llm-middleware/src/layer1/RAG/few_shot_retriever.py", line 34, in <module>
+    from sklearn.feature_extraction.text import TfidfVectorizer
+ModuleNotFoundError: No module named 'sklearn'

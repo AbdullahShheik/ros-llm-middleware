@@ -83,7 +83,7 @@ MAX_RETRIES  = 3
 # subtask failure before Layer1Node gives up and aborts (see
 # Layer1Node._handle_feedback). Bounded to stop a failure that reliably
 # recurs (e.g. a truly unreachable target) from replanning forever.
-MAX_REPLAN_ATTEMPTS = 1
+MAX_REPLAN_ATTEMPTS = 3
 SKILLS_FILE  = os.path.join(os.path.dirname(__file__), "robot_skills.json")
 # How many few-shot examples get retrieved into each prompt. The bank itself
 # can grow freely -- only these k reach the prompt.

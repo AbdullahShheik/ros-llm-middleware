@@ -292,7 +292,7 @@ TELEPORT_POLL_INTERVAL = 0.01
 # Two distinct failure modes were observed: an outright service rejection, and
 # a success that never lands. Three attempts covers a one-off rejection
 # followed by a slow apply without looping unboundedly (worst case ~4.5s).
-TELEPORT_MAX_ATTEMPTS = 3
+TELEPORT_MAX_ATTEMPTS = 10
 
 # Confirming the cube ARRIVED is not the same as confirming it is still there
 # once the DetachableJoint has actually formed. The joint freezes whatever
@@ -317,7 +317,7 @@ TELEPORT_MAX_ATTEMPTS = 3
 # address the underlying set_pose reliability issue (still "not chased in
 # Phase 1" per the TODO above); it only widens the margin the retry loop
 # already exists to paper over.
-GRASP_VERIFY_MAX_CYCLES = 9
+GRASP_VERIFY_MAX_CYCLES = 100
 # Brief settle before measuring, so the reading is the post-attach resting
 # pose rather than a pose-feed sample published just before the joint formed.
 GRASP_VERIFY_SETTLE_SEC = 0.15
@@ -410,6 +410,14 @@ ROBOT_STATE_WAIT_SEC = 2.0
 # requested attach/detach actually took effect, rather than assuming a
 # published gz-transport message was received and acted on.
 JOINT_STATE_CONFIRM_TIMEOUT = 3.0
+
+# Attach-side counterpart of RELEASE_DETACH_MAX_ATTEMPTS. gz-transport drops
+# roughly half of these one-shot publishes on this setup, and the attach used
+# to be published exactly once: a single lost message failed the whole grasp
+# ("DetachableJoint ... did not confirm attach"), left the node's tracking
+# state out of step with physics, and the replans that followed could not
+# recover. Five attempts against ~50% loss leaves ~3% odds of all being lost.
+ATTACH_MAX_ATTEMPTS = 5
 
 # Release (place) side of the same confirm-and-retry discipline the attach
 # side above already uses. This exists because the detach used to be treated
@@ -604,6 +612,9 @@ class ActuatorNode(Node):
         # empty-handed). Tracked so retreat/place know what they're
         # carrying without re-deriving it from a possibly-stale pose.
         self._attached_object_name = None
+        # (name, pose) of a just-released object whose world collision body
+        # is withheld until the retreat is done; see _release_grasped_object.
+        self._deferred_scene_object = None
 
         self.get_logger().info("Actuator ready, listening on /execution_command")
 
@@ -1184,11 +1195,27 @@ class ActuatorNode(Node):
                 )
                 return False
 
-            self._attach_pub[name].publish(GzEmpty())
-            if not self._wait_for_detach_state(name, "attached", JOINT_STATE_CONFIRM_TIMEOUT):
+            attached_ok = False
+            for attach_attempt in range(1, ATTACH_MAX_ATTEMPTS + 1):
+                self._attach_pub[name].publish(GzEmpty())
+                if self._wait_for_detach_state(name, "attached", JOINT_STATE_CONFIRM_TIMEOUT):
+                    attached_ok = True
+                    if attach_attempt > 1:
+                        self.get_logger().info(
+                            f"[{task_id}] DetachableJoint for '{name}' confirmed attached "
+                            f"after {attach_attempt} attempts"
+                        )
+                    break
+                self.get_logger().warn(
+                    f"[{task_id}] DetachableJoint for '{name}' did not confirm attach within "
+                    f"{JOINT_STATE_CONFIRM_TIMEOUT}s (attempt {attach_attempt}/"
+                    f"{ATTACH_MAX_ATTEMPTS})"
+                )
+            if not attached_ok:
                 self._publish_feedback(
                     task_id, "failed", "grasp",
-                    f"DetachableJoint for '{name}' did not confirm attach", plan_id
+                    f"DetachableJoint for '{name}' did not confirm attach after "
+                    f"{ATTACH_MAX_ATTEMPTS} attempts", plan_id
                 )
                 return False
 
@@ -1333,9 +1360,17 @@ class ActuatorNode(Node):
         # about to fail, and seeding MoveIt with the commanded pose in that
         # case would rebuild the same scene-contradicts-physics problem this
         # method exists to prevent, one layer up.
-        self._detach_object(
-            {"x": rest[0], "y": rest[1], "z": rest[2]} if rest is not None else pose
-        )
+        #
+        # The collision object is NOT re-added yet: the fingers are still
+        # touching the just-released cube, and a world obstacle in contact
+        # with the gripper makes MoveIt's CheckStartStateCollision abort the
+        # retreat plan ("1 contact(s) detected: <cube> -
+        # robotiq_85_left_finger_tip_link"), which then also blocks the
+        # recovery move and every replanned task. It is restored by
+        # _restore_deferred_scene_object() once the arm has cleared it.
+        rest_pose = {"x": rest[0], "y": rest[1], "z": rest[2]} if rest is not None else pose
+        self._detach_object(None)
+        self._deferred_scene_object = (name, rest_pose)
 
         # EVAL INSTRUMENTATION (additive, does not affect the return value
         # or control flow below): planned_xyz is exactly the target this
@@ -1433,6 +1468,16 @@ class ActuatorNode(Node):
             self._remove_collision_object(name)
         else:
             self._sync_collision_object(name, pose)
+
+    def _restore_deferred_scene_object(self):
+        """Put a just-released object back into the planning scene as a
+        world obstacle at its resting pose (see _release_grasped_object)."""
+        deferred = self._deferred_scene_object
+        if deferred is None:
+            return
+        self._deferred_scene_object = None
+        name, pose = deferred
+        self._sync_collision_object(name, pose)
 
     def _execution_command_callback(self, msg: String):
         try:
@@ -1653,6 +1698,7 @@ class ActuatorNode(Node):
         # clearance after a release — before reporting the task complete.
         if not self._retreat(task_id, pose, plan_id, return_to_ready=(action != "pick")):
             return self._recover_after_failure(task_id, plan_id)
+        self._restore_deferred_scene_object()
 
         self._publish_feedback(
             task_id, "success", "complete",
@@ -1741,7 +1787,14 @@ class ActuatorNode(Node):
                     with self._object_map_lock:
                         live_pose = self._object_map.get(name)
                     rest = dict(live_pose) if live_pose else None
-                self._detach_object(rest)
+                # Withhold the cube's world collision body until the arm has
+                # moved away (restored at the end of this method): the fingers
+                # are still touching it, and re-adding it now makes
+                # CheckStartStateCollision reject the recovery plan and every
+                # replanned task after it. See _release_grasped_object.
+                self._detach_object(None)
+                if rest is not None:
+                    self._deferred_scene_object = (name, rest)
             else:
                 # Same rule as the place path: an unconfirmed detach leaves
                 # the tracking state alone, because the object is still held.
@@ -1760,6 +1813,7 @@ class ActuatorNode(Node):
             self.moveit.execute(ready_plan.trajectory, controllers=[])
         else:
             self.get_logger().warn(f"[{task_id}] Could not plan back to 'ready' configuration during recovery")
+        self._restore_deferred_scene_object()
 
     def _retreat(self, task_id: str, pose: dict, plan_id: str, return_to_ready: bool) -> bool:
         cleared = False

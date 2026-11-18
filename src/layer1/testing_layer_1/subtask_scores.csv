@@ -1,0 +1,17 @@
+run_index,instruction,tier,n_colors,pattern_word_hit,status,replans_used,plan_ids,successes,failures,incomplete,subtask_success_rate,reported_subtasks_dispatched,reported_subtasks_completed,llm_calls,total_latency_s
+1,Place the red cube on top of the green cube,multi_object,2,False,success,1,plan_001;plan_002,3,0,4,1.0,7,4,2,1153.863
+2,Place the red cube on top of the green cube,multi_object,2,False,success,0,plan_001,4,0,0,1.0,4,4,1,419.808
+3,Place the red cube on top of the green cube,multi_object,2,False,success,0,plan_001,4,0,0,1.0,4,4,1,409.808
+4,Place the red cube on top of the green cube,multi_object,2,False,success,0,plan_001,4,0,0,1.0,4,4,1,294.691
+5,Place the red cube on top of the green cube,multi_object,2,False,success,1,plan_001;plan_002,3,0,4,1.0,7,4,2,534.5
+6,pick up the red block and place it at the center,single_pick_place,1,False,success,0,plan_001,6,0,0,1.0,6,6,1,823.992
+7,pick up the green block and place it at top right,single_pick_place,1,False,success,0,plan_001,6,0,0,1.0,6,6,1,837.554
+8,pick up the blue block and place it at bottom left,single_pick_place,1,False,success,0,plan_001,6,0,0,1.0,6,6,1,812.338
+9,pick up the red block and place it at bottom right,single_pick_place,1,False,success,0,plan_001,6,0,0,1.0,6,6,1,859.127
+10,"Arrange the red cube, the blue cube, and the green cube in a line",pattern_line_3obj,3,True,success,0,plan_001,18,0,0,1.0,18,18,1,2393.39
+11,"Arrange the red cube, the blue cube, and the green cube in a line",pattern_line_3obj,3,True,success,0,plan_001,18,0,0,1.0,18,18,1,2441.872
+12,"Arrange the red cube, the blue cube, and the green cube in a line",pattern_line_3obj,3,True,success,0,plan_001,18,0,0,1.0,18,18,1,2378.641
+13,"Arrange the red cube, the blue cube, and the green cube in a triangle",pattern_triangle_3obj,3,True,success,0,plan_001,18,0,0,1.0,18,18,1,2201.975
+14,"Arrange the red cube, the blue cube, and the green cube in a triangle",pattern_triangle_3obj,3,True,success,1,plan_001;plan_002,3,0,18,1.0,21,21,2,2587.341
+15,"Arrange the red cube, the blue cube, the green cube, and the yellow cube in a square",pattern_square_4obj,4,True,success,4,plan_001;plan_002;plan_003;plan_004;plan_005,21,4,31,0.84,61,61,5,4891.227
+16,"Arrange the red cube, the blue cube, the green cube, and the yellow cube in a square",pattern_square_4obj,4,True,success,0,plan_001,24,0,0,1.0,24,24,1,2104.882

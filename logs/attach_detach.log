@@ -1,0 +1,7 @@
+[INFO] [1794680637.908752799] [attach_detach_node]: Gz publishers ready: /green_cube/attach, /green_cube/detach
+[INFO] [1794680637.913164814] [attach_detach_node]: Gz publishers ready: /blue_cube/attach, /blue_cube/detach
+[INFO] [1794680637.916055877] [attach_detach_node]: Gz publishers ready: /red_cube/attach, /red_cube/detach
+[INFO] [1794680637.948217667] [attach_detach_node]: AttachDetach node ready. Publish cube name to /active_cube, then call /attach_cube or /detach_cube.
+[INFO] [1794680640.918704954] [attach_detach_node]: Startup detach: green_cube
+[INFO] [1794680640.919377826] [attach_detach_node]: Startup detach: blue_cube
+[INFO] [1794680640.919951592] [attach_detach_node]: Startup detach: red_cube

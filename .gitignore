@@ -23,3 +23,8 @@ layer1_evaluation*.csv
 eval_runs.jsonl
 SESSION_NOTES.md
 *.bak
+
+.vscode/
+.vscode/settings.json
+logs/
+

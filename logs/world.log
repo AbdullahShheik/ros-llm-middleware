@@ -1,0 +1,681 @@
+[INFO] [launch]: All log files can be found below /home/abdullah-shaikh/.ros/log/2026-11-14-23-23-32-821242-abdullah-shaikh-HP-EliteBook-845-G8-Notebook-PC-45511
+[INFO] [launch]: Default logging verbosity is set to INFO
+[DEBUG] robot_description (arm1) has 4 ros2_control tags
+[INFO] [robot_state_publisher-1]: process started with pid [45538]
+[INFO] [robot_state_publisher-2]: process started with pid [45539]
+[INFO] [static_transform_publisher-3]: process started with pid [45540]
+[INFO] [move_group-4]: process started with pid [45541]
+[INFO] [parameter_bridge-5]: process started with pid [45542]
+[INFO] [parameter_bridge-6]: process started with pid [45543]
+[INFO] [static_transform_publisher-7]: process started with pid [45544]
+[INFO] [static_transform_publisher-8]: process started with pid [45545]
+[static_transform_publisher-3] [WARN] [1794680613.376120325] []: Old-style arguments are deprecated; see --help for new-style arguments
+[static_transform_publisher-3] [INFO] [1794680613.403891264] [static_transform_publisher]: Spinning until stopped - publishing transform
+[static_transform_publisher-3] translation: ('0.000000', '0.000000', '0.000000')
+[static_transform_publisher-3] rotation: ('0.000000', '0.000000', '0.422618', '0.906308')
+[static_transform_publisher-3] from 'world' to 'panda_link0'
+[static_transform_publisher-7] [INFO] [1794680613.405354538] [base_footprint_to_base_link]: Spinning until stopped - publishing transform
+[static_transform_publisher-7] translation: ('0.000000', '0.000000', '0.010000')
+[static_transform_publisher-7] rotation: ('0.000000', '0.000000', '0.000000', '1.000000')
+[static_transform_publisher-7] from 'base_footprint' to 'base_link'
+[robot_state_publisher-2] [WARN] [1794680613.408488384] [kdl_parser]: The root link panda2_link0 has an inertia specified in the URDF, but KDL does not support a root link with an inertia.  As a workaround, you can add an extra dummy link to your URDF.
+[robot_state_publisher-2] [INFO] [1794680613.408722833] [panda2.robot_state_publisher_arm2]: Robot initialized
+[static_transform_publisher-8] [INFO] [1794680613.416437528] [base_link_to_base_scan]: Spinning until stopped - publishing transform
+[static_transform_publisher-8] translation: ('-0.064000', '0.000000', '0.121000')
+[static_transform_publisher-8] rotation: ('0.000000', '0.000000', '0.000000', '1.000000')
+[static_transform_publisher-8] from 'base_link' to 'base_scan'
+[robot_state_publisher-1] [WARN] [1794680613.423368694] [kdl_parser]: The root link panda_link0 has an inertia specified in the URDF, but KDL does not support a root link with an inertia.  As a workaround, you can add an extra dummy link to your URDF.
+[robot_state_publisher-1] [INFO] [1794680613.423657024] [robot_state_publisher]: Robot initialized
+[parameter_bridge-5] [INFO] [1794680613.444459608] [clock_bridge]: Creating GZ->ROS Bridge: [/clock (gz.msgs.Clock) -> /clock (rosgraph_msgs/msg/Clock)] (Lazy 0)
+[move_group-4] [WARN] [1794680613.463196680] [rcl.logging_rosout]: Publisher already registered for node name: 'move_group'. If this is due to multiple nodes with the same name then all logs for the logger named 'move_group' will go out over the existing publisher. As soon as any node with that name is destructed it will unregister the publisher, preventing any further logs for that name from being published on the rosout topic.
+[move_group-4] [WARN] [1794680613.468752537] [move_group]: Using default pipeline 'ompl'
+[move_group-4] [INFO] [1794680613.475691958] [move_group.move_group.moveit.ros.rdf_loader]: Loaded robot model in 0 seconds
+[move_group-4] [INFO] [1794680613.475795522] [move_group.move_group.moveit.core.robot_model]: Loading robot model 'panda_dual'...
+[move_group-4] Error:   Error retrieving file [file:///opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/link0.stl]: Couldn't open file /opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/link0.stl
+[move_group-4]          at line 289 in ./src/mesh_operations.cpp
+[move_group-4] [WARN] [1794680613.476981847] [move_group.move_group.moveit.core.robot_model]: Link panda2_link0 has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[move_group-4] Error:   Error retrieving file [file:///opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/link1.stl]: Couldn't open file /opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/link1.stl
+[move_group-4]          at line 289 in ./src/mesh_operations.cpp
+[move_group-4] [WARN] [1794680613.477088256] [move_group.move_group.moveit.core.robot_model]: Link panda2_link1 has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[move_group-4] Error:   Error retrieving file [file:///opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/link2.stl]: Couldn't open file /opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/link2.stl
+[move_group-4]          at line 289 in ./src/mesh_operations.cpp
+[move_group-4] [WARN] [1794680613.477179407] [move_group.move_group.moveit.core.robot_model]: Link panda2_link2 has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[move_group-4] Error:   Error retrieving file [file:///opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/link3.stl]: Couldn't open file /opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/link3.stl
+[move_group-4]          at line 289 in ./src/mesh_operations.cpp
+[move_group-4] [WARN] [1794680613.477281458] [move_group.move_group.moveit.core.robot_model]: Link panda2_link3 has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[move_group-4] Error:   Error retrieving file [file:///opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/link4.stl]: Couldn't open file /opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/link4.stl
+[move_group-4]          at line 289 in ./src/mesh_operations.cpp
+[move_group-4] [WARN] [1794680613.477402856] [move_group.move_group.moveit.core.robot_model]: Link panda2_link4 has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[move_group-4] Error:   Error retrieving file [file:///opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/link5.stl]: Couldn't open file /opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/link5.stl
+[move_group-4]          at line 289 in ./src/mesh_operations.cpp
+[move_group-4] [WARN] [1794680613.477493696] [move_group.move_group.moveit.core.robot_model]: Link panda2_link5 has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[move_group-4] Error:   Error retrieving file [file:///opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/link6.stl]: Couldn't open file /opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/link6.stl
+[move_group-4]          at line 289 in ./src/mesh_operations.cpp
+[move_group-4] [WARN] [1794680613.477583705] [move_group.move_group.moveit.core.robot_model]: Link panda2_link6 has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[move_group-4] Error:   Error retrieving file [file:///opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/link7.stl]: Couldn't open file /opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/link7.stl
+[move_group-4]          at line 289 in ./src/mesh_operations.cpp
+[move_group-4] [WARN] [1794680613.477656992] [move_group.move_group.moveit.core.robot_model]: Link panda2_link7 has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[move_group-4] Error:   Error retrieving file [file:///opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/hand.stl]: Couldn't open file /opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/hand.stl
+[move_group-4]          at line 289 in ./src/mesh_operations.cpp
+[move_group-4] [WARN] [1794680613.477736151] [move_group.move_group.moveit.core.robot_model]: Link panda2_hand has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[move_group-4] Error:   Error retrieving file [file:///opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/finger.stl]: Couldn't open file /opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/finger.stl
+[move_group-4]          at line 289 in ./src/mesh_operations.cpp
+[move_group-4] [WARN] [1794680613.477785373] [move_group.move_group.moveit.core.robot_model]: Link panda2_leftfinger has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[move_group-4] Error:   Error retrieving file [file:///opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/finger.stl]: Couldn't open file /opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/finger.stl
+[move_group-4]          at line 289 in ./src/mesh_operations.cpp
+[move_group-4] [WARN] [1794680613.477834846] [move_group.move_group.moveit.core.robot_model]: Link panda2_rightfinger has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[move_group-4] [WARN] [1794680613.489987712] [kdl_parser]: The root link panda_link0 has an inertia specified in the URDF, but KDL does not support a root link with an inertia.  As a workaround, you can add an extra dummy link to your URDF.
+[move_group-4] [INFO] [1794680613.490274850] [move_group.move_group.moveit.kinematics.kdl_kinematics_plugin]: Joint weights for group 'panda_arm': 1 1 1 1 1 1 1
+[move_group-4] [WARN] [1794680613.490525310] [kdl_parser]: The root link panda_link0 has an inertia specified in the URDF, but KDL does not support a root link with an inertia.  As a workaround, you can add an extra dummy link to your URDF.
+[move_group-4] [INFO] [1794680613.490636488] [move_group.move_group.moveit.kinematics.kdl_kinematics_plugin]: Joint weights for group 'panda2_arm': 1 1 1 1 1 1 1
+[move_group-4] [INFO] [1794680613.534028076] [move_group.move_group.moveit.ros.moveit_cpp]: Listening to 'joint_states' for joint states
+[move_group-4] [INFO] [1794680613.540552028] [move_group.move_group.moveit.ros.current_state_monitor]: Listening to joint states on topic 'joint_states'
+[move_group-4] [INFO] [1794680613.551390490] [move_group.move_group.moveit.ros.planning_scene_monitor]: Listening to '/attached_collision_object' for attached collision objects
+[move_group-4] [INFO] [1794680613.553754032] [move_group.move_group.moveit.ros.planning_scene_monitor]: Publishing maintained planning scene on 'monitored_planning_scene'
+[move_group-4] [INFO] [1794680613.553979464] [move_group.move_group.moveit.ros.planning_scene_monitor]: Starting planning scene monitor
+[move_group-4] [INFO] [1794680613.554704043] [move_group.move_group.moveit.ros.planning_scene_monitor]: Listening to '/planning_scene'
+[move_group-4] [INFO] [1794680613.554723189] [move_group.move_group.moveit.ros.planning_scene_monitor]: Starting world geometry update monitor for collision objects, attached objects, octomap updates.
+[move_group-4] [INFO] [1794680613.555271818] [move_group.move_group.moveit.ros.planning_scene_monitor]: Listening to 'collision_object'
+[move_group-4] [INFO] [1794680613.555869168] [move_group.move_group.moveit.ros.planning_scene_monitor]: Listening to 'planning_scene_world' for planning scene world geometry
+[move_group-4] [WARN] [1794680613.556087106] [move_group.move_group.moveit.ros.occupancy_map_monitor]: Resolution not specified for Octomap. Assuming resolution = 0.1 instead
+[move_group-4] [ERROR] [1794680613.556105771] [move_group.move_group.moveit.ros.occupancy_map_monitor]: No 3D sensor plugin(s) defined for octomap updates
+[move_group-4] [INFO] [1794680613.573207035] [move_group.move_group.moveit.ros.planning_pipeline]: Successfully loaded planner 'OMPL'
+[move_group-4] [INFO] [1794680613.574594086] [move_group]: Try loading adapter 'default_planning_request_adapters/ResolveConstraintFrames'
+[move_group-4] [INFO] [1794680613.575365533] [move_group]: Loaded adapter 'default_planning_request_adapters/ResolveConstraintFrames'
+[move_group-4] [INFO] [1794680613.575396180] [move_group]: Try loading adapter 'default_planning_request_adapters/ValidateWorkspaceBounds'
+[move_group-4] [INFO] [1794680613.575640638] [move_group]: Loaded adapter 'default_planning_request_adapters/ValidateWorkspaceBounds'
+[move_group-4] [INFO] [1794680613.575652020] [move_group]: Try loading adapter 'default_planning_request_adapters/CheckStartStateBounds'
+[move_group-4] [INFO] [1794680613.575674171] [move_group]: Loaded adapter 'default_planning_request_adapters/CheckStartStateBounds'
+[move_group-4] [INFO] [1794680613.575679090] [move_group]: Try loading adapter 'default_planning_request_adapters/CheckStartStateCollision'
+[move_group-4] [INFO] [1794680613.575691113] [move_group]: Loaded adapter 'default_planning_request_adapters/CheckStartStateCollision'
+[move_group-4] [INFO] [1794680613.576789613] [move_group]: Try loading adapter 'default_planning_response_adapters/AddTimeOptimalParameterization'
+[move_group-4] [INFO] [1794680613.578950154] [move_group]: Loaded adapter 'default_planning_response_adapters/AddTimeOptimalParameterization'
+[move_group-4] [INFO] [1794680613.578965663] [move_group]: Try loading adapter 'default_planning_response_adapters/ValidateSolution'
+[move_group-4] [INFO] [1794680613.581092941] [move_group]: Loaded adapter 'default_planning_response_adapters/ValidateSolution'
+[move_group-4] [INFO] [1794680613.581107158] [move_group]: Try loading adapter 'default_planning_response_adapters/DisplayMotionPath'
+[move_group-4] [INFO] [1794680613.581732911] [move_group]: Loaded adapter 'default_planning_response_adapters/DisplayMotionPath'
+[move_group-4] [WARN] [1794680613.582999776] [rcl.logging_rosout]: Publisher already registered for node name: 'move_group'. If this is due to multiple nodes with the same name then all logs for the logger named 'move_group' will go out over the existing publisher. As soon as any node with that name is destructed it will unregister the publisher, preventing any further logs for that name from being published on the rosout topic.
+[move_group-4] [INFO] [1794680613.620932249] [move_group.move_group.moveit.plugins.simple_controller_manager]: Added FollowJointTrajectory controller for panda_arm_controller
+[move_group-4] [INFO] [1794680613.623688336] [move_group.move_group.moveit.plugins.simple_controller_manager]: Added FollowJointTrajectory controller for /panda2/panda2_arm_controller
+[move_group-4] [INFO] [1794680613.624144131] [move_group.move_group.moveit.plugins.simple_controller_manager]: Returned 2 controllers in list
+[move_group-4] [INFO] [1794680613.624203512] [move_group.move_group.moveit.plugins.simple_controller_manager]: Returned 2 controllers in list
+[move_group-4] [INFO] [1794680613.624955963] [move_group.move_group.moveit.ros.trajectory_execution_manager]: Trajectory execution is not managing controllers
+[move_group-4] [INFO] [1794680613.624986370] [move_group]: MoveGroup debug mode is ON
+[move_group-4] [INFO] [1794680613.648870011] [move_group.move_group.moveit.ros.move_group.executable]: 
+[move_group-4] 
+[move_group-4] ********************************************************
+[move_group-4] * MoveGroup using: 
+[move_group-4] *     - apply_planning_scene_service
+[move_group-4] *     - clear_octomap_service
+[move_group-4] *     - get_group_urdf
+[move_group-4] *     - load_geometry_from_file
+[move_group-4] *     - CartesianPathService
+[move_group-4] *     - execute_trajectory_action
+[move_group-4] *     - get_planning_scene_service
+[move_group-4] *     - kinematics_service
+[move_group-4] *     - move_action
+[move_group-4] *     - motion_plan_service
+[move_group-4] *     - query_planners_service
+[move_group-4] *     - state_validation_service
+[move_group-4] *     - save_geometry_to_file
+[move_group-4] ********************************************************
+[move_group-4] 
+[move_group-4] [INFO] [1794680613.648967343] [move_group.move_group.moveit.ros.move_group.context]: MoveGroup context using pipeline ompl
+[move_group-4] [INFO] [1794680613.648977633] [move_group.move_group.moveit.ros.move_group.context]: MoveGroup context initialization complete
+[move_group-4] [96mLoading 'move_group/ApplyPlanningSceneService'...[0m
+[move_group-4] [96mLoading 'move_group/ClearOctomapService'...[0m
+[move_group-4] [96mLoading 'move_group/GetUrdfService'...[0m
+[move_group-4] [96mLoading 'move_group/LoadGeometryFromFileService'...[0m
+[move_group-4] [96mLoading 'move_group/MoveGroupCartesianPathService'...[0m
+[move_group-4] [96mLoading 'move_group/MoveGroupExecuteTrajectoryAction'...[0m
+[move_group-4] [96mLoading 'move_group/MoveGroupGetPlanningSceneService'...[0m
+[move_group-4] [96mLoading 'move_group/MoveGroupKinematicsService'...[0m
+[move_group-4] [96mLoading 'move_group/MoveGroupMoveAction'...[0m
+[move_group-4] [96mLoading 'move_group/MoveGroupPlanService'...[0m
+[move_group-4] [96mLoading 'move_group/MoveGroupQueryPlannersService'...[0m
+[move_group-4] [96mLoading 'move_group/MoveGroupStateValidationService'...[0m
+[move_group-4] [96mLoading 'move_group/SaveGeometryToFileService'...[0m
+[move_group-4] 
+[move_group-4] [92mYou can start planning now![0m
+[move_group-4] 
+[parameter_bridge-6] [INFO] [1794680614.444488830] [turtlebot3_bridge]: Creating ROS->GZ Bridge: [cmd_vel (geometry_msgs/msg/TwistStamped) -> cmd_vel (gz.msgs.Twist)] (Lazy 0)
+[parameter_bridge-6] [INFO] [1794680614.447630741] [turtlebot3_bridge]: Creating GZ->ROS Bridge: [/odom (gz.msgs.Odometry) -> /odom (nav_msgs/msg/Odometry)] (Lazy 0)
+[parameter_bridge-6] [INFO] [1794680614.450426343] [turtlebot3_bridge]: Creating GZ->ROS Bridge: [/tf (gz.msgs.Pose_V) -> /tf (tf2_msgs/msg/TFMessage)] (Lazy 0)
+[parameter_bridge-6] [INFO] [1794680614.452886576] [turtlebot3_bridge]: Creating GZ->ROS Bridge: [scan (gz.msgs.LaserScan) -> scan (sensor_msgs/msg/LaserScan)] (Lazy 0)
+[INFO] [gz-9]: process started with pid [45735]
+[gz-9] [1;33mWarning [Utils.cc:132][0m [/sdf/model[@name="Panda"]/ros2_control[@name="GazeboSimSystem"]:/tmp/ros_llm_middleware_gz_models/panda/model.sdf:L927]: XML Element[ros2_control], child of element[model], not defined in SDF. Copying[ros2_control] as children of [model].
+[gz-9] [1;33mWarning [Utils.cc:132][0m [/sdf/model[@name="Panda2"]/ros2_control[@name="GazeboSimSystem2"]:/tmp/ros_llm_middleware_gz_models/panda2/model.sdf:L927]: XML Element[ros2_control], child of element[model], not defined in SDF. Copying[ros2_control] as children of [model].
+[gz-9] [1;33mWarning [Utils.cc:132][0m [/sdf/model[@name="turtlebot3_waffle"]/link[@name="base_scan"]/sensor[@name="hls_lfcd_lds"]/gz_frame_id:/tmp/ros_llm_middleware_gz_models/turtlebot3_waffle/model.sdf:L141]: XML Element[gz_frame_id], child of element[sensor], not defined in SDF. Copying[gz_frame_id] as children of [sensor].
+[gz-9] [1;33mWarning [Utils.cc:132][0m [/sdf/model[@name="turtlebot3_waffle"]/link[@name="camera_rgb_frame"]/sensor[@name="camera"]/gz_frame_id:/tmp/ros_llm_middleware_gz_models/turtlebot3_waffle/model.sdf:L379]: XML Element[gz_frame_id], child of element[sensor], not defined in SDF. Copying[gz_frame_id] as children of [sensor].
+[gz-9] [INFO] [1794680617.492359768] [gz_ros_control]: [gz_ros2_control] Fixed joint ['panda_joint_world'] (Entity='64') is skipped.
+[gz-9] [INFO] [1794680617.492588336] [gz_ros_control]: [gz_ros2_control] Fixed joint ['panda_hand_joint'] (Entity='72') is skipped.
+[gz-9] [INFO] [1794680617.492605268] [gz_ros_control]: [gz_ros2_control] Fixed joint ['robotiq_85_base_joint'] (Entity='73') is skipped.
+[gz-9] [INFO] [1794680617.492615127] [gz_ros_control]: [gz_ros2_control] Fixed joint ['robotiq_85_left_finger_joint'] (Entity='76') is skipped.
+[gz-9] [INFO] [1794680617.492622470] [gz_ros_control]: [gz_ros2_control] Fixed joint ['robotiq_85_right_finger_joint'] (Entity='77') is skipped.
+[gz-9] [INFO] [1794680617.492634473] [gz_ros_control]: [gz_ros2_control] Fixed joint ['end_effector_frame_fixed_joint'] (Entity='82') is skipped.
+[gz-9] [INFO] [1794680617.498284407] [gz_ros_control]: Loading controller_manager
+[gz-9] [INFO] [1794680617.542475979] [controller_manager]: Using ROS clock for triggering controller manager cycles.
+[gz-9] [WARN] [1794680617.542525612] [controller_manager]: The resource manager is not yet initialized, will wait for the robot description to initialize it..
+[gz-9] [INFO] [1794680617.557734700] [controller_manager]: Subscribing to '/robot_description' topic for robot description.
+[gz-9] [WARN] [1794680617.557835970] [gz_ros_control]: Waiting RM to load and initialize hardware...
+[gz-9] [INFO] [1794680618.014020255] [controller_manager]: Received robot description from topic.
+[gz-9] [INFO] [1794680618.014190775] [controller_manager]: Enforcing command limits is disabled. Command limits from URDF will be ignored.
+[gz-9] [INFO] [1794680618.022505756] [gz_ros_control]: The position_proportional_gain has been set to: 0.1
+[gz-9] [INFO] [1794680618.022623317] [gz_ros_control]: Loading joint: panda_joint1
+[gz-9] [INFO] [1794680618.022633876] [gz_ros_control]: 	State:
+[gz-9] [INFO] [1794680618.022644075] [gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680618.022669864] [gz_ros_control]: 			 found initial value: 0.000000
+[gz-9] [INFO] [1794680618.022681135] [gz_ros_control]: 		 velocity
+[gz-9] [INFO] [1794680618.022691825] [gz_ros_control]: 	Command:
+[gz-9] [INFO] [1794680618.022697205] [gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680618.022720739] [gz_ros_control]: Loading joint: panda_joint2
+[gz-9] [INFO] [1794680618.022725348] [gz_ros_control]: 	State:
+[gz-9] [INFO] [1794680618.022742320] [gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680618.022747449] [gz_ros_control]: 			 found initial value: -0.785000
+[gz-9] [INFO] [1794680618.022752930] [gz_ros_control]: 		 velocity
+[gz-9] [INFO] [1794680618.022757648] [gz_ros_control]: 	Command:
+[gz-9] [INFO] [1794680618.022762017] [gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680618.022774179] [gz_ros_control]: Loading joint: panda_joint3
+[gz-9] [INFO] [1794680618.022779159] [gz_ros_control]: 	State:
+[gz-9] [INFO] [1794680618.022782946] [gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680618.022787865] [gz_ros_control]: 			 found initial value: 0.000000
+[gz-9] [INFO] [1794680618.022792574] [gz_ros_control]: 		 velocity
+[gz-9] [INFO] [1794680618.022797613] [gz_ros_control]: 	Command:
+[gz-9] [INFO] [1794680618.022801731] [gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680618.022814876] [gz_ros_control]: Loading joint: panda_joint4
+[gz-9] [INFO] [1794680618.022819645] [gz_ros_control]: 	State:
+[gz-9] [INFO] [1794680618.022824604] [gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680618.022828461] [gz_ros_control]: 			 found initial value: -2.356000
+[gz-9] [INFO] [1794680618.022833591] [gz_ros_control]: 		 velocity
+[gz-9] [INFO] [1794680618.022837678] [gz_ros_control]: 	Command:
+[gz-9] [INFO] [1794680618.022841516] [gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680618.022852376] [gz_ros_control]: Loading joint: panda_joint5
+[gz-9] [INFO] [1794680618.022857646] [gz_ros_control]: 	State:
+[gz-9] [INFO] [1794680618.022862084] [gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680618.022867194] [gz_ros_control]: 			 found initial value: 0.000000
+[gz-9] [INFO] [1794680618.022871853] [gz_ros_control]: 		 velocity
+[gz-9] [INFO] [1794680618.022876121] [gz_ros_control]: 	Command:
+[gz-9] [INFO] [1794680618.022880449] [gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680618.022890848] [gz_ros_control]: Loading joint: panda_joint6
+[gz-9] [INFO] [1794680618.022896348] [gz_ros_control]: 	State:
+[gz-9] [INFO] [1794680618.022901779] [gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680618.022955349] [gz_ros_control]: 			 found initial value: 1.571000
+[gz-9] [INFO] [1794680618.022961090] [gz_ros_control]: 		 velocity
+[gz-9] [INFO] [1794680618.022965879] [gz_ros_control]: 	Command:
+[gz-9] [INFO] [1794680618.022970187] [gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680618.022982871] [gz_ros_control]: Loading joint: panda_joint7
+[gz-9] [INFO] [1794680618.022991707] [gz_ros_control]: 	State:
+[gz-9] [INFO] [1794680618.022995975] [gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680618.023001165] [gz_ros_control]: 			 found initial value: 0.785000
+[gz-9] [INFO] [1794680618.023006295] [gz_ros_control]: 		 velocity
+[gz-9] [INFO] [1794680618.023011184] [gz_ros_control]: 	Command:
+[gz-9] [INFO] [1794680618.023015602] [gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680618.023029218] [gz_ros_control]: Loading joint: robotiq_85_left_knuckle_joint
+[gz-9] [INFO] [1794680618.023033776] [gz_ros_control]: 	State:
+[gz-9] [INFO] [1794680618.023038766] [gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680618.023043114] [gz_ros_control]: 			 found initial value: 0.000000
+[gz-9] [INFO] [1794680618.023048023] [gz_ros_control]: 		 velocity
+[gz-9] [INFO] [1794680618.023052411] [gz_ros_control]: 	Command:
+[gz-9] [INFO] [1794680618.023058843] [gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680618.023075194] [gz_ros_control]: Loading joint: robotiq_85_right_knuckle_joint
+[gz-9] [INFO] [1794680618.023082457] [gz_ros_control]: 	State:
+[gz-9] [INFO] [1794680618.023088589] [gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680618.023104900] [gz_ros_control]: 			 found initial value: 0.000000
+[gz-9] [INFO] [1794680618.023116722] [gz_ros_control]: 		 velocity
+[gz-9] [INFO] [1794680618.023124677] [gz_ros_control]: 	Command:
+[gz-9] [INFO] [1794680618.023130057] [gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680618.023477638] [controller_manager]: Initialize hardware 'GazeboSimSystem' 
+[gz-9] [WARN] [1794680618.023548882] [controller_manager.hardware_component.system.GazeboSimSystem]: Executor is not available during hardware component initialization for 'GazeboSimSystem'. Skipping node creation!
+[gz-9] [INFO] [1794680618.023697921] [controller_manager]: Successful initialization of hardware 'GazeboSimSystem'
+[gz-9] [INFO] [1794680618.023889411] [gz_ros_control]: The position_proportional_gain has been set to: 0.1
+[gz-9] [WARN] [1794680618.023906342] [gz_ros_control]: Skipping joint in the URDF named 'panda2_joint1' which is not in the gazebo model.
+[gz-9] [WARN] [1794680618.023915750] [gz_ros_control]: Skipping joint in the URDF named 'panda2_joint2' which is not in the gazebo model.
+[gz-9] [WARN] [1794680618.023922733] [gz_ros_control]: Skipping joint in the URDF named 'panda2_joint3' which is not in the gazebo model.
+[gz-9] [WARN] [1794680618.023928374] [gz_ros_control]: Skipping joint in the URDF named 'panda2_joint4' which is not in the gazebo model.
+[gz-9] [WARN] [1794680618.023933213] [gz_ros_control]: Skipping joint in the URDF named 'panda2_joint5' which is not in the gazebo model.
+[gz-9] [WARN] [1794680618.023943833] [gz_ros_control]: Skipping joint in the URDF named 'panda2_joint6' which is not in the gazebo model.
+[gz-9] [WARN] [1794680618.023948732] [gz_ros_control]: Skipping joint in the URDF named 'panda2_joint7' which is not in the gazebo model.
+[gz-9] [WARN] [1794680618.023953871] [gz_ros_control]: Skipping joint in the URDF named 'robotiq2_85_left_knuckle_joint' which is not in the gazebo model.
+[gz-9] [WARN] [1794680618.023959432] [gz_ros_control]: Skipping joint in the URDF named 'robotiq2_85_right_knuckle_joint' which is not in the gazebo model.
+[gz-9] [INFO] [1794680618.024002823] [controller_manager]: Initialize hardware 'GazeboSimSystem2' 
+[gz-9] [WARN] [1794680618.024020737] [controller_manager.hardware_component.system.GazeboSimSystem2]: Executor is not available during hardware component initialization for 'GazeboSimSystem2'. Skipping node creation!
+[gz-9] [INFO] [1794680618.024051124] [controller_manager]: Successful initialization of hardware 'GazeboSimSystem2'
+[gz-9] [INFO] [1794680618.024413964] [controller_manager]: Activating component 'GazeboSimSystem2'.
+[gz-9] [INFO] [1794680618.024623327] [resource_manager]: 'configure' hardware 'GazeboSimSystem2' 
+[gz-9] [INFO] [1794680618.024637764] [gz_ros_control]: System Successfully configured!
+[gz-9] [INFO] [1794680618.024649826] [resource_manager]: Successful 'configure' of hardware 'GazeboSimSystem2'
+[gz-9] [INFO] [1794680618.024679462] [resource_manager]: 'activate' hardware 'GazeboSimSystem2' 
+[gz-9] [INFO] [1794680618.024717353] [resource_manager]: Successful 'activate' of hardware 'GazeboSimSystem2'
+[gz-9] [INFO] [1794680618.024904023] [controller_manager]: Activating component 'GazeboSimSystem'.
+[gz-9] [INFO] [1794680618.024911176] [resource_manager]: 'configure' hardware 'GazeboSimSystem' 
+[gz-9] [INFO] [1794680618.024914402] [gz_ros_control]: System Successfully configured!
+[gz-9] [INFO] [1794680618.024921025] [resource_manager]: Successful 'configure' of hardware 'GazeboSimSystem'
+[gz-9] [INFO] [1794680618.024926375] [resource_manager]: 'activate' hardware 'GazeboSimSystem' 
+[gz-9] [INFO] [1794680618.024929491] [resource_manager]: Successful 'activate' of hardware 'GazeboSimSystem'
+[gz-9] [WARN] [1794680618.024984063] [controller_manager]: Component 'GazeboSimSystem2' does not have read or write statistics initialized, skipping registration.
+[gz-9] [WARN] [1794680618.024992028] [controller_manager]: Component 'GazeboSimSystem' does not have read or write statistics initialized, skipping registration.
+[gz-9] [INFO] [1794680618.025001305] [controller_manager]: Resource Manager has been successfully initialized. Starting Controller Manager services...
+[INFO] [bash-10]: process started with pid [45859]
+[gz-9] [INFO] [1794680619.567532220] [panda2.gz_ros_control]: [gz_ros2_control] Fixed joint ['panda2_joint_world'] (Entity='139') is skipped.
+[gz-9] [INFO] [1794680619.567573508] [panda2.gz_ros_control]: [gz_ros2_control] Fixed joint ['panda2_hand_joint'] (Entity='147') is skipped.
+[gz-9] [INFO] [1794680619.567579780] [panda2.gz_ros_control]: [gz_ros2_control] Fixed joint ['robotiq2_85_base_joint'] (Entity='148') is skipped.
+[gz-9] [INFO] [1794680619.567586542] [panda2.gz_ros_control]: [gz_ros2_control] Fixed joint ['robotiq2_85_left_finger_joint'] (Entity='151') is skipped.
+[gz-9] [INFO] [1794680619.567591642] [panda2.gz_ros_control]: [gz_ros2_control] Fixed joint ['robotiq2_85_right_finger_joint'] (Entity='152') is skipped.
+[gz-9] [INFO] [1794680619.567598294] [panda2.gz_ros_control]: [gz_ros2_control] Fixed joint ['panda2_end_effector_frame_fixed_joint'] (Entity='157') is skipped.
+[gz-9] [INFO] [1794680619.568813303] [panda2.gz_ros_control]: Loading controller_manager
+[gz-9] [INFO] [1794680619.589825222] [panda2.controller_manager]: Using ROS clock for triggering controller manager cycles.
+[gz-9] [WARN] [1794680619.589863644] [panda2.controller_manager]: The resource manager is not yet initialized, will wait for the robot description to initialize it..
+[gz-9] [INFO] [1794680619.591407499] [panda2.controller_manager]: Subscribing to '/panda2/robot_description' topic for robot description.
+[gz-9] [WARN] [1794680619.591457152] [panda2.gz_ros_control]: Waiting RM to load and initialize hardware...
+[gz-9] [INFO] [1794680619.602217469] [panda2.controller_manager]: Received robot description from topic.
+[gz-9] [INFO] [1794680619.602295846] [panda2.controller_manager]: Enforcing command limits is disabled. Command limits from URDF will be ignored.
+[gz-9] [INFO] [1794680619.604279145] [panda2.gz_ros_control]: The position_proportional_gain has been set to: 0.1
+[gz-9] [INFO] [1794680619.604314531] [panda2.gz_ros_control]: Loading joint: panda2_joint1
+[gz-9] [INFO] [1794680619.604320913] [panda2.gz_ros_control]: 	State:
+[gz-9] [INFO] [1794680619.604332836] [panda2.gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680619.604341231] [panda2.gz_ros_control]: 			 found initial value: 0.000000
+[gz-9] [INFO] [1794680619.604353364] [panda2.gz_ros_control]: 		 velocity
+[gz-9] [INFO] [1794680619.604359556] [panda2.gz_ros_control]: 	Command:
+[gz-9] [INFO] [1794680619.604363613] [panda2.gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680619.604390093] [panda2.gz_ros_control]: Loading joint: panda2_joint2
+[gz-9] [INFO] [1794680619.604400613] [panda2.gz_ros_control]: 	State:
+[gz-9] [INFO] [1794680619.604405983] [panda2.gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680619.604409880] [panda2.gz_ros_control]: 			 found initial value: -0.785000
+[gz-9] [INFO] [1794680619.604414268] [panda2.gz_ros_control]: 		 velocity
+[gz-9] [INFO] [1794680619.604417965] [panda2.gz_ros_control]: 	Command:
+[gz-9] [INFO] [1794680619.604421742] [panda2.gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680619.604429988] [panda2.gz_ros_control]: Loading joint: panda2_joint3
+[gz-9] [INFO] [1794680619.604449344] [panda2.gz_ros_control]: 	State:
+[gz-9] [INFO] [1794680619.604453783] [panda2.gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680619.604457730] [panda2.gz_ros_control]: 			 found initial value: 0.000000
+[gz-9] [INFO] [1794680619.604461788] [panda2.gz_ros_control]: 		 velocity
+[gz-9] [INFO] [1794680619.604465424] [panda2.gz_ros_control]: 	Command:
+[gz-9] [INFO] [1794680619.604469161] [panda2.gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680619.604478649] [panda2.gz_ros_control]: Loading joint: panda2_joint4
+[gz-9] [INFO] [1794680619.604482617] [panda2.gz_ros_control]: 	State:
+[gz-9] [INFO] [1794680619.604486243] [panda2.gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680619.604489770] [panda2.gz_ros_control]: 			 found initial value: -2.356000
+[gz-9] [INFO] [1794680619.604493697] [panda2.gz_ros_control]: 		 velocity
+[gz-9] [INFO] [1794680619.604497244] [panda2.gz_ros_control]: 	Command:
+[gz-9] [INFO] [1794680619.604500861] [panda2.gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680619.604514296] [panda2.gz_ros_control]: Loading joint: panda2_joint5
+[gz-9] [INFO] [1794680619.604518544] [panda2.gz_ros_control]: 	State:
+[gz-9] [INFO] [1794680619.604522211] [panda2.gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680619.604526559] [panda2.gz_ros_control]: 			 found initial value: 0.000000
+[gz-9] [INFO] [1794680619.604530546] [panda2.gz_ros_control]: 		 velocity
+[gz-9] [INFO] [1794680619.604534153] [panda2.gz_ros_control]: 	Command:
+[gz-9] [INFO] [1794680619.604539123] [panda2.gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680619.604555894] [panda2.gz_ros_control]: Loading joint: panda2_joint6
+[gz-9] [INFO] [1794680619.604565542] [panda2.gz_ros_control]: 	State:
+[gz-9] [INFO] [1794680619.604569710] [panda2.gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680619.604573166] [panda2.gz_ros_control]: 			 found initial value: 1.571000
+[gz-9] [INFO] [1794680619.604577014] [panda2.gz_ros_control]: 		 velocity
+[gz-9] [INFO] [1794680619.604580480] [panda2.gz_ros_control]: 	Command:
+[gz-9] [INFO] [1794680619.604583796] [panda2.gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680619.604591240] [panda2.gz_ros_control]: Loading joint: panda2_joint7
+[gz-9] [INFO] [1794680619.604595017] [panda2.gz_ros_control]: 	State:
+[gz-9] [INFO] [1794680619.604598514] [panda2.gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680619.604602752] [panda2.gz_ros_control]: 			 found initial value: 0.785000
+[gz-9] [INFO] [1794680619.604609565] [panda2.gz_ros_control]: 		 velocity
+[gz-9] [INFO] [1794680619.604614133] [panda2.gz_ros_control]: 	Command:
+[gz-9] [INFO] [1794680619.604619433] [panda2.gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680619.604627398] [panda2.gz_ros_control]: Loading joint: robotiq2_85_left_knuckle_joint
+[gz-9] [INFO] [1794680619.604631466] [panda2.gz_ros_control]: 	State:
+[gz-9] [INFO] [1794680619.604635002] [panda2.gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680619.604638549] [panda2.gz_ros_control]: 			 found initial value: 0.000000
+[gz-9] [INFO] [1794680619.604642436] [panda2.gz_ros_control]: 		 velocity
+[gz-9] [INFO] [1794680619.604646053] [panda2.gz_ros_control]: 	Command:
+[gz-9] [INFO] [1794680619.604649600] [panda2.gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680619.604657955] [panda2.gz_ros_control]: Loading joint: robotiq2_85_right_knuckle_joint
+[gz-9] [INFO] [1794680619.604661682] [panda2.gz_ros_control]: 	State:
+[gz-9] [INFO] [1794680619.604668195] [panda2.gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680619.604672943] [panda2.gz_ros_control]: 			 found initial value: 0.000000
+[gz-9] [INFO] [1794680619.604676881] [panda2.gz_ros_control]: 		 velocity
+[gz-9] [INFO] [1794680619.604680518] [panda2.gz_ros_control]: 	Command:
+[gz-9] [INFO] [1794680619.604683994] [panda2.gz_ros_control]: 		 position
+[gz-9] [INFO] [1794680619.604710494] [panda2.controller_manager]: Initialize hardware 'GazeboSimSystem2' 
+[gz-9] [WARN] [1794680619.604737735] [panda2.controller_manager.hardware_component.system.GazeboSimSystem2]: Executor is not available during hardware component initialization for 'GazeboSimSystem2'. Skipping node creation!
+[gz-9] [INFO] [1794680619.604767651] [panda2.controller_manager]: Successful initialization of hardware 'GazeboSimSystem2'
+[gz-9] [INFO] [1794680619.604834526] [panda2.controller_manager]: Activating component 'GazeboSimSystem2'.
+[gz-9] [INFO] [1794680619.604840518] [resource_manager]: 'configure' hardware 'GazeboSimSystem2' 
+[gz-9] [INFO] [1794680619.604851358] [panda2.gz_ros_control]: System Successfully configured!
+[gz-9] [INFO] [1794680619.604856197] [resource_manager]: Successful 'configure' of hardware 'GazeboSimSystem2'
+[gz-9] [INFO] [1794680619.604861377] [resource_manager]: 'activate' hardware 'GazeboSimSystem2' 
+[gz-9] [INFO] [1794680619.604865474] [resource_manager]: Successful 'activate' of hardware 'GazeboSimSystem2'
+[gz-9] [WARN] [1794680619.604880332] [panda2.controller_manager]: Component 'GazeboSimSystem2' does not have read or write statistics initialized, skipping registration.
+[gz-9] [INFO] [1794680619.604886494] [panda2.controller_manager]: Resource Manager has been successfully initialized. Starting Controller Manager services...
+[gz-9] [WARN] [1794680621.728388568] [gz_ros_control]:  Desired controller update period (0.01 s) is slower than the gazebo simulation period (0 s).
+[gz-9] [WARN] [1794680621.728644538] [panda2.gz_ros_control]:  Desired controller update period (0.01 s) is slower than the gazebo simulation period (0 s).
+[gz-9] [1;31m[Err] [Physics.cc:1906] [0m[1;31mAttempting to create a mimic constraint for joint [[0m[1;31mrobotiq_85_right_knuckle_joint[0m[1;31m] but the chosen physics engine does not support [0m[1;31mmimic constraints, so no constraint will be [0m[1;31mcreated.[0m[1;31m[0m
+[gz-9] [1;32mMsg[0m [NameManager::issueNewName] (Skeleton::Joint | red_cube) The name [fixed] is a duplicate, so it has been renamed to [fixed(1)]
+[gz-9] [1;32mMsg[0m [NameManager::issueNewName] (Skeleton::Joint | blue_cube) The name [fixed] is a duplicate, so it has been renamed to [fixed(1)]
+[gz-9] [1;32mMsg[0m [NameManager::issueNewName] (Skeleton::Joint | green_cube) The name [fixed] is a duplicate, so it has been renamed to [fixed(1)]
+[gz-9] [1;32mMsg[0m [NameManager::issueNewName] (Skeleton::Joint | turtlebot3_waffle) The name [fixed] is a duplicate, so it has been renamed to [fixed(1)]
+[gz-9] [1;32mMsg[0m [NameManager::issueNewName] (Skeleton::Joint | turtlebot3_waffle) The name [fixed(1)] is a duplicate, so it has been renamed to [fixed(1)(1)]
+[gz-9] [1;32mMsg[0m [NameManager::issueNewName] (Skeleton::Joint | turtlebot3_waffle) The name [fixed] is a duplicate, so it has been renamed to [fixed(2)]
+[gz-9] [1;32mMsg[0m [NameManager::issueNewName] (Skeleton::N4dart8dynamics9ShapeNodeE | turtlebot3_waffle) The name [link:collision] is a duplicate, so it has been renamed to [link:collision(1)]
+[gz-9] [1;32mMsg[0m [NameManager::issueNewName] (Skeleton::Joint | turtlebot3_waffle) The name [fixed] is a duplicate, so it has been renamed to [fixed(3)]
+[gz-9] [1;32mMsg[0m [NameManager::issueNewName] (Skeleton::Joint | turtlebot3_waffle) The name [fixed(1)] is a duplicate, so it has been renamed to [fixed(1)(2)]
+[gz-9] [1;32mMsg[0m [NameManager::issueNewName] (Skeleton::Joint | turtlebot3_waffle) The name [fixed] is a duplicate, so it has been renamed to [fixed(4)]
+[gz-9] [1;32mMsg[0m [NameManager::issueNewName] (Skeleton::N4dart8dynamics9ShapeNodeE | turtlebot3_waffle) The name [link:collision] is a duplicate, so it has been renamed to [link:collision(2)]
+[gz-9] [1;32mMsg[0m [NameManager::issueNewName] (Skeleton::Joint | turtlebot3_waffle) The name [fixed] is a duplicate, so it has been renamed to [fixed(5)]
+[gz-9] [1;32mMsg[0m [NameManager::issueNewName] (Skeleton::Joint | turtlebot3_waffle) The name [fixed(1)] is a duplicate, so it has been renamed to [fixed(1)(3)]
+[gz-9] [1;33mWarning [Utils.cc:132][0m [/sdf/model[@name="panda"]/ros2_control[@name="GazeboSimSystem"]:<data-string>:L998]: XML Element[ros2_control], child of element[model], not defined in SDF. Copying[ros2_control] as children of [model].
+[gz-9] [1;33mWarning [Utils.cc:132][0m [/sdf/model[@name="turtlebot3_waffle"]/link[@name="base_scan"]/sensor[@name="hls_lfcd_lds"]/gz_frame_id:<data-string>:L163]: XML Element[gz_frame_id], child of element[sensor], not defined in SDF. Copying[gz_frame_id] as children of [sensor].
+[gz-9] [1;33mWarning [Utils.cc:132][0m [/sdf/model[@name="turtlebot3_waffle"]/link[@name="camera_rgb_frame"]/sensor[@name="camera"]/gz_frame_id:<data-string>:L394]: XML Element[gz_frame_id], child of element[sensor], not defined in SDF. Copying[gz_frame_id] as children of [sensor].
+[gz-9] [1;33mWarning [Utils.cc:132][0m [/sdf/model[@name="panda2"]/ros2_control[@name="GazeboSimSystem2"]:<data-string>:L1001]: XML Element[ros2_control], child of element[model], not defined in SDF. Copying[ros2_control] as children of [model].
+[INFO] [map_server-11]: process started with pid [46249]
+[INFO] [amcl-12]: process started with pid [46250]
+[INFO] [planner_server-13]: process started with pid [46251]
+[INFO] [controller_server-14]: process started with pid [46252]
+[INFO] [behavior_server-15]: process started with pid [46253]
+[INFO] [bt_navigator-16]: process started with pid [46254]
+[INFO] [waypoint_follower-17]: process started with pid [46255]
+[INFO] [lifecycle_manager-18]: process started with pid [46256]
+[lifecycle_manager-18] [INFO] [1794680628.473357204] [lifecycle_manager_navigation]: Creating
+[amcl-12] [INFO] [1794680628.488196903] [amcl]: 
+[amcl-12] 	amcl lifecycle node launched. 
+[amcl-12] 	Waiting on external lifecycle transitions to activate
+[amcl-12] 	See https://design.ros2.org/articles/node_lifecycle.html for more information.
+[amcl-12] [INFO] [1794680628.490163230] [amcl]: Creating
+[controller_server-14] [INFO] [1794680628.497308430] [controller_server]: 
+[controller_server-14] 	controller_server lifecycle node launched. 
+[controller_server-14] 	Waiting on external lifecycle transitions to activate
+[controller_server-14] 	See https://design.ros2.org/articles/node_lifecycle.html for more information.
+[lifecycle_manager-18] [INFO] [1794680628.499074482] [lifecycle_manager_navigation]: [34m[1mCreating and initializing lifecycle service clients[0m[0m
+[planner_server-13] [INFO] [1794680628.505593667] [planner_server]: 
+[planner_server-13] 	planner_server lifecycle node launched. 
+[planner_server-13] 	Waiting on external lifecycle transitions to activate
+[planner_server-13] 	See https://design.ros2.org/articles/node_lifecycle.html for more information.
+[planner_server-13] [INFO] [1794680628.517208709] [planner_server]: Creating
+[controller_server-14] [INFO] [1794680628.522280701] [controller_server]: Creating controller server
+[bt_navigator-16] [INFO] [1794680628.529791637] [bt_navigator]: 
+[bt_navigator-16] 	bt_navigator lifecycle node launched. 
+[bt_navigator-16] 	Waiting on external lifecycle transitions to activate
+[bt_navigator-16] 	See https://design.ros2.org/articles/node_lifecycle.html for more information.
+[waypoint_follower-17] [INFO] [1794680628.530964176] [waypoint_follower]: 
+[waypoint_follower-17] 	waypoint_follower lifecycle node launched. 
+[waypoint_follower-17] 	Waiting on external lifecycle transitions to activate
+[waypoint_follower-17] 	See https://design.ros2.org/articles/node_lifecycle.html for more information.
+[bt_navigator-16] [INFO] [1794680628.533653108] [bt_navigator]: Creating
+[map_server-11] [INFO] [1794680628.534720179] [map_server]: 
+[map_server-11] 	map_server lifecycle node launched. 
+[map_server-11] 	Waiting on external lifecycle transitions to activate
+[map_server-11] 	See https://design.ros2.org/articles/node_lifecycle.html for more information.
+[map_server-11] [INFO] [1794680628.534899235] [map_server]: Creating
+[waypoint_follower-17] [INFO] [1794680628.534878136] [waypoint_follower]: Creating
+[controller_server-14] [INFO] [1794680628.546591282] [local_costmap.local_costmap]: 
+[controller_server-14] 	local_costmap lifecycle node launched. 
+[controller_server-14] 	Waiting on external lifecycle transitions to activate
+[controller_server-14] 	See https://design.ros2.org/articles/node_lifecycle.html for more information.
+[behavior_server-15] [INFO] [1794680628.551853820] [behavior_server]: 
+[behavior_server-15] 	behavior_server lifecycle node launched. 
+[behavior_server-15] 	Waiting on external lifecycle transitions to activate
+[behavior_server-15] 	See https://design.ros2.org/articles/node_lifecycle.html for more information.
+[controller_server-14] [INFO] [1794680628.553101811] [local_costmap.local_costmap]: Creating Costmap
+[planner_server-13] [INFO] [1794680628.599688436] [global_costmap.global_costmap]: 
+[planner_server-13] 	global_costmap lifecycle node launched. 
+[planner_server-13] 	Waiting on external lifecycle transitions to activate
+[planner_server-13] 	See https://design.ros2.org/articles/node_lifecycle.html for more information.
+[planner_server-13] [INFO] [1794680628.601174002] [global_costmap.global_costmap]: Creating Costmap
+[lifecycle_manager-18] [INFO] [1794680628.624203370] [lifecycle_manager_navigation]: [34m[1mStarting managed nodes bringup...[0m[0m
+[lifecycle_manager-18] [INFO] [1794680628.624357899] [lifecycle_manager_navigation]: [34m[1mConfiguring map_server[0m[0m
+[map_server-11] [INFO] [1794680628.625127242] [map_server]: Configuring
+[map_server-11] [INFO] [1794680628.625296179] [map_io]: Loading yaml file: /home/abdullah-shaikh/HU/STRP/ros-llm-middleware/install/world/share/world/launch/../maps/panda_world_map.yaml
+[map_server-11] [INFO] [1794680628.626210834] [map_io]: resolution: 0.05
+[map_server-11] [INFO] [1794680628.626232395] [map_io]: origin[0]: -5
+[map_server-11] [INFO] [1794680628.626242764] [map_io]: origin[1]: -5
+[map_server-11] [INFO] [1794680628.626249507] [map_io]: origin[2]: 0
+[map_server-11] [INFO] [1794680628.626256921] [map_io]: free_thresh: 0.25
+[map_server-11] [INFO] [1794680628.626264425] [map_io]: occupied_thresh: 0.65
+[map_server-11] [INFO] [1794680628.626275135] [map_io]: mode: trinary
+[map_server-11] [INFO] [1794680628.626285995] [map_io]: negate: 0
+[map_server-11] [INFO] [1794680628.626851426] [map_io]: Loading image_file: /home/abdullah-shaikh/HU/STRP/ros-llm-middleware/install/world/share/world/launch/../maps/panda_world_map.pgm
+[map_server-11] [INFO] [1794680628.629231880] [map_io]: Read map /home/abdullah-shaikh/HU/STRP/ros-llm-middleware/install/world/share/world/launch/../maps/panda_world_map.pgm: 200 X 200 map @ 0.05 m/cell
+[map_server-11] [WARN] [1794680628.748393046] [map_server.rclcpp]: failed to send response to /map_server/change_state (timeout): client will not receive response, at ./src/rmw_response.cpp:153, at ./src/rcl/service.c:400
+[INFO] [gz-19]: process started with pid [46384]
+[gz-19] data: true
+[gz-19] 
+[INFO] [gz-19]: process has finished cleanly [pid 46384]
+[INFO] [spawner-20]: process started with pid [46411]
+[spawner-20] [INFO] [1794680630.099253943] [spawner_joint_state_broadcaster]: waiting for service /controller_manager/list_controllers to become available...
+[gz-9] [INFO] [1794680630.437880115] [controller_manager]: Loading controller : 'joint_state_broadcaster' of type 'joint_state_broadcaster/JointStateBroadcaster'
+[gz-9] [INFO] [1794680630.437937352] [controller_manager]: Loading controller 'joint_state_broadcaster'
+[gz-9] [INFO] [1794680630.460841135] [controller_manager]: Controller 'joint_state_broadcaster' node arguments: --ros-args --params-file /home/abdullah-shaikh/HU/STRP/ros-llm-middleware/install/world/share/world/config/panda_ros2_controllers.yaml -p use_sim_time:=true --param use_sim_time:=true 
+[spawner-20] [INFO] [1794680630.518565670] [spawner_joint_state_broadcaster]: Loaded joint_state_broadcaster
+[gz-9] [INFO] [1794680630.521636860] [controller_manager]: Configuring controller: 'joint_state_broadcaster'
+[gz-9] [INFO] [1794680630.522222067] [joint_state_broadcaster]: 'joints' or 'interfaces' parameter is empty. All available state interfaces will be published
+[gz-9] [INFO] [1794680630.556967348] [controller_manager]: Activating controllers: [ joint_state_broadcaster ]
+[gz-9] [INFO] [1794680630.564778176] [controller_manager]: Successfully switched controllers!
+[spawner-20] [INFO] [1794680630.579936524] [spawner_joint_state_broadcaster]: Configured and activated joint_state_broadcaster
+[gz-9] [INFO] [1794680630.581587340] [controller_manager]: Loading controller : 'panda_arm_controller' of type 'joint_trajectory_controller/JointTrajectoryController'
+[gz-9] [INFO] [1794680630.581648735] [controller_manager]: Loading controller 'panda_arm_controller'
+[gz-9] [INFO] [1794680630.596591738] [controller_manager]: Controller 'panda_arm_controller' node arguments: --ros-args --params-file /home/abdullah-shaikh/HU/STRP/ros-llm-middleware/install/world/share/world/config/panda_ros2_controllers.yaml -p use_sim_time:=true --param use_sim_time:=true 
+[spawner-20] [INFO] [1794680630.684719962] [spawner_joint_state_broadcaster]: Loaded panda_arm_controller
+[gz-9] [INFO] [1794680630.685647411] [controller_manager]: Configuring controller: 'panda_arm_controller'
+[gz-9] [INFO] [1794680630.686266943] [panda_arm_controller]: No specific joint names are used for command interfaces. Using 'joints' parameter.
+[gz-9] [INFO] [1794680630.686380226] [panda_arm_controller]: Command interfaces are [position] and state interfaces are [position velocity].
+[gz-9] [INFO] [1794680630.686474803] [panda_arm_controller]: Using 'splines' interpolation method.
+[gz-9] [INFO] [1794680630.696661607] [panda_arm_controller]: Action status changes will be monitored at 20.00 Hz.
+[gz-9] [INFO] [1794680630.728020347] [panda_arm_controller]: Setting initial scaling factor to 1.000000
+[gz-9] [INFO] [1794680630.728101920] [panda_arm_controller]: No scaling interface set. This controller will not read speed scaling from the hardware.
+[gz-9] [INFO] [1794680630.741698649] [controller_manager]: Activating controllers: [ panda_arm_controller ]
+[gz-9] [INFO] [1794680630.755385316] [panda_arm_controller]: action_execution_timeout is disabled (set to 0.0)
+[gz-9] [INFO] [1794680630.755648951] [controller_manager]: Successfully switched controllers!
+[spawner-20] [INFO] [1794680630.772994180] [spawner_joint_state_broadcaster]: Configured and activated panda_arm_controller
+[gz-9] [INFO] [1794680630.775079100] [controller_manager]: Loading controller : 'robotiq_gripper_controller' of type 'position_controllers/GripperActionController'
+[gz-9] [INFO] [1794680630.775146316] [controller_manager]: Loading controller 'robotiq_gripper_controller'
+[gz-9] [INFO] [1794680630.781355360] [controller_manager]: Controller 'robotiq_gripper_controller' node arguments: --ros-args --params-file /home/abdullah-shaikh/HU/STRP/ros-llm-middleware/install/world/share/world/config/panda_ros2_controllers.yaml -p use_sim_time:=true --param use_sim_time:=true 
+[gz-9] [WARN] [1794680630.819908742] [robotiq_gripper_controller]: [Deprecated]: the `position_controllers/GripperActionController` and `effort_controllers::GripperActionController` controllers are replaced by 'parallel_gripper_controllers/GripperActionController' controller
+[spawner-20] [INFO] [1794680630.836591709] [spawner_joint_state_broadcaster]: Loaded robotiq_gripper_controller
+[gz-9] [INFO] [1794680630.837387451] [controller_manager]: Configuring controller: 'robotiq_gripper_controller'
+[gz-9] [INFO] [1794680630.837567519] [robotiq_gripper_controller]: Action status changes will be monitored at 20.000000 Hz.
+[gz-9] [INFO] [1794680630.848104369] [controller_manager]: Activating controllers: [ robotiq_gripper_controller ]
+[gz-9] [INFO] [1794680630.869809795] [controller_manager]: Successfully switched controllers!
+[spawner-20] [INFO] [1794680630.887878761] [spawner_joint_state_broadcaster]: Configured and activated robotiq_gripper_controller
+[gz-9] [INFO] [1794680630.889037715] [controller_manager]: Loading controller : 'right_knuckle_controller' of type 'forward_command_controller/ForwardCommandController'
+[gz-9] [INFO] [1794680630.889095002] [controller_manager]: Loading controller 'right_knuckle_controller'
+[gz-9] [INFO] [1794680630.895909001] [controller_manager]: Controller 'right_knuckle_controller' node arguments: --ros-args --params-file /home/abdullah-shaikh/HU/STRP/ros-llm-middleware/install/world/share/world/config/panda_ros2_controllers.yaml -p use_sim_time:=true --param use_sim_time:=true 
+[spawner-20] [INFO] [1794680630.938096498] [spawner_joint_state_broadcaster]: Loaded right_knuckle_controller
+[gz-9] [INFO] [1794680630.938683650] [controller_manager]: Configuring controller: 'right_knuckle_controller'
+[gz-9] [INFO] [1794680630.942006130] [right_knuckle_controller]: configure successful
+[gz-9] [INFO] [1794680630.952852812] [controller_manager]: Activating controllers: [ right_knuckle_controller ]
+[gz-9] [INFO] [1794680630.963200177] [right_knuckle_controller]: activate successful
+[gz-9] [INFO] [1794680630.963683554] [controller_manager]: Successfully switched controllers!
+[spawner-20] [INFO] [1794680630.977423251] [spawner_joint_state_broadcaster]: Configured and activated right_knuckle_controller
+[INFO] [spawner-20]: process has finished cleanly [pid 46411]
+[INFO] [spawner-21]: process started with pid [46476]
+[spawner-21] [INFO] [1794680631.931584715] [spawner_joint_state_broadcaster]: waiting for service /panda2/controller_manager/list_controllers to become available...
+[INFO] [gripper_mimic_bridge.py-22]: process started with pid [46510]
+[INFO] [gripper_mimic_bridge.py-23]: process started with pid [46511]
+[INFO] [perception_node.py-24]: process started with pid [46512]
+[INFO] [ik_feasibility_service.py-25]: process started with pid [46513]
+[INFO] [dispatcher_node.py-26]: process started with pid [46514]
+[dispatcher_node.py-26] [INFO] [1794680633.259587928] [action_dispatcher]: Action Dispatcher ready, waiting for subtasks on /layer1/taskplan
+[perception_node.py-24] [INFO] [1794680633.410292326] [perception_node]: Tracking 3 object(s) ['blue_cube', 'green_cube', 'red_cube'], 7 zone(s) ['blue_zone', 'drop_zone', 'green_zone', 'handoff_point', 'pickup_point', 'red_zone', 'yellow_zone'], and 3 robot(s) ['panda', 'panda2', 'turtlebot3_waffle'] (derived from /home/abdullah-shaikh/HU/STRP/ros-llm-middleware/install/world/share/world/worlds/panda_world.sdf)
+[perception_node.py-24] [INFO] [1794680633.422154934] [perception_node]: Perception node started, listening to Gazebo...
+[perception_node.py-24] [INFO] [1794680633.429486945] [perception_node]: First Gazebo pose message has 143 entries: ['base_footprint', 'base_link', 'base_scan', 'base_visual', 'blue_cube', 'blue_zone', 'camera_link', 'camera_rgb_frame', 'caster_back_left_link', 'caster_back_right_link', 'drop_zone', 'fill_light', 'fill_lightVisual', 'floor_mat', 'green_cube', 'green_zone', 'ground_plane', 'handoff_point', 'imu_link', 'lidar_sensor_visual', 'link', 'link', 'link', 'link', 'link', 'link', 'link', 'link', 'link', 'link', 'link', 'link', 'link', 'link', 'link', 'link', 'panda', 'panda2', 'panda2_hand', 'panda2_hand_visual', 'panda2_link0', 'panda2_link0_visual', 'panda2_link1', 'panda2_link1_visual', 'panda2_link2', 'panda2_link2_visual', 'panda2_link3', 'panda2_link3_visual', 'panda2_link4', 'panda2_link4_visual', 'panda2_link5', 'panda2_link5_visual', 'panda2_link6', 'panda2_link6_visual', 'panda2_link7', 'panda2_link7_visual', 'panda2_link8', 'panda_hand', 'panda_hand_visual', 'panda_link0', 'panda_link0_visual', 'panda_link1', 'panda_link1_visual', 'panda_link2', 'panda_link2_visual', 'panda_link3', 'panda_link3_visual', 'panda_link4', 'panda_link4_visual', 'panda_link5', 'panda_link5_visual', 'panda_link6', 'panda_link6_visual', 'panda_link7', 'panda_link7_visual', 'panda_link8', 'pickup_point', 'red_cube', 'red_zone', 'robotiq2_85_base_link', 'robotiq2_85_base_link_visual', 'robotiq2_85_left_finger_link', 'robotiq2_85_left_finger_tip_link', 'robotiq2_85_left_inner_knuckle_link', 'robotiq2_85_left_knuckle_link', 'robotiq2_85_right_finger_link', 'robotiq2_85_right_finger_tip_link', 'robotiq2_85_right_inner_knuckle_link', 'robotiq2_85_right_knuckle_link', 'robotiq_85_base_link', 'robotiq_85_base_link_visual', 'robotiq_85_left_finger_link', 'robotiq_85_left_finger_tip_link', 'robotiq_85_left_inner_knuckle_link', 'robotiq_85_left_knuckle_link', 'robotiq_85_right_finger_link', 'robotiq_85_right_finger_tip_link', 'robotiq_85_right_inner_knuckle_link', 'robotiq_85_right_knuckle_link', 'sun', 'sunVisual', 'turtlebot3_waffle', 'visual', 'visual', 'visual', 'visual', 'visual', 'visual', 'visual', 'visual', 'visual', 'visual', 'visual', 'visual', 'visual', 'visual', 'visual', 'visual', 'visual', 'visual', 'visual', 'visual', 'visual', 'visual', 'visual', 'visual', 'visual', 'visual', 'visual', 'visual', 'visual', 'visual', 'visual', 'visual', 'wall_east', 'wall_north', 'wall_south', 'wall_west', 'wheel_left_link', 'wheel_left_visual', 'wheel_right_link', 'wheel_right_visual', 'yellow_zone']
+[gripper_mimic_bridge.py-22] [INFO] [1794680633.461094142] [gripper_mimic_bridge]: Mirroring robotiq_85_left_knuckle_joint (/joint_states) -> /right_knuckle_controller/commands (multiplier=-1.0)
+[gripper_mimic_bridge.py-23] [INFO] [1794680633.468784044] [gripper_mimic_bridge2]: Mirroring robotiq2_85_left_knuckle_joint (/panda2/joint_states) -> /panda2/right_knuckle_controller2/commands (multiplier=-1.0)
+[ik_feasibility_service.py-25] [INFO] [1794680633.919676359] [ik_feasibility_service]: IK Feasibility Service ready at /check_ik_feasibility
+[gz-9] [INFO] [1794680633.991720675] [panda2.controller_manager]: Loading controller : 'joint_state_broadcaster' of type 'joint_state_broadcaster/JointStateBroadcaster'
+[gz-9] [INFO] [1794680633.991843505] [panda2.controller_manager]: Loading controller 'joint_state_broadcaster'
+[gz-9] [INFO] [1794680633.994131756] [panda2.controller_manager]: Controller 'joint_state_broadcaster' node arguments: --ros-args --params-file /home/abdullah-shaikh/HU/STRP/ros-llm-middleware/install/world/share/world/config/panda2_ros2_controllers.yaml -p use_sim_time:=true --param use_sim_time:=true 
+[spawner-21] [INFO] [1794680634.097814140] [spawner_joint_state_broadcaster]: Loaded joint_state_broadcaster
+[gz-9] [INFO] [1794680634.106547759] [panda2.controller_manager]: Configuring controller: 'joint_state_broadcaster'
+[gz-9] [INFO] [1794680634.107034452] [panda2.joint_state_broadcaster]: 'joints' or 'interfaces' parameter is empty. All available state interfaces will be published
+[gz-9] [INFO] [1794680634.139407527] [panda2.controller_manager]: Activating controllers: [ joint_state_broadcaster ]
+[gz-9] [INFO] [1794680634.147435954] [panda2.controller_manager]: Successfully switched controllers!
+[spawner-21] [INFO] [1794680634.177987913] [spawner_joint_state_broadcaster]: Configured and activated joint_state_broadcaster
+[gz-9] [INFO] [1794680634.183903878] [panda2.controller_manager]: Loading controller : 'panda2_arm_controller' of type 'joint_trajectory_controller/JointTrajectoryController'
+[gz-9] [INFO] [1794680634.184006581] [panda2.controller_manager]: Loading controller 'panda2_arm_controller'
+[gz-9] [INFO] [1794680634.188088747] [panda2.controller_manager]: Controller 'panda2_arm_controller' node arguments: --ros-args --params-file /home/abdullah-shaikh/HU/STRP/ros-llm-middleware/install/world/share/world/config/panda2_ros2_controllers.yaml -p use_sim_time:=true --param use_sim_time:=true 
+[spawner-21] [INFO] [1794680634.307319270] [spawner_joint_state_broadcaster]: Loaded panda2_arm_controller
+[gz-9] [INFO] [1794680634.308301272] [panda2.controller_manager]: Configuring controller: 'panda2_arm_controller'
+[gz-9] [INFO] [1794680634.309045628] [panda2.panda2_arm_controller]: No specific joint names are used for command interfaces. Using 'joints' parameter.
+[gz-9] [INFO] [1794680634.309151627] [panda2.panda2_arm_controller]: Command interfaces are [position] and state interfaces are [position velocity].
+[gz-9] [INFO] [1794680634.309184479] [panda2.panda2_arm_controller]: Using 'splines' interpolation method.
+[gz-9] [INFO] [1794680634.317521564] [panda2.panda2_arm_controller]: Action status changes will be monitored at 20.00 Hz.
+[gz-9] [INFO] [1794680634.363783788] [panda2.panda2_arm_controller]: Setting initial scaling factor to 1.000000
+[gz-9] [INFO] [1794680634.363930954] [panda2.panda2_arm_controller]: No scaling interface set. This controller will not read speed scaling from the hardware.
+[gz-9] [INFO] [1794680634.380664227] [panda2.controller_manager]: Activating controllers: [ panda2_arm_controller ]
+[gz-9] [INFO] [1794680634.411011683] [panda2.controller_manager]: Successfully switched controllers!
+[spawner-21] [INFO] [1794680634.436229127] [spawner_joint_state_broadcaster]: Configured and activated panda2_arm_controller
+[gz-9] [INFO] [1794680634.438734115] [panda2.controller_manager]: Loading controller : 'robotiq2_gripper_controller' of type 'position_controllers/GripperActionController'
+[gz-9] [INFO] [1794680634.438852728] [panda2.controller_manager]: Loading controller 'robotiq2_gripper_controller'
+[gz-9] [INFO] [1794680634.440596598] [panda2.controller_manager]: Controller 'robotiq2_gripper_controller' node arguments: --ros-args --params-file /home/abdullah-shaikh/HU/STRP/ros-llm-middleware/install/world/share/world/config/panda2_ros2_controllers.yaml -p use_sim_time:=true --param use_sim_time:=true 
+[gz-9] [WARN] [1794680634.519645873] [panda2.robotiq2_gripper_controller]: [Deprecated]: the `position_controllers/GripperActionController` and `effort_controllers::GripperActionController` controllers are replaced by 'parallel_gripper_controllers/GripperActionController' controller
+[spawner-21] [INFO] [1794680634.533057175] [spawner_joint_state_broadcaster]: Loaded robotiq2_gripper_controller
+[gz-9] [INFO] [1794680634.534062571] [panda2.controller_manager]: Configuring controller: 'robotiq2_gripper_controller'
+[gz-9] [INFO] [1794680634.534309644] [panda2.robotiq2_gripper_controller]: Action status changes will be monitored at 20.000000 Hz.
+[gz-9] [INFO] [1794680634.556435130] [panda2.controller_manager]: Activating controllers: [ robotiq2_gripper_controller ]
+[gz-9] [INFO] [1794680634.590758262] [panda2.controller_manager]: Successfully switched controllers!
+[spawner-21] [INFO] [1794680634.616769205] [spawner_joint_state_broadcaster]: Configured and activated robotiq2_gripper_controller
+[gz-9] [INFO] [1794680634.619861975] [panda2.controller_manager]: Loading controller : 'right_knuckle_controller2' of type 'forward_command_controller/ForwardCommandController'
+[gz-9] [INFO] [1794680634.619995005] [panda2.controller_manager]: Loading controller 'right_knuckle_controller2'
+[gz-9] [INFO] [1794680634.621099386] [panda2.controller_manager]: Controller 'right_knuckle_controller2' node arguments: --ros-args --params-file /home/abdullah-shaikh/HU/STRP/ros-llm-middleware/install/world/share/world/config/panda2_ros2_controllers.yaml -p use_sim_time:=true --param use_sim_time:=true 
+[spawner-21] [INFO] [1794680634.705322434] [spawner_joint_state_broadcaster]: Loaded right_knuckle_controller2
+[gz-9] [INFO] [1794680634.706307271] [panda2.controller_manager]: Configuring controller: 'right_knuckle_controller2'
+[gz-9] [INFO] [1794680634.709569369] [panda2.right_knuckle_controller2]: configure successful
+[gz-9] [INFO] [1794680634.724090473] [panda2.controller_manager]: Activating controllers: [ right_knuckle_controller2 ]
+[gz-9] [INFO] [1794680634.743469437] [panda2.right_knuckle_controller2]: activate successful
+[gz-9] [INFO] [1794680634.743608568] [panda2.controller_manager]: Successfully switched controllers!
+[spawner-21] [INFO] [1794680634.767042007] [spawner_joint_state_broadcaster]: Configured and activated right_knuckle_controller2
+[INFO] [spawner-21]: process has finished cleanly [pid 46476]
+[INFO] [mobile_actuator_node.py-31]: process started with pid [46694]
+[INFO] [actuator_node.py-27]: process started with pid [46690]
+[INFO] [actuator_node.py-28]: process started with pid [46691]
+[INFO] [static_transform_publisher-29]: process started with pid [46692]
+[INFO] [arm_workspace_lock_node.py-30]: process started with pid [46693]
+[static_transform_publisher-29] [WARN] [1794680637.705867470] []: Old-style arguments are deprecated; see --help for new-style arguments
+[static_transform_publisher-29] [INFO] [1794680637.805437237] [static_transform_publisher_panda2]: Spinning until stopped - publishing transform
+[static_transform_publisher-29] translation: ('0.000000', '0.000000', '0.000000')
+[static_transform_publisher-29] rotation: ('0.000000', '0.000000', '-0.422618', '0.906308')
+[static_transform_publisher-29] from 'world' to 'panda2_link0'
+[arm_workspace_lock_node.py-30] [INFO] [1794680638.988209549] [arm_workspace_lock_node]: Arm workspace lock ready: /shared_workspace/acquire, /shared_workspace/release
+[mobile_actuator_node.py-31] [0m[INFO] [1794680640.143002648] [mobile_actuator_node]: MobileActuator ready, listening on /execution_command[0m
+[actuator_node.py-28] [INFO] [1794680640.602803365] [actuator_node2]: Initializing MoveItPy (this can take a few seconds)...
+[actuator_node.py-27] [INFO] [1794680640.624150214] [actuator_node]: Initializing MoveItPy (this can take a few seconds)...
+[actuator_node.py-28] [INFO] [1794680640.669445069] [moveit_3509781191.moveit.py.cpp_initializer]: Initialize rclcpp
+[actuator_node.py-28] [INFO] [1794680640.669557039] [moveit_3509781191.moveit.py.cpp_initializer]: Initialize node parameters
+[actuator_node.py-28] [INFO] [1794680640.669591985] [moveit_3509781191.moveit.py.cpp_initializer]: Initialize node and executor
+[actuator_node.py-27] [INFO] [1794680640.679417193] [moveit_1433676046.moveit.py.cpp_initializer]: Initialize rclcpp
+[actuator_node.py-27] [INFO] [1794680640.679516930] [moveit_1433676046.moveit.py.cpp_initializer]: Initialize node parameters
+[actuator_node.py-27] [INFO] [1794680640.679539953] [moveit_1433676046.moveit.py.cpp_initializer]: Initialize node and executor
+[actuator_node.py-27] [INFO] [1794680640.698775221] [moveit_1433676046.moveit.py.cpp_initializer]: Spin separate thread
+[actuator_node.py-28] [INFO] [1794680640.700146333] [moveit_3509781191.moveit.py.cpp_initializer]: Spin separate thread
+[actuator_node.py-27] [INFO] [1794680640.707122558] [moveit_1433676046.moveit.ros.rdf_loader]: Loaded robot model in 0 seconds
+[actuator_node.py-27] [INFO] [1794680640.707251229] [moveit_1433676046.moveit.core.robot_model]: Loading robot model 'panda'...
+[actuator_node.py-28] [INFO] [1794680640.707274192] [moveit_3509781191.moveit.ros.rdf_loader]: Loaded robot model in 0 seconds
+[actuator_node.py-28] [INFO] [1794680640.707370122] [moveit_3509781191.moveit.core.robot_model]: Loading robot model 'panda'...
+[actuator_node.py-28] Error:   Error retrieving file [file:///opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/link0.stl]: Couldn't open file /opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/link0.stl
+[actuator_node.py-28]          at line 289 in ./src/mesh_operations.cpp
+[actuator_node.py-28] [WARN] [1794680640.707633887] [moveit_3509781191.moveit.core.robot_model]: Link panda2_link0 has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[actuator_node.py-28] Error:   Error retrieving file [file:///opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/link1.stl]: Couldn't open file /opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/link1.stl
+[actuator_node.py-28]          at line 289 in ./src/mesh_operations.cpp
+[actuator_node.py-28] [WARN] [1794680640.707785411] [moveit_3509781191.moveit.core.robot_model]: Link panda2_link1 has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[actuator_node.py-28] Error:   Error retrieving file [file:///opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/link2.stl]: Couldn't open file /opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/link2.stl
+[actuator_node.py-28]          at line 289 in ./src/mesh_operations.cpp
+[actuator_node.py-28] [WARN] [1794680640.707912059] [moveit_3509781191.moveit.core.robot_model]: Link panda2_link2 has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[actuator_node.py-28] Error:   Error retrieving file [file:///opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/link3.stl]: Couldn't open file /opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/link3.stl
+[actuator_node.py-28]          at line 289 in ./src/mesh_operations.cpp
+[actuator_node.py-28] [WARN] [1794680640.708020251] [moveit_3509781191.moveit.core.robot_model]: Link panda2_link3 has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[actuator_node.py-28] Error:   Error retrieving file [file:///opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/link4.stl]: Couldn't open file /opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/link4.stl
+[actuator_node.py-28]          at line 289 in ./src/mesh_operations.cpp
+[actuator_node.py-28] [WARN] [1794680640.708128004] [moveit_3509781191.moveit.core.robot_model]: Link panda2_link4 has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[actuator_node.py-28] Error:   Error retrieving file [file:///opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/link5.stl]: Couldn't open file /opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/link5.stl
+[actuator_node.py-28]          at line 289 in ./src/mesh_operations.cpp
+[actuator_node.py-28] [WARN] [1794680640.708239733] [moveit_3509781191.moveit.core.robot_model]: Link panda2_link5 has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[actuator_node.py-28] Error:   Error retrieving file [file:///opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/link6.stl]: Couldn't open file /opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/link6.stl
+[actuator_node.py-28]          at line 289 in ./src/mesh_operations.cpp
+[actuator_node.py-28] [WARN] [1794680640.708360259] [moveit_3509781191.moveit.core.robot_model]: Link panda2_link6 has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[actuator_node.py-28] Error:   Error retrieving file [file:///opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/link7.stl]: Couldn't open file /opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/link7.stl
+[actuator_node.py-28]          at line 289 in ./src/mesh_operations.cpp
+[actuator_node.py-28] [WARN] [1794680640.708465376] [moveit_3509781191.moveit.core.robot_model]: Link panda2_link7 has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[actuator_node.py-28] Error:   Error retrieving file [file:///opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/hand.stl]: Couldn't open file /opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/hand.stl
+[actuator_node.py-28]          at line 289 in ./src/mesh_operations.cpp
+[actuator_node.py-28] [WARN] [1794680640.708577767] [moveit_3509781191.moveit.core.robot_model]: Link panda2_hand has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[actuator_node.py-28] Error:   Error retrieving file [file:///opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/finger.stl]: Couldn't open file /opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/finger.stl
+[actuator_node.py-28]          at line 289 in ./src/mesh_operations.cpp
+[actuator_node.py-28] [WARN] [1794680640.708694646] [moveit_3509781191.moveit.core.robot_model]: Link panda2_leftfinger has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[actuator_node.py-28] Error:   Error retrieving file [file:///opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/finger.stl]: Couldn't open file /opt/ros/jazzy/share/moveit_resources_panda2_description/meshes/collision/finger.stl
+[actuator_node.py-28]          at line 289 in ./src/mesh_operations.cpp
+[actuator_node.py-28] [WARN] [1794680640.708802368] [moveit_3509781191.moveit.core.robot_model]: Link panda2_rightfinger has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[actuator_node.py-28] [WARN] [1794680640.730880438] [kdl_parser]: The root link panda2_link0 has an inertia specified in the URDF, but KDL does not support a root link with an inertia.  As a workaround, you can add an extra dummy link to your URDF.
+[actuator_node.py-28] [INFO] [1794680640.731201601] [moveit_3509781191.moveit.kinematics.kdl_kinematics_plugin]: Joint weights for group 'panda2_arm': 1 1 1 1 1 1 1
+[actuator_node.py-27] [WARN] [1794680640.730927216] [kdl_parser]: The root link panda_link0 has an inertia specified in the URDF, but KDL does not support a root link with an inertia.  As a workaround, you can add an extra dummy link to your URDF.
+[actuator_node.py-27] [INFO] [1794680640.731191993] [moveit_1433676046.moveit.kinematics.kdl_kinematics_plugin]: Joint weights for group 'panda_arm': 1 1 1 1 1 1 1
+[actuator_node.py-27] [INFO] [1794680640.844689530] [moveit_1433676046.moveit.ros.planning_scene_monitor]: Publishing maintained planning scene on 'monitored_planning_scene'
+[actuator_node.py-27] [INFO] [1794680640.845295787] [moveit_1433676046.moveit.ros.moveit_cpp]: Listening to 'joint_states' for joint states
+[actuator_node.py-27] [INFO] [1794680640.848106689] [moveit_1433676046.moveit.ros.current_state_monitor]: Listening to joint states on topic 'joint_states'
+[actuator_node.py-27] [INFO] [1794680640.849272265] [moveit_1433676046.moveit.ros.planning_scene_monitor]: Listening to '/attached_collision_object' for attached collision objects
+[actuator_node.py-27] [INFO] [1794680640.849316739] [moveit_1433676046.moveit.ros.planning_scene_monitor]: Stopping existing planning scene publisher.
+[actuator_node.py-27] [INFO] [1794680640.849634024] [moveit_1433676046.moveit.ros.planning_scene_monitor]: Stopped publishing maintained planning scene.
+[actuator_node.py-27] [INFO] [1794680640.850453531] [moveit_1433676046.moveit.ros.planning_scene_monitor]: Publishing maintained planning scene on 'monitored_planning_scene'
+[actuator_node.py-27] [INFO] [1794680640.850809398] [moveit_1433676046.moveit.ros.planning_scene_monitor]: Starting planning scene monitor
+[actuator_node.py-27] [INFO] [1794680640.852121660] [moveit_1433676046.moveit.ros.planning_scene_monitor]: Listening to '/planning_scene'
+[actuator_node.py-27] [INFO] [1794680640.852154601] [moveit_1433676046.moveit.ros.planning_scene_monitor]: Starting world geometry update monitor for collision objects, attached objects, octomap updates.
+[actuator_node.py-27] [INFO] [1794680640.853385100] [moveit_1433676046.moveit.ros.planning_scene_monitor]: Listening to 'collision_object'
+[actuator_node.py-27] [INFO] [1794680640.854097496] [moveit_1433676046.moveit.ros.planning_scene_monitor]: Listening to 'planning_scene_world' for planning scene world geometry
+[actuator_node.py-27] [WARN] [1794680640.854859956] [moveit_1433676046.moveit.ros.occupancy_map_monitor]: Resolution not specified for Octomap. Assuming resolution = 0.1 instead
+[actuator_node.py-27] [ERROR] [1794680640.854912885] [moveit_1433676046.moveit.ros.occupancy_map_monitor]: No 3D sensor plugin(s) defined for octomap updates
+[actuator_node.py-28] [INFO] [1794680640.856536711] [moveit_3509781191.moveit.ros.planning_scene_monitor]: Publishing maintained planning scene on 'monitored_planning_scene'
+[actuator_node.py-28] [INFO] [1794680640.857087263] [moveit_3509781191.moveit.ros.moveit_cpp]: Listening to 'joint_states' for joint states
+[actuator_node.py-28] [INFO] [1794680640.861306928] [moveit_3509781191.moveit.ros.current_state_monitor]: Listening to joint states on topic 'joint_states'
+[actuator_node.py-28] [INFO] [1794680640.862696063] [moveit_3509781191.moveit.ros.planning_scene_monitor]: Listening to '/attached_collision_object' for attached collision objects
+[actuator_node.py-28] [INFO] [1794680640.862743182] [moveit_3509781191.moveit.ros.planning_scene_monitor]: Stopping existing planning scene publisher.
+[actuator_node.py-28] [INFO] [1794680640.863217040] [moveit_3509781191.moveit.ros.planning_scene_monitor]: Stopped publishing maintained planning scene.
+[actuator_node.py-28] [INFO] [1794680640.864962805] [moveit_3509781191.moveit.ros.planning_scene_monitor]: Publishing maintained planning scene on 'monitored_planning_scene'
+[actuator_node.py-28] [INFO] [1794680640.865242179] [moveit_3509781191.moveit.ros.planning_scene_monitor]: Starting planning scene monitor
+[actuator_node.py-28] [INFO] [1794680640.866955081] [moveit_3509781191.moveit.ros.planning_scene_monitor]: Listening to '/planning_scene'
+[actuator_node.py-28] [INFO] [1794680640.866991039] [moveit_3509781191.moveit.ros.planning_scene_monitor]: Starting world geometry update monitor for collision objects, attached objects, octomap updates.
+[actuator_node.py-28] [INFO] [1794680640.868490010] [moveit_3509781191.moveit.ros.planning_scene_monitor]: Listening to 'collision_object'
+[actuator_node.py-28] [INFO] [1794680640.870453373] [moveit_3509781191.moveit.ros.planning_scene_monitor]: Listening to 'planning_scene_world' for planning scene world geometry
+[actuator_node.py-28] [WARN] [1794680640.870835019] [moveit_3509781191.moveit.ros.occupancy_map_monitor]: Resolution not specified for Octomap. Assuming resolution = 0.1 instead
+[actuator_node.py-28] [ERROR] [1794680640.870867720] [moveit_3509781191.moveit.ros.occupancy_map_monitor]: No 3D sensor plugin(s) defined for octomap updates
+[actuator_node.py-28] [WARN] [1794680640.874682986] [moveit_3509781191.moveit.ros.current_state_monitor]: Unable to update multi-DOF joint 'virtual_joint2':Failure to lookup transform between 'world'and 'panda2_link0' with TF exception: "world" passed to lookupTransform argument target_frame does not exist. 
+[actuator_node.py-27] [INFO] [1794680640.891082856] [moveit_1433676046.moveit.ros.planning_pipeline]: Successfully loaded planner 'OMPL'
+[actuator_node.py-27] [INFO] [1794680640.894047396] [actuator_moveit_py]: Try loading adapter 'default_planning_request_adapters/ResolveConstraintFrames'
+[actuator_node.py-28] [INFO] [1794680640.899099903] [moveit_3509781191.moveit.ros.planning_pipeline]: Successfully loaded planner 'OMPL'
+[actuator_node.py-27] [INFO] [1794680640.901344964] [actuator_moveit_py]: Loaded adapter 'default_planning_request_adapters/ResolveConstraintFrames'
+[actuator_node.py-27] [INFO] [1794680640.901440393] [actuator_moveit_py]: Try loading adapter 'default_planning_request_adapters/ValidateWorkspaceBounds'
+[actuator_node.py-28] [INFO] [1794680640.901577199] [actuator_moveit_py2]: Try loading adapter 'default_planning_request_adapters/ResolveConstraintFrames'
+[actuator_node.py-27] [INFO] [1794680640.901963424] [actuator_moveit_py]: Loaded adapter 'default_planning_request_adapters/ValidateWorkspaceBounds'
+[actuator_node.py-27] [INFO] [1794680640.901988871] [actuator_moveit_py]: Try loading adapter 'default_planning_request_adapters/CheckStartStateBounds'
+[actuator_node.py-27] [INFO] [1794680640.902027664] [actuator_moveit_py]: Loaded adapter 'default_planning_request_adapters/CheckStartStateBounds'
+[actuator_node.py-27] [INFO] [1794680640.902039216] [actuator_moveit_py]: Try loading adapter 'default_planning_request_adapters/CheckStartStateCollision'
+[actuator_node.py-27] [INFO] [1794680640.902058131] [actuator_moveit_py]: Loaded adapter 'default_planning_request_adapters/CheckStartStateCollision'
+[actuator_node.py-28] [INFO] [1794680640.903225240] [actuator_moveit_py2]: Loaded adapter 'default_planning_request_adapters/ResolveConstraintFrames'
+[actuator_node.py-28] [INFO] [1794680640.903269794] [actuator_moveit_py2]: Try loading adapter 'default_planning_request_adapters/ValidateWorkspaceBounds'
+[actuator_node.py-27] [INFO] [1794680640.903902480] [actuator_moveit_py]: Try loading adapter 'default_planning_response_adapters/AddTimeOptimalParameterization'
+[actuator_node.py-28] [INFO] [1794680640.904155164] [actuator_moveit_py2]: Loaded adapter 'default_planning_request_adapters/ValidateWorkspaceBounds'
+[actuator_node.py-28] [INFO] [1794680640.904186293] [actuator_moveit_py2]: Try loading adapter 'default_planning_request_adapters/CheckStartStateBounds'
+[actuator_node.py-28] [INFO] [1794680640.904229594] [actuator_moveit_py2]: Loaded adapter 'default_planning_request_adapters/CheckStartStateBounds'
+[actuator_node.py-28] [INFO] [1794680640.904243059] [actuator_moveit_py2]: Try loading adapter 'default_planning_request_adapters/CheckStartStateCollision'
+[actuator_node.py-28] [INFO] [1794680640.904271453] [actuator_moveit_py2]: Loaded adapter 'default_planning_request_adapters/CheckStartStateCollision'
+[actuator_node.py-28] [INFO] [1794680640.906579552] [actuator_moveit_py2]: Try loading adapter 'default_planning_response_adapters/AddTimeOptimalParameterization'
+[actuator_node.py-27] [INFO] [1794680640.910980075] [actuator_moveit_py]: Loaded adapter 'default_planning_response_adapters/AddTimeOptimalParameterization'
+[actuator_node.py-27] [INFO] [1794680640.911078590] [actuator_moveit_py]: Try loading adapter 'default_planning_response_adapters/ValidateSolution'
+[actuator_node.py-28] [INFO] [1794680640.911972607] [actuator_moveit_py2]: Loaded adapter 'default_planning_response_adapters/AddTimeOptimalParameterization'
+[actuator_node.py-28] [INFO] [1794680640.912026899] [actuator_moveit_py2]: Try loading adapter 'default_planning_response_adapters/ValidateSolution'
+[actuator_node.py-28] [INFO] [1794680640.917252229] [actuator_moveit_py2]: Loaded adapter 'default_planning_response_adapters/ValidateSolution'
+[actuator_node.py-28] [INFO] [1794680640.917390328] [actuator_moveit_py2]: Try loading adapter 'default_planning_response_adapters/DisplayMotionPath'
+[actuator_node.py-28] [INFO] [1794680640.919093222] [actuator_moveit_py2]: Loaded adapter 'default_planning_response_adapters/DisplayMotionPath'
+[actuator_node.py-27] [INFO] [1794680640.918316045] [actuator_moveit_py]: Loaded adapter 'default_planning_response_adapters/ValidateSolution'
+[actuator_node.py-27] [INFO] [1794680640.918389462] [actuator_moveit_py]: Try loading adapter 'default_planning_response_adapters/DisplayMotionPath'
+[actuator_node.py-27] [INFO] [1794680640.919541143] [actuator_moveit_py]: Loaded adapter 'default_planning_response_adapters/DisplayMotionPath'
+[actuator_node.py-27] [INFO] [1794680641.082929317] [moveit_1433676046.moveit.plugins.simple_controller_manager]: Added FollowJointTrajectory controller for panda_arm_controller
+[actuator_node.py-27] [INFO] [1794680641.136804006] [moveit_1433676046.moveit.plugins.simple_controller_manager]: Added FollowJointTrajectory controller for /panda2/panda2_arm_controller
+[actuator_node.py-27] [INFO] [1794680641.138484378] [moveit_1433676046.moveit.plugins.simple_controller_manager]: Returned 2 controllers in list
+[actuator_node.py-27] [INFO] [1794680641.138583394] [moveit_1433676046.moveit.plugins.simple_controller_manager]: Returned 2 controllers in list
+[actuator_node.py-27] [INFO] [1794680641.143123860] [moveit_1433676046.moveit.ros.trajectory_execution_manager]: Trajectory execution is managing controllers
+[actuator_node.py-27] [INFO] [1794680641.173022399] [actuator_node]: Loaded position limits for 7 arm joints (used to detect physics divergence)
+[actuator_node.py-27] [INFO] [1794680641.175101759] [actuator_node]: Actuator ready, listening on /execution_command
+[actuator_node.py-28] [INFO] [1794680641.291591712] [moveit_3509781191.moveit.plugins.simple_controller_manager]: Added FollowJointTrajectory controller for panda_arm_controller
+[actuator_node.py-28] [INFO] [1794680641.365026288] [moveit_3509781191.moveit.plugins.simple_controller_manager]: Added FollowJointTrajectory controller for /panda2/panda2_arm_controller
+[actuator_node.py-28] [INFO] [1794680641.365794659] [moveit_3509781191.moveit.plugins.simple_controller_manager]: Returned 2 controllers in list
+[actuator_node.py-28] [INFO] [1794680641.365871824] [moveit_3509781191.moveit.plugins.simple_controller_manager]: Returned 2 controllers in list
+[actuator_node.py-28] [INFO] [1794680641.377786231] [moveit_3509781191.moveit.ros.trajectory_execution_manager]: Trajectory execution is managing controllers
+[actuator_node.py-28] [INFO] [1794680641.396719954] [actuator_node2]: Loaded position limits for 7 arm joints (used to detect physics divergence)
+[actuator_node.py-28] [INFO] [1794680641.405402148] [actuator_node2]: Actuator ready, listening on /execution_command
+[actuator_node.py-28] [WARN] [1794680641.908036196] [moveit_3509781191.moveit.ros.planning_scene_monitor]: The complete state of the robot is not yet known.  Missing panda2_joint1, panda2_joint2, panda2_joint3, panda2_joint4, panda2_joint5, panda2_joint6, panda2_joint7, robotiq2_85_left_knuckle_joint
