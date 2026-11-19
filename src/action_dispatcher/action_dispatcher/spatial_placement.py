@@ -16,6 +16,16 @@ import math
 # gripper. The unit "1" in `distance` always means this many meters.
 DEFAULT_SPACING_M = 0.12
 
+# Vertical (stacking) step: `distance` for above/below counts cube-heights,
+# not the horizontal spacing above. One cube edge (0.06m) plus a small release
+# clearance so the stacked cube is not commanded into contact with the one
+# below. The 0.12 spacing used here before put "on top of" targets a full
+# extra 6cm too high: the cube was released from that height, settled
+# correctly on the cube below, and the placement check then reported it
+# ~60mm off the (unreachable) commanded z.
+CUBE_EDGE_M = 0.06
+STACK_CLEARANCE_M = 0.002
+
 # Comfortably inside the Panda's ~0.855m reach from its base (0.2, 0, 0)
 # and clear of pickup_point (0.7, 0). The only hardcoded geometry here --
 # every named landmark below is derived from this one rectangle.
@@ -83,8 +93,10 @@ def resolve_relative(
         )
     dx, dy, dz = DIRECTION_VECTORS[direction]
     offset = distance * spacing
+    # Stacking: one cube-height (plus clearance) per unit of distance.
+    z_step = distance * CUBE_EDGE_M + (STACK_CLEARANCE_M if dz else 0.0)
     return {
         "x": reference_pose["x"] + dx * offset,
         "y": reference_pose["y"] + dy * offset,
-        "z": reference_pose["z"] + dz * offset,
+        "z": reference_pose["z"] + dz * z_step,
     }

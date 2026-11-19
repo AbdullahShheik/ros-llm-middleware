@@ -33,11 +33,14 @@ LAYER1_DIR="${REPO_ROOT}/src/layer1"
 LAYER1_SCRIPT="${LAYER1_DIR}/layer1_pipeline.py"
 SESSION="ros_llm_demo"
 ATTACH=true
+HEADLESS=false
 
 for arg in "$@"; do
   case "$arg" in
     --attach=false) ATTACH=false ;;
     --attach=true)  ATTACH=true ;;
+    --headless=true)  HEADLESS=true ;;
+    --headless=false) HEADLESS=false ;;
     *) echo "Unknown argument: $arg" >&2; exit 1 ;;
   esac
 done
@@ -103,7 +106,15 @@ fi
 # ---------------------------------------------------------------------------
 # Shared setup sourced at the start of every pane
 # ---------------------------------------------------------------------------
-SOURCE_ENV="source '$ROS_SETUP' && source '$WS_SETUP' && cd '$REPO_ROOT'"
+# Re-export the caller's ROS network settings inside every pane. tmux panes
+# start fresh login-style shells that can reset these (observed: panes came up
+# on ROS_DOMAIN_ID=0 / SUBNET discovery while the caller had set 77 /
+# LOCALHOST, so anything sent from the caller's shell never reached the
+# stack). With nothing set by the caller this adds nothing.
+ENV_EXPORTS=""
+[[ -n "${ROS_DOMAIN_ID:-}" ]] && ENV_EXPORTS+="export ROS_DOMAIN_ID='${ROS_DOMAIN_ID}' && "
+[[ -n "${ROS_AUTOMATIC_DISCOVERY_RANGE:-}" ]] && ENV_EXPORTS+="export ROS_AUTOMATIC_DISCOVERY_RANGE='${ROS_AUTOMATIC_DISCOVERY_RANGE}' && "
+SOURCE_ENV="${ENV_EXPORTS}source '$ROS_SETUP' && source '$WS_SETUP' && cd '$REPO_ROOT'"
 
 # Small helper (re-defined inside every pane) that polls a shell condition
 # until it's true or a timeout elapses, instead of a fixed sleep.
@@ -135,7 +146,9 @@ c_info "Starting tmux session '$SESSION' in $REPO_ROOT"
 # internally via TimerActions (see src/world/launch/world.launch.py).
 # ---------------------------------------------------------------------------
 tmux new-session -d -s "$SESSION" -n world -c "$REPO_ROOT"
-tmux send-keys -t "${SESSION}:world" "$SOURCE_ENV && echo '[demo] Launching unified world pipeline (Gazebo + MoveIt2 + controllers + perception + IK service + dispatcher + actuator)...' && ros2 launch world world.launch.py" C-m
+HEADLESS_ENV=""
+[[ "$HEADLESS" == true ]] && HEADLESS_ENV="GZ_HEADLESS=1 "
+tmux send-keys -t "${SESSION}:world" "$SOURCE_ENV && echo '[demo] Launching unified world pipeline (Gazebo + MoveIt2 + controllers + perception + IK service + dispatcher + actuator)...' && ${HEADLESS_ENV}ros2 launch world world.launch.py" C-m
 
 # ---------------------------------------------------------------------------
 # Window 1: status -- live view of ROS graph readiness, since the unified
